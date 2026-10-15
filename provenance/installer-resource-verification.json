@@ -24,8 +24,8 @@
   ],
   "licenseUnchanged": true,
   "secretScan": {
-    "files": 4145,
-    "includingArchiveTextEntries": 9555,
+    "files": 4138,
+    "includingArchiveTextEntries": 9550,
     "findings": 0
   }
 }
