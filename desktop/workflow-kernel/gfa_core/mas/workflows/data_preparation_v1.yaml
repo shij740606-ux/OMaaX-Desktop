@@ -1,0 +1,91 @@
+contract_version: workflow_contract_v2
+contract_id: data_preparation@1.0.0
+workflow_id: data_preparation
+workflow_version: 1.0.0
+initial_state_id: config_draft_ready
+states:
+  - id: config_draft_ready
+    terminal: false
+    evidence_requirement_ids:
+      - config_draft
+  - id: config_confirmed
+    terminal: false
+    evidence_requirement_ids:
+      - config_confirmed
+  - id: prepared
+    terminal: true
+    evidence_requirement_ids:
+      - config_confirmed
+      - genome_prepared
+actions:
+  - id: confirm_config
+    handler: request_config_confirmation
+    dependency_kind: config_draft_confirmation
+    resource_policy: job_exclusive
+    target_stage: config_autofill
+  - id: prepare_genome
+    handler: run_genome_prepare
+    dependency_kind: genome_prepare_input
+    resource_policy: target_stage
+    target_stage: genome_prepare
+prerequisites:
+  - id: valid_action_binding
+    predicate: context_binding_is_complete
+confirmations:
+  - id: require_config_draft_review
+    evidence_requirement_ids:
+      - config_draft
+  - id: require_confirmed_config
+    evidence_requirement_ids:
+      - config_confirmed
+evidence_requirements:
+  - id: config_draft
+    evidence_type: config_draft
+    stage: config_autofill
+  - id: config_confirmed
+    evidence_type: config_confirmation
+    stage: config_autofill
+  - id: genome_prepared
+    evidence_type: stage_manifest
+    stage: genome_prepare
+invalidation_rules:
+  - id: config_draft_change_invalidates_confirmation
+    trigger_evidence_id: config_draft
+    invalidates_evidence_ids:
+      - config_confirmed
+      - genome_prepared
+  - id: config_confirmation_change_invalidates_preparation
+    trigger_evidence_id: config_confirmed
+    invalidates_evidence_ids:
+      - genome_prepared
+transitions:
+  - id: confirm_config
+    from_state_id: config_draft_ready
+    to_state_id: config_confirmed
+    action_id: confirm_config
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids:
+      - require_config_draft_review
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - config_draft_change_invalidates_confirmation
+  - id: prepare_genome
+    from_state_id: config_confirmed
+    to_state_id: prepared
+    action_id: prepare_genome
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids:
+      - require_confirmed_config
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - config_confirmation_change_invalidates_preparation
+prohibited_legacy_transitions:
+  - id: legacy_genome_prepare_without_config
+    from_state_id: config_draft_ready
+    to_state_id: prepared
+    legacy_action_ids:
+      - prepare_from_discovered_filename
+    legacy_handler_names:
+      - run_genome_prepare_from_filename

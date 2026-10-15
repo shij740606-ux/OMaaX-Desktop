@@ -1,0 +1,9 @@
+{
+  "input": "fastq_samples.example.csv",
+  "databases": "databases.example.csv",
+  "outdir": "/data/results/taxprofiler",
+  "run_kraken2": true,
+  "run_bracken": true,
+  "perform_shortread_qc": true,
+  "perform_runmerging": false
+}

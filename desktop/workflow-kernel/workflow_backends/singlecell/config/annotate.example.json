@@ -1,0 +1,5 @@
+{
+  "input": "../results/singlecell/processed.h5ad",
+  "annotations": "reviewed_annotations.csv",
+  "outdir": "../results/annotated"
+}

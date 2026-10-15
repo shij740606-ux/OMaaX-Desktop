@@ -1,0 +1,8 @@
+{
+  "input": "/data/scrnaseq_fastq_samples.csv",
+  "outdir": "/data/results/scrnaseq_counts",
+  "fasta": "/references/genome.fa",
+  "gtf": "/references/genes.gtf",
+  "protocol": "10XV3",
+  "aligner": "star"
+}

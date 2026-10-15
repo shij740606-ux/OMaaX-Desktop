@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "gfa_core/schemas/manifest_v1.schema.json",
+  "title": "GFA Manifest v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "manifest_version",
+    "job_id",
+    "stage",
+    "run_id",
+    "prefix",
+    "timestamp",
+    "status",
+    "start_time",
+    "end_time",
+    "elapsed_sec",
+    "cmd",
+    "workspace_root",
+    "workspace",
+    "input_dir",
+    "artifacts",
+    "parameters",
+    "metrics"
+  ],
+  "properties": {
+    "manifest_version": { "type": "string" },
+    "job_id": { "type": "string" },
+    "stage": { "type": "string" },
+    "run_id": { "type": "string" },
+    "prefix": { "type": "string" },
+
+    "timestamp": { "type": "string" },
+    "status": { "type": "string", "enum": ["success", "failed"] },
+
+    "start_time": { "type": "string" },
+    "end_time": { "type": "string" },
+    "elapsed_sec": { "type": "number", "minimum": 0 },
+
+    "cmd": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "tool_versions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+
+    "workspace_root": { "type": "string" },
+    "workspace": { "type": "string" },
+    "input_dir": { "type": "string" },
+
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "source": { "type": "string" },
+          "artifact": { "type": "string" },
+          "path": { "type": "string" },
+          "full_path": { "type": "string" },
+          "checksum": { "type": "string" },
+          "sha256": { "type": "string" },
+          "size": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/artifactObject" },
+          { "type": "string" }
+        ]
+      }
+    },
+
+    "parameters": { "type": "object", "additionalProperties": true },
+    "metrics": { "type": "object", "additionalProperties": true },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "executed_by": { "type": "string" },
+        "execution_time": { "type": "string" },
+        "environment": { "type": "object", "additionalProperties": true }
+      }
+    }
+  },
+
+  "definitions": {
+    "artifactObject": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["artifact", "full_path", "type", "size"],
+      "properties": {
+        "artifact": { "type": "string" },
+
+        "path": { "type": "string" },
+        "relpath_or_hint": { "type": "string" },
+
+        "full_path": { "type": "string" },
+
+        "type": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+
+        "checksum": { "type": "string" },
+        "sha256": { "type": "string" },
+        "mtime": { "type": "number" },
+        "file": { "type": "string" }
+      },
+      "anyOf": [
+        { "required": ["path"] },
+        { "required": ["relpath_or_hint"] }
+      ]
+    }
+  }
+}

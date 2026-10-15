@@ -1,0 +1,3 @@
+sample_id,path,donor,group,format
+section01,/data/visium_section01/outs,D1,control,visium
+section02,/data/visium_section02/outs,D2,treated,visium

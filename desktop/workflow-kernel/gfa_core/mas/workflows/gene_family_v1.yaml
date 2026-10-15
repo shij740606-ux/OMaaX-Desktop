@@ -1,0 +1,197 @@
+contract_version: workflow_contract_v2
+contract_id: gene_family@1.0.0
+workflow_id: gene_family
+workflow_version: 1.0.0
+initial_state_id: prepared_species
+states:
+  - id: prepared_species
+    terminal: false
+    evidence_requirement_ids:
+      - genome_prepared
+  - id: family_identified
+    terminal: false
+    evidence_requirement_ids:
+      - identified_family
+  - id: subfamily_evidence_ready
+    terminal: false
+    evidence_requirement_ids:
+      - subfamily_evidence
+  - id: subfamily_predicted
+    terminal: false
+    evidence_requirement_ids:
+      - subfamily_prediction
+  - id: confirmed_family_ready
+    terminal: true
+    evidence_requirement_ids:
+      - confirmed_family
+actions:
+  - id: identify_family
+    handler: run_identify
+    dependency_kind: gene_family_identify
+    resource_policy: target_stage
+    target_stage: identify
+  - id: build_subfamily_evidence
+    handler: run_combo
+    dependency_kind: subfamily_evidence_input
+    resource_policy: target_stage
+    target_stage: combo
+  - id: predict_subfamilies
+    handler: run_reference_classification
+    dependency_kind: subfamily_prediction_input
+    resource_policy: target_stage
+    target_stage: reference_classification
+  - id: confirm_subfamilies
+    handler: run_subfamily_confirm
+    dependency_kind: subfamily_confirmation_input
+    resource_policy: target_stage
+    target_stage: subfamily_confirm
+prerequisites:
+  - id: valid_action_binding
+    predicate: context_binding_is_complete
+confirmations:
+  - id: require_subfamily_review
+    evidence_requirement_ids:
+      - subfamily_prediction
+evidence_requirements:
+  - id: genome_prepared
+    evidence_type: stage_manifest
+    stage: genome_prepare
+  - id: identified_family
+    evidence_type: stage_manifest
+    stage: identify
+  - id: phylogeny_evidence
+    evidence_type: stage_manifest
+    stage: phylogeny
+  - id: motif_evidence
+    evidence_type: stage_manifest
+    stage: motif
+  - id: domain_evidence
+    evidence_type: stage_manifest
+    stage: domain
+  - id: structure_evidence
+    evidence_type: stage_manifest
+    stage: structure
+  - id: subfamily_evidence
+    evidence_type: stage_manifest
+    stage: combo
+  - id: subfamily_prediction
+    evidence_type: stage_manifest
+    stage: reference_classification
+  - id: confirmed_family
+    evidence_type: subfamily_confirmation
+    stage: subfamily_confirm
+invalidation_rules:
+  - id: preparation_change_invalidates_family
+    trigger_evidence_id: genome_prepared
+    invalidates_evidence_ids:
+      - confirmed_family
+      - domain_evidence
+      - identified_family
+      - motif_evidence
+      - phylogeny_evidence
+      - structure_evidence
+      - subfamily_evidence
+      - subfamily_prediction
+  - id: identified_members_change_invalidates_subfamily
+    trigger_evidence_id: identified_family
+    invalidates_evidence_ids:
+      - confirmed_family
+      - domain_evidence
+      - motif_evidence
+      - phylogeny_evidence
+      - structure_evidence
+      - subfamily_evidence
+      - subfamily_prediction
+  - id: phylogeny_change_invalidates_combo
+    trigger_evidence_id: phylogeny_evidence
+    invalidates_evidence_ids:
+      - confirmed_family
+      - subfamily_evidence
+      - subfamily_prediction
+  - id: motif_change_invalidates_combo
+    trigger_evidence_id: motif_evidence
+    invalidates_evidence_ids:
+      - confirmed_family
+      - subfamily_evidence
+      - subfamily_prediction
+  - id: domain_change_invalidates_combo
+    trigger_evidence_id: domain_evidence
+    invalidates_evidence_ids:
+      - confirmed_family
+      - subfamily_evidence
+      - subfamily_prediction
+  - id: structure_change_invalidates_combo
+    trigger_evidence_id: structure_evidence
+    invalidates_evidence_ids:
+      - confirmed_family
+      - subfamily_evidence
+      - subfamily_prediction
+  - id: subfamily_evidence_change_invalidates_prediction
+    trigger_evidence_id: subfamily_evidence
+    invalidates_evidence_ids:
+      - confirmed_family
+      - subfamily_prediction
+  - id: prediction_change_invalidates_confirmation
+    trigger_evidence_id: subfamily_prediction
+    invalidates_evidence_ids:
+      - confirmed_family
+transitions:
+  - id: identify_family
+    from_state_id: prepared_species
+    to_state_id: family_identified
+    action_id: identify_family
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - preparation_change_invalidates_family
+  - id: build_subfamily_evidence
+    from_state_id: family_identified
+    to_state_id: subfamily_evidence_ready
+    action_id: build_subfamily_evidence
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids:
+      - domain_evidence
+      - motif_evidence
+      - phylogeny_evidence
+      - structure_evidence
+    invalidation_rule_ids:
+      - domain_change_invalidates_combo
+      - identified_members_change_invalidates_subfamily
+      - motif_change_invalidates_combo
+      - phylogeny_change_invalidates_combo
+      - structure_change_invalidates_combo
+  - id: predict_subfamilies
+    from_state_id: subfamily_evidence_ready
+    to_state_id: subfamily_predicted
+    action_id: predict_subfamilies
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - subfamily_evidence_change_invalidates_prediction
+  - id: confirm_subfamilies
+    from_state_id: subfamily_predicted
+    to_state_id: confirmed_family_ready
+    action_id: confirm_subfamilies
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids:
+      - require_subfamily_review
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - prediction_change_invalidates_confirmation
+prohibited_legacy_transitions:
+  - id: legacy_skip_subfamily_confirmation
+    from_state_id: subfamily_predicted
+    to_state_id: confirmed_family_ready
+    legacy_action_ids:
+      - skip_subfamily_confirmation
+      - use_first_final_members
+    legacy_handler_names:
+      - resolve_first_final_members
+      - run_downstream_without_confirmation

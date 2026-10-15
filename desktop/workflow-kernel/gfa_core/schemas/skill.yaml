@@ -1,0 +1,242 @@
+# bbav20311 Skill 契约定义
+# 基于 ClawBio SKILL.md 格式
+
+name: gene-family-plant
+description: 植物学基因家族分析专业助手 - 支持11个分析阶段的标准化基因家族分析流程
+version: 1.0.0
+author: xialab
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - python3
+        - conda
+      env:
+        - test4py311
+      config: []
+    always: false
+    emoji: "🧬"
+    homepage: https://github.com/xialab/bbav20311
+    os: [linux]
+    min_python: "3.11"
+    install:
+      - kind: conda
+        environment: environment.yml
+    system_dependencies:
+      - hmmer>=3.4
+      - blast>=2.17.0
+      - mafft
+      - iqtree
+      - meme>=4.11.2
+      - r-base>=4.4.3
+      - seqkit>=2.12.0
+
+# 分析阶段定义
+stages:
+  - name: identify
+    description: 基因家族鉴定
+    order: 1
+    required: true
+    inputs:
+      - protein_fasta
+      - hmm_file
+    outputs:
+      - final_members
+      - identify_report
+
+  - name: phylogeny
+    description: 系统发育分析
+    order: 2
+    required: false
+    depends_on:
+      - identify
+    inputs:
+      - final_proteins
+    outputs:
+      - phylogenetic_tree
+      - msa_alignment
+      - phylogeny_report
+
+  - name: motif
+    description: Motif分析
+    order: 3
+    required: false
+    depends_on:
+      - identify
+    inputs:
+      - final_proteins
+    outputs:
+      - meme_xml
+      - motif_report
+
+  - name: domain
+    description: Domain分析
+    order: 4
+    required: false
+    depends_on:
+      - identify
+    inputs:
+      - final_proteins
+    outputs:
+      - domtblout
+      - domain_report
+
+  - name: structure
+    description: 基因结构分析
+    order: 5
+    required: false
+    depends_on:
+      - identify
+      - phylogeny
+    inputs:
+      - gff3_file
+      - final_members
+    outputs:
+      - structure_gff3
+      - structure_report
+
+  - name: promoter
+    description: Promoter分析
+    order: 6
+    required: false
+    depends_on:
+      - identify
+      - phylogeny
+    inputs:
+      - genome_fasta
+      - gff3_file
+    outputs:
+      - promoter_sequences
+      - promoter_report
+
+  - name: synteny
+    description: 种内共线性分析（MCScanX / Circos）
+    order: 7
+    required: false
+    depends_on:
+      - identify
+    inputs:
+      - genome_fasta
+      - gff3_file
+    outputs:
+      - synteny_results
+      - synteny_report
+
+  - name: karyotype
+    description: 核型分析
+    order: 8
+    required: false
+    depends_on:
+      - identify
+      - synteny
+    inputs:
+      - genome_fasta
+      - gff3_file
+    outputs:
+      - karyotype_plot
+      - karyotype_report
+
+  - name: interspecies
+    description: 物种间共线性分析（跨物种 / JCVI-MCScan 流程，区别于种内 synteny）
+    order: 9
+    required: false
+    depends_on:
+      - identify
+    inputs:
+      - reference_genome
+      - reference_gff3
+    outputs:
+      - interspecies_synteny
+      - interspecies_report
+
+  - name: combo
+    description: 综合分析可视化
+    order: 10
+    required: false
+    depends_on:
+      - phylogeny
+      - motif
+      - domain
+      - structure
+    inputs:
+      - tree_nwk
+      - meme_xml
+      - domtblout
+      - structure_gff3
+    outputs:
+      - combo_plot
+      - combo_report
+
+# 输入文件定义
+inputs:
+  protein_fasta:
+    type: fasta
+    description: 蛋白质序列文件
+    required: true
+    extensions: [.fa, .fasta, .faa, .pep]
+
+  genome_fasta:
+    type: fasta
+    description: 基因组序列文件
+    required: false
+    extensions: [.fa, .fasta, .fna]
+
+  gff3_file:
+    type: gff3
+    description: 基因注释文件
+    required: false
+    extensions: [.gff, .gff3]
+
+  hmm_file:
+    type: hmm
+    description: HMM模型文件
+    required: true
+    extensions: [.hmm]
+
+  reference_fasta:
+    type: fasta
+    description: 参考序列文件
+    required: false
+    extensions: [.fa, .fasta]
+
+  subfamily_file:
+    type: tsv
+    description: 亚家族分类文件
+    required: false
+    extensions: [.tsv, .txt]
+
+# 输出文件定义
+outputs:
+  figures:
+    type: image
+    description: 分析结果图片
+    formats: [png, pdf, svg]
+    directory: final/figures/
+
+  tables:
+    type: table
+    description: 数据表格
+    formats: [csv, tsv, fa, nwk]
+    directory: final/tables/
+
+  reports:
+    type: markdown
+    description: 分析报告
+    formats: [md, json]
+    directory: final/reports/
+
+  logs:
+    type: text
+    description: 分析日志
+    formats: [log]
+    directory: logs/
+
+# 可复现性配置
+reproducibility:
+  enabled: true
+  generate:
+    - commands.sh
+    - environment.yml
+    - checksums.sha256
+    - manifest.json
+  copy_to_project: true

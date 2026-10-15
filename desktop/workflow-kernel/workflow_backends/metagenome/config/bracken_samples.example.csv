@@ -1,0 +1,7 @@
+sample_id,path
+C1,/data/results/taxprofiler/bracken/custom_build/C1_run1_custom_build.bracken.tsv
+C2,/data/results/taxprofiler/bracken/custom_build/C2_run1_custom_build.bracken.tsv
+C3,/data/results/taxprofiler/bracken/custom_build/C3_run1_custom_build.bracken.tsv
+T1,/data/results/taxprofiler/bracken/custom_build/T1_run1_custom_build.bracken.tsv
+T2,/data/results/taxprofiler/bracken/custom_build/T2_run1_custom_build.bracken.tsv
+T3,/data/results/taxprofiler/bracken/custom_build/T3_run1_custom_build.bracken.tsv

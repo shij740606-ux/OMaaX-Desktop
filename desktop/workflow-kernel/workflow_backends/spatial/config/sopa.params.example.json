@@ -1,0 +1,4 @@
+{
+  "input": "/data/sopa_samples.csv",
+  "outdir": "/data/results/sopa"
+}

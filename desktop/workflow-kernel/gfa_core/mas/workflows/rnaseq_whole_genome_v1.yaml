@@ -1,0 +1,263 @@
+contract_version: workflow_contract_v2
+contract_id: rnaseq_whole_genome@1.0.0
+workflow_id: rnaseq_whole_genome
+workflow_version: 1.0.0
+initial_state_id: confirmed_inputs_ready
+states:
+  - id: confirmed_inputs_ready
+    terminal: false
+    evidence_requirement_ids:
+      - config_confirmed
+      - config_draft
+      - genome_prepared
+      - samples_confirmed
+      - samples_draft
+  - id: rna_input_fact_ready
+    terminal: false
+    evidence_requirement_ids:
+      - rna_experiment_input
+  - id: qc_complete
+    terminal: false
+    evidence_requirement_ids:
+      - rnaseq_qc
+  - id: alignment_complete
+    terminal: false
+    evidence_requirement_ids:
+      - rnaseq_align
+  - id: quantification_complete
+    terminal: false
+    evidence_requirement_ids:
+      - rnaseq_quant
+  - id: sample_qc_complete
+    terminal: false
+    evidence_requirement_ids:
+      - rnaseq_sample_qc
+  - id: shared_de_complete
+    terminal: true
+    evidence_requirement_ids:
+      - shared_de
+actions:
+  - id: project_rna_facts
+    handler: project_rna_facts
+    dependency_kind: whole_genome_rna_bootstrap
+    resource_policy: rna_experiment
+    target_stage: rna_fact_projection
+  - id: run_rnaseq_qc
+    handler: run_rnaseq_qc
+    dependency_kind: rna_qc_input
+    resource_policy: rna_experiment
+    target_stage: rnaseq_qc
+  - id: run_rnaseq_align
+    handler: run_rnaseq_align
+    dependency_kind: rna_alignment_input
+    resource_policy: rna_experiment
+    target_stage: rnaseq_align
+  - id: run_rnaseq_quant
+    handler: run_rnaseq_quant
+    dependency_kind: rna_quantification_input
+    resource_policy: rna_experiment
+    target_stage: rnaseq_quant
+  - id: run_rnaseq_sample_qc
+    handler: run_rnaseq_sample_qc
+    dependency_kind: rna_sample_qc_input
+    resource_policy: rna_experiment
+    target_stage: rnaseq_sample_qc
+  - id: run_rnaseq_de
+    handler: run_rnaseq_de
+    dependency_kind: rna_de_input
+    resource_policy: rna_experiment
+    target_stage: rnaseq_de
+prerequisites:
+  - id: valid_action_binding
+    predicate: context_binding_is_complete
+confirmations:
+  - id: require_confirmed_config
+    evidence_requirement_ids:
+      - config_confirmed
+  - id: require_confirmed_samples
+    evidence_requirement_ids:
+      - samples_confirmed
+evidence_requirements:
+  - id: config_draft
+    evidence_type: config_draft
+    stage: config_autofill
+  - id: config_confirmed
+    evidence_type: config_confirmation
+    stage: config_autofill
+  - id: genome_prepared
+    evidence_type: stage_manifest
+    stage: genome_prepare
+  - id: samples_draft
+    evidence_type: samples_draft
+    stage: samples_autofill
+  - id: samples_confirmed
+    evidence_type: samples_confirmation
+    stage: samples_autofill
+  - id: rna_experiment_input
+    evidence_type: rna_experiment_input
+    stage: rna_fact_projection
+  - id: rna_alignment_strandness
+    evidence_type: rna_alignment_strandness
+    stage: rna_fact_projection
+  - id: rna_de_design
+    evidence_type: rna_de_design
+    stage: rna_fact_projection
+  - id: rna_genome_resource
+    evidence_type: rna_genome_resource
+    stage: rna_fact_projection
+  - id: rnaseq_qc
+    evidence_type: whole_genome_rna
+    stage: rnaseq_qc
+  - id: rnaseq_align
+    evidence_type: whole_genome_rna
+    stage: rnaseq_align
+  - id: rnaseq_quant
+    evidence_type: whole_genome_rna
+    stage: rnaseq_quant
+  - id: rnaseq_sample_qc
+    evidence_type: whole_genome_rna
+    stage: rnaseq_sample_qc
+  - id: shared_de
+    evidence_type: whole_genome_rna
+    stage: rnaseq_de
+invalidation_rules:
+  - id: experiment_change_invalidates_qc
+    trigger_evidence_id: rna_experiment_input
+    invalidates_evidence_ids:
+      - rnaseq_align
+      - rnaseq_qc
+      - rnaseq_quant
+      - rnaseq_sample_qc
+      - shared_de
+  - id: strandness_change_invalidates_alignment
+    trigger_evidence_id: rna_alignment_strandness
+    invalidates_evidence_ids:
+      - rnaseq_align
+      - rnaseq_quant
+      - rnaseq_sample_qc
+      - shared_de
+  - id: genome_change_invalidates_alignment
+    trigger_evidence_id: rna_genome_resource
+    invalidates_evidence_ids:
+      - rnaseq_align
+      - rnaseq_quant
+      - rnaseq_sample_qc
+      - shared_de
+  - id: design_change_invalidates_de
+    trigger_evidence_id: rna_de_design
+    invalidates_evidence_ids:
+      - shared_de
+  - id: qc_change_invalidates_alignment
+    trigger_evidence_id: rnaseq_qc
+    invalidates_evidence_ids:
+      - rnaseq_align
+      - rnaseq_quant
+      - rnaseq_sample_qc
+      - shared_de
+  - id: alignment_change_invalidates_quantification
+    trigger_evidence_id: rnaseq_align
+    invalidates_evidence_ids:
+      - rnaseq_quant
+      - rnaseq_sample_qc
+      - shared_de
+  - id: quantification_change_invalidates_downstream
+    trigger_evidence_id: rnaseq_quant
+    invalidates_evidence_ids:
+      - rnaseq_sample_qc
+      - shared_de
+  - id: sample_qc_change_invalidates_de
+    trigger_evidence_id: rnaseq_sample_qc
+    invalidates_evidence_ids:
+      - shared_de
+transitions:
+  - id: project_rna_facts
+    from_state_id: confirmed_inputs_ready
+    to_state_id: rna_input_fact_ready
+    action_id: project_rna_facts
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids:
+      - require_confirmed_config
+      - require_confirmed_samples
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - design_change_invalidates_de
+      - experiment_change_invalidates_qc
+      - genome_change_invalidates_alignment
+      - strandness_change_invalidates_alignment
+  - id: run_rnaseq_qc
+    from_state_id: rna_input_fact_ready
+    to_state_id: qc_complete
+    action_id: run_rnaseq_qc
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - experiment_change_invalidates_qc
+  - id: run_rnaseq_align
+    from_state_id: qc_complete
+    to_state_id: alignment_complete
+    action_id: run_rnaseq_align
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids:
+      - rna_alignment_strandness
+      - rna_genome_resource
+    invalidation_rule_ids:
+      - genome_change_invalidates_alignment
+      - qc_change_invalidates_alignment
+      - strandness_change_invalidates_alignment
+  - id: run_rnaseq_quant
+    from_state_id: alignment_complete
+    to_state_id: quantification_complete
+    action_id: run_rnaseq_quant
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids:
+      - rna_alignment_strandness
+      - rna_experiment_input
+      - rna_genome_resource
+    invalidation_rule_ids:
+      - alignment_change_invalidates_quantification
+      - experiment_change_invalidates_qc
+      - genome_change_invalidates_alignment
+      - strandness_change_invalidates_alignment
+  - id: run_rnaseq_sample_qc
+    from_state_id: quantification_complete
+    to_state_id: sample_qc_complete
+    action_id: run_rnaseq_sample_qc
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids:
+      - rna_experiment_input
+    invalidation_rule_ids:
+      - experiment_change_invalidates_qc
+      - quantification_change_invalidates_downstream
+  - id: run_rnaseq_de
+    from_state_id: sample_qc_complete
+    to_state_id: shared_de_complete
+    action_id: run_rnaseq_de
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids: []
+    evidence_requirement_ids:
+      - rna_de_design
+      - rnaseq_quant
+    invalidation_rule_ids:
+      - design_change_invalidates_de
+      - quantification_change_invalidates_downstream
+      - sample_qc_change_invalidates_de
+prohibited_legacy_transitions:
+  - id: legacy_auto_or_family_de
+    from_state_id: sample_qc_complete
+    to_state_id: shared_de_complete
+    legacy_action_ids:
+      - rnaseq_auto_foreground
+      - rnaseq_family_de
+    legacy_handler_names:
+      - run_rnaseq_de_auto
+      - run_rnaseq_de_with_family_members

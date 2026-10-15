@@ -1,0 +1,25 @@
+{
+  "samples": "samples.example.csv",
+  "outdir": "../results/spatial",
+  "counts_layer": "counts",
+  "seed": 42,
+  "qc": {
+    "min_genes": 100,
+    "min_counts": 200,
+    "min_cells_per_gene": 3,
+    "mitochondrial_pattern": null,
+    "max_pct_mt": null
+  },
+  "n_hvg": 2000,
+  "resolution": 0.6,
+  "spatial_graph": {
+    "mode": "grid",
+    "n_neighbors": 6
+  },
+  "neighborhood_label": "expression_cluster",
+  "n_permutations": 999,
+  "point_size": 3,
+  "invert_y": true,
+  "n_jobs": 1,
+  "show_progress_bar": false
+}

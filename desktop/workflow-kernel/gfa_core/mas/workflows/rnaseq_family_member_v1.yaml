@@ -1,0 +1,70 @@
+contract_version: workflow_contract_v2
+contract_id: rnaseq_family_member@1.0.0
+workflow_id: rnaseq_family_member
+workflow_version: 1.0.0
+initial_state_id: projection_inputs_ready
+states:
+  - id: projection_inputs_ready
+    terminal: false
+    evidence_requirement_ids:
+      - confirmed_family
+      - shared_whole_genome_de
+  - id: family_projection_complete
+    terminal: true
+    evidence_requirement_ids:
+      - family_projection
+actions:
+  - id: run_rnaseq_family_projection
+    handler: run_rnaseq_family_projection
+    dependency_kind: family_projection
+    resource_policy: family_projection
+    target_stage: rnaseq_family_projection
+prerequisites:
+  - id: valid_action_binding
+    predicate: context_binding_is_complete
+confirmations:
+  - id: require_exact_family_confirmation
+    evidence_requirement_ids:
+      - confirmed_family
+evidence_requirements:
+  - id: shared_whole_genome_de
+    evidence_type: whole_genome_rna
+    stage: rnaseq_de
+  - id: confirmed_family
+    evidence_type: subfamily_confirmation
+    stage: subfamily_confirm
+  - id: family_projection
+    evidence_type: stage_manifest
+    stage: rnaseq_family_projection
+invalidation_rules:
+  - id: shared_de_change_invalidates_projection
+    trigger_evidence_id: shared_whole_genome_de
+    invalidates_evidence_ids:
+      - family_projection
+  - id: family_confirmation_change_invalidates_projection
+    trigger_evidence_id: confirmed_family
+    invalidates_evidence_ids:
+      - family_projection
+transitions:
+  - id: run_rnaseq_family_projection
+    from_state_id: projection_inputs_ready
+    to_state_id: family_projection_complete
+    action_id: run_rnaseq_family_projection
+    prerequisite_ids:
+      - valid_action_binding
+    confirmation_ids:
+      - require_exact_family_confirmation
+    evidence_requirement_ids: []
+    invalidation_rule_ids:
+      - family_confirmation_change_invalidates_projection
+      - shared_de_change_invalidates_projection
+prohibited_legacy_transitions:
+  - id: legacy_family_rna_recompute
+    from_state_id: projection_inputs_ready
+    to_state_id: family_projection_complete
+    legacy_action_ids:
+      - rerun_family_rnaseq_de
+      - use_first_final_members
+    legacy_handler_names:
+      - resolve_first_final_members
+      - run_rnaseq_de_family_mode

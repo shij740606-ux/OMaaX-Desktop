@@ -1,0 +1,6 @@
+interface:
+  display_name: "单细胞与单核分析"
+  short_description: "固定主要步骤，按已有输入接入，收集缺失信息并验收实际分析结果"
+  default_prompt: "使用 $bio-singlecell-workflow，从我现有的数据开始分析，缺少必要信息时集中询问。"
+policy:
+  allow_implicit_invocation: true

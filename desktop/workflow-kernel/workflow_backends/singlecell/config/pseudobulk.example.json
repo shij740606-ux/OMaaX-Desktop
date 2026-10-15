@@ -1,0 +1,6 @@
+{
+  "input": "../results/annotated/annotated.h5ad",
+  "outdir": "../results/pseudobulk",
+  "min_cells": 20,
+  "paired": false
+}

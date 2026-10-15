@@ -1,0 +1,67 @@
+{
+  "singlecell": {
+    "archive": "singlecell_workflow_validated.zip",
+    "sha256": "2098c429d2399921e01c7fa03247af3a5d04769b527b761c3de44d941c2a2d52",
+    "files": {
+      "README.md": "4283d91907ccbe9e33e5a054ebf59bfd78bfa6518ab3ed1ae856937dc19f22bc",
+      "requirements.txt": "cd8fa775000f820b26323ce4674f10bceea8780d32a957d31564c72bf3c08e5b",
+      "run.py": "5a2e5a280495c52bd4653fb482216b418df3260d098c8e223b1a7d0a9ba9ca3b",
+      "SHA256SUMS.txt": "ab30727f4cadfea760114dd513b7384c6980dfd67a8bdad68633d207dbcaf2eb",
+      "config/annotate.example.json": "aea2b59977026f46c58f5059079ff214ef51fb71e4467f145b8da4a1077f9024",
+      "config/config.example.json": "ba6b71b51d437ac558eba2d2335a96aebe0544244ec8c600c839f875e033e6a2",
+      "config/fastq_samples.example.csv": "90cd159fde708268a78ba6cfc5e71ace3ea291dd560d2b362c79b691e985ba86",
+      "config/pseudobulk.example.json": "e4284f99653394fdb7850c7f93aa38202e14b0877ac23708df3a59c40a1460b2",
+      "config/samples.example.csv": "fcceecbf8c036349a53f17a3b6d818c6f5ae88824a6ec6fe231fac6d8276561d",
+      "config/upstream.params.example.json": "fe6dc59024902d4e7bd53fc3f184ae970664ad450c60db4ecbfd73f2ff68b630",
+      "docs/WORKFLOW.md": "195184d398c1fdc35c69ad57a1d2d262387354fc2bf7f2f68d1d289eae79405a",
+      "scripts/enrichment.py": "843f67a1641b686d12ba319b9602cb7a92a5289518ee6ac4ffd65c0e9b30a683",
+      "scripts/pseudobulk_deseq2.R": "f22fab79818e81ef192c8587cb1b91cfd6c151ce8303b4dedaebc9f14800020a",
+      "src/common.py": "05b88c5b12d32eaa072a4c8a6881c5e25ea178fcef6c08eb77ac68653a321ae3",
+      "src/pipeline.py": "f7c4eaf72f32300779e1ec10a4640e7d45cd5ff066d9f152ff74fafcbf89a800"
+    }
+  },
+  "spatial": {
+    "archive": "spatial_workflow_validated.zip",
+    "sha256": "237c2f6c960acf61197190a2e62e2a86e72b588f64ea42fed0ca699b9a0d6c28",
+    "files": {
+      "README.md": "1f28e0ab6f2d70eb327e196c9e164e96f4f07f21b3a77c057f3b497c3e698051",
+      "requirements.txt": "14f30a5d44932b091e776f7160c294abf62413079eae6c4488e4083882592ab0",
+      "run.py": "8871423ad9b7dda8f871474cc2deba8bc286c6425f22ac2300894ec95fdbcc7c",
+      "SHA256SUMS.txt": "62c2a589074a9bc894a2e9117fbc4fa5b40f07021829c5e0991c869f0d0a07f8",
+      "config/config.example.json": "3e009e4720495eec11503fd2e71516b7c4719c0507824b5dcce401cd0b1fea65",
+      "config/samples.example.csv": "5ac80b7a52238af2a57e2fe1997a15fe7c923f710cfc542534c7d42b50a28ffb",
+      "config/sopa.params.example.json": "87255aaddb1abc0ed25c3a8d5f99060d7fdc5667a82b3ac5908474d9587b88f5",
+      "config/sopa_samples.example.csv": "f5fdacc4e340dc1a20ee44c26fa1c6d8c59153f35868bc7db0a076ccb443a6ce",
+      "docs/WORKFLOW.md": "ded81560bbc11a32bf0851c9379568fea1dbf8c936c3fc861dfba3e1a1cb2746",
+      "scripts/enrichment.py": "843f67a1641b686d12ba319b9602cb7a92a5289518ee6ac4ffd65c0e9b30a683",
+      "scripts/export_spatialdata.py": "0164bd199ccd021bfb25fe619fe0e85da778dc6555d7a7a51b7945bc4ed3778e",
+      "src/common.py": "05b88c5b12d32eaa072a4c8a6881c5e25ea178fcef6c08eb77ac68653a321ae3",
+      "src/pipeline.py": "0d372c64fc44746a03904175f29bd7535cdc53da72ab4775660fd77e63f5e47e"
+    }
+  },
+  "metagenome": {
+    "archive": "metagenome_workflow_validated.zip",
+    "sha256": "54ee78564dfe4078a4dcbba55f0654ef8839cc4b39e69f5efa87f4e3981c37f5",
+    "files": {
+      "README.md": "37f413944d7b0c9a0e751e7c6fa12fe0555442359b84b988dbdb487c304e2c53",
+      "requirements.txt": "0def0e78dcd639d2cf35b00a6d2b97d5bf5734e4b8b6629ae25320253c2a5898",
+      "run.py": "f0883d71de473314a97d95eeae64d55e5537aca9e870fd9f86108043cd5fafc6",
+      "SHA256SUMS.txt": "3a8c7b142c1454c0c022aa8594139849ad8699defc1f692a2ab8b3623c79499e",
+      "config/bracken_samples.example.csv": "9c03d77aa992bc21e44b3cb67ffe0494a9833297444a51ae01e3243b19d6ed81",
+      "config/config.example.json": "3ce9550f4a195abf96d4eaa9b5177db66d0ae73d40d2cf7877011868eea4233d",
+      "config/databases.example.csv": "cfcd080409aeb70dd8ae99f807aeb3df10b59a1742b27fddd6c443fe948d65b4",
+      "config/fastq_samples.example.csv": "c9c3a515fe7b6473d3ee0c27615909714bccc5249c0d7b554ff00d2079151b73",
+      "config/mag.params.example.json": "daa19cb329baef9a758d77c1efaa4a0d6c10399736c42771e12ac4b205cbe527",
+      "config/mag_samples.example.csv": "d71c3ba47c3c5741376b9a760585c018f4f24547fb0ea538f662f722ab708f82",
+      "config/r_conda_explicit_linux64.txt": "16f4fbeca75c48ece22977c70c66f38223d89b416265d7f7645359cb35e75144",
+      "config/samples.example.csv": "2e415a2a3a4a3a6dcde2671429f59c591335f18311cbcdaa4ffd1935aab6ef6a",
+      "config/taxprofiler.params.example.json": "f69275f11dec8e848d68332775e384328a2a0c9bf1f68be21bf55d32f1959860",
+      "docs/R_ENVIRONMENT_VALIDATED.md": "cf04cca4022a2e1f9e7f4893521b07e1ee7718cc4defd964f640e5e7665055fd",
+      "docs/WORKFLOW.md": "5d0860602fa2e97aad834f0c858d0dcd651939936991a2b9152844186b476db7",
+      "scripts/community_stats.R": "43c449cebc6c54aaea00d88b1662f17c81d3256a9da63dee00724d9b7f5c9020",
+      "scripts/differential_abundance.R": "67f8f9eba75f9cfb66a2858ab92b584d04947139a79b42c51f86b99aa4246b77",
+      "src/common.py": "05b88c5b12d32eaa072a4c8a6881c5e25ea178fcef6c08eb77ac68653a321ae3",
+      "src/pipeline.py": "8c29417adba81250a26775395236386b6f69e40267003bfc5989819e5adfe30f"
+    }
+  }
+}

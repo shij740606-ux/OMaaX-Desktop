@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const file=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
+const mod={exports:{}};new Function('exports','module',ts.transpileModule(file('../src/renderer/src/views/workflowUserParameters.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(mod.exports,mod);
+const {isUserParameter,salmonTypes}=mod.exports;
+for(const key of ['padj','log2fc','salmon_libtype','min_module_size','resolution','min_counts','pvalue_cutoff','library_strandness'])assert(isUserParameter(key),key);
+for(const key of ['config','gtf','samples','msa_file','sample_parallel_jobs','threads','cache_dir'])assert(!isUserParameter(key),key);
+assert(salmonTypes.includes('ISR'));
+const catalog=JSON.parse(file('../resources/workflows/catalog.json'));assert.deepEqual(catalog.workflows.map(f=>f.id),['gene_family','rnaseq','singlecell','spatial','metagenome','atacseq','chipseq','cutandrun','methylseq']);
+for(const flow of catalog.workflows)assert(flow.nodes.concat(flow.extraNodes).some(s=>s.arguments?.some(a=>!a.managed&&!isUserParameter(a.key))||Object.keys(s.configDefaults||{}).some(k=>!isUserParameter(k))),flow.id+' retains model-editable hidden fields');
+const view=file('../src/renderer/src/views/WorkflowsView.tsx');assert(!view.includes('批量编辑'));assert(view.includes('useState(20)')&&view.includes('useState(50*1024)')&&view.includes('useState(24)'));assert(view.includes('preferences:{library_strandness:strandness}'));assert(view.includes('<details')&&view.includes('数据路径'));
+console.log('Critical parameters shown, full model catalog retained, path section folded, 20 cores/50 GiB/24 h verified.');

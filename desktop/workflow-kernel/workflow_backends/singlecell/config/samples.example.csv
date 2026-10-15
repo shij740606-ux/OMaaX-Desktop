@@ -1,0 +1,7 @@
+sample_id,path,donor,group,batch
+C1,/data/C1/filtered_feature_bc_matrix.h5,D1,control,B1
+C2,/data/C2/filtered_feature_bc_matrix.h5,D2,control,B2
+C3,/data/C3/filtered_feature_bc_matrix.h5,D3,control,B3
+T1,/data/T1/filtered_feature_bc_matrix.h5,D4,treated,B1
+T2,/data/T2/filtered_feature_bc_matrix.h5,D5,treated,B2
+T3,/data/T3/filtered_feature_bc_matrix.h5,D6,treated,B3

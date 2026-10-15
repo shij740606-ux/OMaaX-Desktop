@@ -1,0 +1,7 @@
+sample_id,donor,group
+C1,D1,control
+C2,D2,control
+C3,D3,control
+T1,D4,treated
+T2,D5,treated
+T3,D6,treated

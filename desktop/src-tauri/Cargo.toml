@@ -1,0 +1,39 @@
+[package]
+name = "biodsh-desktop"
+version = "0.4.14"
+description = "OMaaX scientific analysis desktop"
+edition = "2021"
+default-run = "biodsh-desktop"
+
+[lib]
+name = "biodsh_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["unstable"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+ureq = { version = "2", features = ["json"] }
+keyring = "4.2"
+reqwest = { version = "0.13", features = ["blocking", "json", "multipart"] }
+# 轻量差量更新:验 delta.json 的 minisign 签名 + 校验下载文件 sha256(与 tauri updater 同一把公钥)
+minisign-verify = "0.2"
+sha2 = "0.10"
+base64 = "0.22"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

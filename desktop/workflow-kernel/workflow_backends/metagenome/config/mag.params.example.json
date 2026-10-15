@@ -1,0 +1,4 @@
+{
+  "input": "/data/mag_samples.csv",
+  "outdir": "/data/results/mag"
+}

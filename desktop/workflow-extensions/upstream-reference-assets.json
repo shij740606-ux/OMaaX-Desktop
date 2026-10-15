@@ -1,0 +1,24 @@
+{
+  "repository": "nf-core/mag",
+  "tag": "5.5.0",
+  "commit": "56abab5b023ce953c9c43fe21090d156ad0e18af",
+  "archiveUrl": "https://codeload.github.com/nf-core/mag/tar.gz/56abab5b023ce953c9c43fe21090d156ad0e18af",
+  "archiveSha256": "f7e19afa3c700e8f9c19ab90cbfc6fd070ceed8b05b903321dd44097c9d52fb5",
+  "purpose": "Original tiny PhiX and lambda runtime controls; retain the upstream default removal steps",
+  "files": [
+    {
+      "path": "upstream_sources/nf-core_mag_5.5.0/assets/data/GCA_002596845.1_ASM259684v1_genomic.fna.gz",
+      "sha256": "16276b4f062bac30df6e493d87dd4d991fcb8dcd5e3929333941f12835f284c5",
+      "bytes": 1888,
+      "referenceBases": 5387,
+      "header": ">DQ079895.1 Coliphage WA11, complete genome"
+    },
+    {
+      "path": "upstream_sources/nf-core_mag_5.5.0/assets/data/GCA_000840245.1_ViralProj14204_genomic.fna.gz",
+      "sha256": "4bdbd4241267aaa339df789b8bf4865037d074b81c45ac38f7176490b21020dc",
+      "bytes": 15296,
+      "referenceBases": 48502,
+      "header": ">J02459.1 Enterobacteria phage lambda, complete genome"
+    }
+  ]
+}

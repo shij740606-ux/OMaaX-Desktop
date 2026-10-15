@@ -1,0 +1,76 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OMaaX",
+  "version": "0.4.14",
+  "identifier": "org.omaax.desktop",
+  "build": {
+    "frontendDist": "../dist-tauri",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "node scripts/stage-ssh.mjs && npx vite --config vite.tauri.config.ts",
+    "beforeBuildCommand": "node scripts/sync-skills.mjs && node scripts/stage-ssh.mjs && npx vite build --config vite.tauri.config.ts"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "app",
+      "dmg",
+      "deb"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Medical",
+    "shortDescription": "OMaaX — One Model, Beyond the Max.",
+    "resources": {
+      "../resources/skills": "skills",
+      "../resources/scripts": "scripts",
+      "../resources/ssh": "ssh",
+      "../resources/workflows": "workflows",
+      "../resources/embed": "embed",
+      "../resources/databases": "databases",
+      "../resources/bioenv": "bioenv",
+      "../dsh-runtime/node_modules": "dsh/node_modules",
+      "../../LICENSE": "LICENSE"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "SimpChinese",
+          "English"
+        ],
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "startMenuFolder": "OMaaX"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "createUpdaterArtifacts": false,
+    "publisher": "OMaaX",
+    "licenseFile": "../../LICENSE"
+  },
+  "plugins": {},
+  "mainBinaryName": "OMaaX"
+}

@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source=fs.readFileSync(new URL('../src/renderer/src/views/workflowPresentation.ts',import.meta.url),'utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+const module={exports:{}};new Function('exports','module',compiled)(module.exports,module);
+const {orderedSteps,workflowConnections,stepReadiness}=module.exports;
+const catalog=JSON.parse(fs.readFileSync(new URL('../resources/workflows/catalog.json',import.meta.url)));
+for(const f of catalog.workflows){
+ const steps=orderedSteps(f);
+ assert.equal(steps.length,f.nodes.length+f.extraNodes.length);
+ assert.equal(new Set(steps.map(s=>s.id)).size,steps.length);
+ for(const extra of f.extraNodes)assert(steps.some(s=>s.id===extra.id));
+ assert.deepEqual(steps.filter(s=>s.entryPresent).map(s=>s.id),f.order);
+ const available=steps.filter(s=>s.entryPresent),edges=workflowConnections(steps,f.defaultSteps);
+ for(let i=1;i<available.length;i++)assert(edges.some(e=>e.source===available[i-1].id&&e.target===available[i].id),'Disconnected workflow '+f.id);
+ assert(edges.every(e=>f.order.indexOf(e.source)<f.order.indexOf(e.target)));
+}
+assert.equal(stepReadiness({id:'missing',entryPresent:false},{missing:{state:'ready'}}).state,'missing_source');
+assert.equal(stepReadiness({id:'wgcna',entryPresent:true},{}).state,'unchecked');
+assert.equal(stepReadiness({id:'wgcna',entryPresent:true},{wgcna:{state:'missing_environment'}}).state,'missing_environment');
+console.log('All registered workflow displays and readiness states verified.');
+const view=fs.readFileSync(new URL('../src/renderer/src/views/WorkflowsView.tsx',import.meta.url),'utf8');
+assert(!view.includes('workflow-step-section-title'));
+assert(!view.includes('· 点击设置'));
+assert(view.includes('data-step-number={index+1}'));
+const data=view.indexOf('<summary>数据路径与结果名称</summary>');
+const instruction=view.indexOf('告诉智能体要分析哪些数据');
+assert(data<instruction&&instruction<view.indexOf('<summary>计算资源'));
+assert(view.indexOf('生成执行计划\'}</button>')<view.indexOf('本次已选择 {steps.length}'));
+console.log('Continuous workflow and instruction placement verified.');

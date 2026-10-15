@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const module={exports:{}};
+new Function('exports','module',ts.transpileModule(fs.readFileSync(new URL('../src/renderer/src/views/workflowEnvironmentState.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(module.exports,module);
+const {environmentMatches,currentEnvironment}=module.exports;
+const current={steps:['singlecell_qc','singlecell_prepare'],parameters:{},configs:{singlecell_qc:{min_genes:200},singlecell_prepare:{samples:'samples.csv'}}};
+const stale={state:'failed',detail:'upstream failed',request:{steps:['singlecell_upstream'],configs:{singlecell_upstream:{aligner:'star'}}}};
+assert.equal(currentEnvironment(stale,current).state,'idle');
+assert.equal(currentEnvironment({...stale,state:'running'},current).state,'running');
+const matching={state:'failed',detail:'actual selected-step failure',request:{...current,steps:[...current.steps].reverse(),configs:{singlecell_prepare:{samples:'samples.csv'},singlecell_qc:{min_genes:200}}}};
+assert(environmentMatches(matching,current));assert.equal(currentEnvironment(matching,current).state,'failed');
+assert.equal(currentEnvironment({...matching,state:'complete'},current).state,'complete');
+assert(!environmentMatches(matching,{...current,configs:{...current.configs,singlecell_qc:{min_genes:100}}}));
+console.log('Historical failures are separated from current choices; active installation and relevant results remain visible.');

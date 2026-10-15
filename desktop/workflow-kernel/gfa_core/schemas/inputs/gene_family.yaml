@@ -1,0 +1,168 @@
+# 基因家族分析输入契约
+# 定义所有输入文件的格式和验证规则
+
+input_specs:
+  # 蛋白质序列文件
+  protein_fasta:
+    name: protein_sequences
+    description: 物种蛋白质序列
+    type: fasta
+    required: true
+    extensions: [.fa, .fasta, .faa, .pep]
+    format:
+      header: ">gene_id"
+      sequence: amino_acid
+    validation:
+      - type: file_exists
+      - type: not_empty
+      - type: valid_fasta_format
+    example: |
+      >FtPinG0000212200.01.T01
+      MASQDELKQM...
+
+  # 基因组序列文件
+  genome_fasta:
+    name: genome_sequences
+    description: 物种基因组序列
+    type: fasta
+    required: false
+    extensions: [.fa, .fasta, .fna]
+    format:
+      header: ">chr_id"
+      sequence: nucleotide
+    validation:
+      - type: file_exists
+      - type: not_empty
+    example: |
+      >chr1
+      ATGCGATCGATC...
+
+  # 基因注释文件
+  gff3_file:
+    name: gene_annotation
+    description: GFF3格式基因注释
+    type: gff3
+    required: false
+    extensions: [.gff, .gff3]
+    format:
+      columns:
+        - seqid
+        - source
+        - type
+        - start
+        - end
+        - score
+        - strand
+        - phase
+        - attributes
+    validation:
+      - type: file_exists
+      - type: valid_gff3_format
+      - type: has_required_types [gene, CDS, exon]
+    example: |
+      chr1	.	gene	100	500	.	+	.	ID=gene1
+      chr1	.	CDS	150	450	.	+	0	Parent=gene1
+
+  # HMM模型文件
+  hmm_file:
+    name: hmm_model
+    description: HMMER隐马尔可夫模型
+    type: hmm
+    required: true
+    extensions: [.hmm]
+    validation:
+      - type: file_exists
+      - type: not_empty
+      - type: valid_hmm_format
+    example: |
+      HMMER3/f [3.4 | ...]
+      NAME  SBP
+      ACC   PF03110.20
+      ...
+
+  # 参考序列文件
+  reference_fasta:
+    name: reference_sequences
+    description: 参考基因家族序列
+    type: fasta
+    required: false
+    extensions: [.fa, .fasta]
+    format:
+      header: ">gene_id"
+      sequence: amino_acid
+    validation:
+      - type: file_exists
+      - type: not_empty
+    example: |
+      >AtSPL1
+      MASQDELKQM...
+
+  # 亚家族分类文件
+  subfamily_file:
+    name: subfamily_classification
+    description: 基因亚家族分类
+    type: tsv
+    required: false
+    extensions: [.tsv, .txt]
+    format:
+      columns:
+        - gene_id
+        - subfamily
+    validation:
+      - type: file_exists
+    example: |
+      FtPinG0000212200.01.T01	SBP
+      FtPinG0000286400.01.T01	SBP
+
+  # 物种配置
+  species_config:
+    name: species_configuration
+    description: 物种配置信息
+    type: yaml
+    required: false
+    extensions: [.yaml, .yml]
+    format:
+      fields:
+        - species_code
+        - species_name
+        - genome_version
+    example: |
+      species_code: Ft
+      species_name: Fagopyrum tataricum
+      genome_version: v2.0
+
+# 输入验证规则
+validation_rules:
+  file_exists:
+    description: 文件必须存在
+    check: "Path(file).exists()"
+
+  not_empty:
+    description: 文件不能为空
+    check: "Path(file).stat().st_size > 0"
+
+  valid_fasta_format:
+    description: FASTA格式有效
+    check: |
+      lines = Path(file).read_text().split('\n')
+      assert lines[0].startswith('>')
+
+  valid_gff3_format:
+    description: GFF3格式有效
+    check: |
+      lines = [l for l in Path(file).read_text().split('\n') if not l.startswith('#')]
+      cols = lines[0].split('\t')
+      assert len(cols) == 9
+
+  valid_hmm_format:
+    description: HMM格式有效
+    check: |
+      content = Path(file).read_text()
+      assert 'HMMER3' in content or 'HMMER2' in content
+
+  has_required_types:
+    description: GFF3包含必需类型
+    check: |
+      content = Path(file).read_text()
+      for t in required_types:
+        assert t in content

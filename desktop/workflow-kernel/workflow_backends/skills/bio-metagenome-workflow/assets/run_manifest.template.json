@@ -1,0 +1,12 @@
+{
+  "workflow": "bio-metagenome-workflow",
+  "backend_sha256": null,
+  "entrypoint": null,
+  "run_root": null,
+  "environment": {},
+  "references": {},
+  "samples": null,
+  "parameters": {},
+  "parameter_sources": {},
+  "stages": []
+}

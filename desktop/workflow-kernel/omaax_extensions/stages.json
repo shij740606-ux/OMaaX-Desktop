@@ -1,0 +1,818 @@
+{
+  "singlecell_prepare": {
+    "name": "导入表达矩阵与样本信息",
+    "module": "cells",
+    "action": "prepare",
+    "outputs": [
+      "processed.h5ad",
+      "cells.csv"
+    ],
+    "software": "Scanpy / AnnData"
+  },
+  "singlecell_qc": {
+    "name": "过滤低质量细胞或位置",
+    "module": "cells",
+    "action": "qc",
+    "outputs": [
+      "processed.h5ad",
+      "qc_metrics.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_doublets": {
+    "name": "识别双细胞",
+    "module": "cells",
+    "action": "doublets",
+    "outputs": [
+      "processed.h5ad",
+      "doublets.csv"
+    ],
+    "software": "Scanpy Scrublet"
+  },
+  "singlecell_normalize": {
+    "name": "标准化与选择高变基因",
+    "module": "cells",
+    "action": "normalize",
+    "outputs": [
+      "processed.h5ad",
+      "variable_genes.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_pca": {
+    "name": "主成分分析",
+    "module": "cells",
+    "action": "pca",
+    "outputs": [
+      "processed.h5ad",
+      "pca.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_harmony": {
+    "name": "整合实验批次",
+    "module": "cells",
+    "action": "harmony",
+    "outputs": [
+      "processed.h5ad",
+      "integrated_pca.csv"
+    ],
+    "software": "Harmony / Scanpy"
+  },
+  "singlecell_embedding": {
+    "name": "计算邻居与 UMAP",
+    "module": "cells",
+    "action": "embedding",
+    "outputs": [
+      "processed.h5ad",
+      "umap.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_cluster": {
+    "name": "划分表达相似的细胞群",
+    "module": "cells",
+    "action": "cluster",
+    "outputs": [
+      "processed.h5ad",
+      "clusters.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_markers": {
+    "name": "寻找各群标记基因",
+    "module": "cells",
+    "action": "markers",
+    "outputs": [
+      "processed.h5ad",
+      "markers.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_annotation": {
+    "name": "填写细胞类型注释",
+    "module": "cells",
+    "action": "annotate",
+    "outputs": [
+      "processed.h5ad",
+      "cell_annotations.csv"
+    ],
+    "software": "AnnData / 用户对应表"
+  },
+  "singlecell_composition": {
+    "name": "比较各样本细胞组成",
+    "module": "cells",
+    "action": "composition",
+    "outputs": [
+      "processed.h5ad",
+      "cell_counts.csv",
+      "cell_fractions.csv",
+      "composition.png"
+    ],
+    "software": "Scanpy"
+  },
+  "singlecell_bulk": {
+    "name": "按供者和细胞群汇总计数",
+    "module": "cells",
+    "action": "pseudobulk",
+    "outputs": [
+      "processed.h5ad",
+      "counts.tsv",
+      "samples.csv"
+    ],
+    "software": "AnnData / NumPy"
+  },
+  "singlecell_group_de": {
+    "name": "比较指定细胞群的组间表达差异",
+    "module": "epigenetics",
+    "action": "gene_differential",
+    "outputs": [
+      "differential_genes.tsv",
+      "selected_genes.tsv",
+      "volcano.png"
+    ],
+    "software": "DESeq2 / 供者汇总"
+  },
+  "singlecell_gene_sets": {
+    "name": "比较功能基因集活性",
+    "module": "cells",
+    "action": "gene_sets",
+    "outputs": [
+      "processed.h5ad",
+      "gene_set_scores.csv"
+    ],
+    "software": "Scanpy 基因集评分"
+  },
+  "singlecell_communication": {
+    "name": "分析配体受体表达关联",
+    "module": "cells",
+    "action": "communication",
+    "outputs": [
+      "processed.h5ad",
+      "ligand_receptor_scores.tsv",
+      "communication.png"
+    ],
+    "software": "配体受体均值乘积 / 随机置换"
+  },
+  "singlecell_trajectory": {
+    "name": "分析细胞状态轨迹",
+    "module": "cells",
+    "action": "trajectory",
+    "outputs": [
+      "processed.h5ad",
+      "pseudotime.csv",
+      "trajectory_graph.csv"
+    ],
+    "software": "Scanpy PAGA / DPT"
+  },
+  "singlecell_plots": {
+    "name": "绘制细胞群、标记与轨迹图",
+    "module": "cells",
+    "action": "plots",
+    "outputs": [
+      "processed.h5ad",
+      "umap.png"
+    ],
+    "software": "Scanpy / Matplotlib"
+  },
+  "singlecell_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "spatial_prepare": {
+    "name": "导入表达矩阵与样本信息",
+    "module": "cells",
+    "action": "prepare",
+    "outputs": [
+      "processed.h5ad",
+      "cells.csv"
+    ],
+    "software": "Scanpy / AnnData"
+  },
+  "spatial_qc": {
+    "name": "过滤低质量细胞或位置",
+    "module": "cells",
+    "action": "qc",
+    "outputs": [
+      "processed.h5ad",
+      "qc_metrics.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_normalize": {
+    "name": "标准化与选择高变基因",
+    "module": "cells",
+    "action": "normalize",
+    "outputs": [
+      "processed.h5ad",
+      "variable_genes.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_pca": {
+    "name": "主成分分析",
+    "module": "cells",
+    "action": "pca",
+    "outputs": [
+      "processed.h5ad",
+      "pca.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_embedding": {
+    "name": "计算邻居与 UMAP",
+    "module": "cells",
+    "action": "embedding",
+    "outputs": [
+      "processed.h5ad",
+      "umap.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_cluster": {
+    "name": "划分表达相似的细胞群",
+    "module": "cells",
+    "action": "cluster",
+    "outputs": [
+      "processed.h5ad",
+      "clusters.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_markers": {
+    "name": "寻找各群标记基因",
+    "module": "cells",
+    "action": "markers",
+    "outputs": [
+      "processed.h5ad",
+      "markers.csv"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_annotation": {
+    "name": "填写细胞类型注释",
+    "module": "cells",
+    "action": "annotate",
+    "outputs": [
+      "processed.h5ad",
+      "cell_annotations.csv"
+    ],
+    "software": "AnnData / 用户对应表"
+  },
+  "spatial_composition": {
+    "name": "比较各样本细胞组成",
+    "module": "cells",
+    "action": "composition",
+    "outputs": [
+      "processed.h5ad",
+      "cell_counts.csv",
+      "cell_fractions.csv",
+      "composition.png"
+    ],
+    "software": "Scanpy"
+  },
+  "spatial_bulk": {
+    "name": "按供者和细胞群汇总计数",
+    "module": "cells",
+    "action": "pseudobulk",
+    "outputs": [
+      "processed.h5ad",
+      "counts.tsv",
+      "samples.csv"
+    ],
+    "software": "AnnData / NumPy"
+  },
+  "spatial_group_de": {
+    "name": "比较指定细胞群的组间表达差异",
+    "module": "epigenetics",
+    "action": "gene_differential",
+    "outputs": [
+      "differential_genes.tsv",
+      "selected_genes.tsv",
+      "volcano.png"
+    ],
+    "software": "DESeq2 / 供者汇总"
+  },
+  "spatial_gene_sets": {
+    "name": "比较功能基因集活性",
+    "module": "cells",
+    "action": "gene_sets",
+    "outputs": [
+      "processed.h5ad",
+      "gene_set_scores.csv"
+    ],
+    "software": "Scanpy 基因集评分"
+  },
+  "spatial_communication": {
+    "name": "分析配体受体表达关联",
+    "module": "cells",
+    "action": "communication",
+    "outputs": [
+      "processed.h5ad",
+      "ligand_receptor_scores.tsv",
+      "communication.png"
+    ],
+    "software": "配体受体均值乘积 / 随机置换"
+  },
+  "spatial_neighbors": {
+    "name": "建立组织位置邻居图",
+    "module": "cells",
+    "action": "spatial_graph",
+    "outputs": [
+      "processed.h5ad",
+      "spatial_neighbors.csv"
+    ],
+    "software": "Squidpy"
+  },
+  "spatial_domains": {
+    "name": "结合表达与位置划分组织区域",
+    "module": "cells",
+    "action": "spatial_domains",
+    "outputs": [
+      "processed.h5ad",
+      "spatial_domains.csv"
+    ],
+    "software": "Leiden / 空间与表达加权图"
+  },
+  "spatial_variable_genes": {
+    "name": "寻找空间变化的基因",
+    "module": "cells",
+    "action": "spatial_genes",
+    "outputs": [
+      "processed.h5ad",
+      "spatial_variable_genes.csv"
+    ],
+    "software": "Squidpy Moran’s I"
+  },
+  "spatial_neighborhood": {
+    "name": "比较细胞群的空间邻域",
+    "module": "cells",
+    "action": "neighborhood",
+    "outputs": [
+      "processed.h5ad",
+      "neighborhood_enrichment.csv"
+    ],
+    "software": "Squidpy 邻域富集"
+  },
+  "spatial_plots": {
+    "name": "绘制细胞群、标记与轨迹图",
+    "module": "cells",
+    "action": "plots",
+    "outputs": [
+      "processed.h5ad",
+      "umap.png"
+    ],
+    "software": "Scanpy / Matplotlib"
+  },
+  "spatial_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "metagenome_prepare": {
+    "name": "整理丰度表与样本信息",
+    "module": "community",
+    "action": "prepare",
+    "outputs": [
+      "abundance.tsv",
+      "relative_abundance.tsv",
+      "samples.csv"
+    ],
+    "software": "Pandas"
+  },
+  "metagenome_composition": {
+    "name": "绘制群落组成",
+    "module": "community",
+    "action": "composition",
+    "outputs": [
+      "composition.tsv",
+      "composition.png"
+    ],
+    "software": "SciPy / Pandas / Matplotlib"
+  },
+  "metagenome_alpha": {
+    "name": "比较样本内的多样性",
+    "module": "community",
+    "action": "alpha",
+    "outputs": [
+      "alpha_diversity.tsv",
+      "alpha_diversity.png"
+    ],
+    "software": "SciPy / Pandas / Matplotlib"
+  },
+  "metagenome_beta": {
+    "name": "比较样本间群落差异",
+    "module": "community",
+    "action": "beta",
+    "outputs": [
+      "bray_curtis.tsv",
+      "pcoa.tsv",
+      "pcoa.png"
+    ],
+    "software": "SciPy / Pandas / Matplotlib"
+  },
+  "metagenome_heatmap": {
+    "name": "绘制特征丰度热图",
+    "module": "community",
+    "action": "heatmap",
+    "outputs": [
+      "heatmap_abundance.tsv",
+      "abundance_heatmap.png"
+    ],
+    "software": "SciPy / Pandas / Matplotlib"
+  },
+  "metagenome_network": {
+    "name": "分析物种间丰度相关性",
+    "module": "community",
+    "action": "network",
+    "outputs": [
+      "correlation_network.tsv",
+      "network_summary.png"
+    ],
+    "software": "SciPy / Pandas / Matplotlib"
+  },
+  "metagenome_functional": {
+    "name": "绘制基因与通路功能丰度",
+    "module": "community",
+    "action": "functional",
+    "outputs": [
+      "functional_abundance.tsv",
+      "functional_profile.png"
+    ],
+    "software": "HUMAnN 等输出表 / Matplotlib"
+  },
+  "metagenome_mag_quality": {
+    "name": "整理与筛选 MAG 质量",
+    "module": "community",
+    "action": "mag_summary",
+    "outputs": [
+      "mag_quality.tsv",
+      "mag_quality.png"
+    ],
+    "software": "CheckM / CheckM2 输出表"
+  },
+  "metagenome_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "atacseq_regions": {
+    "name": "整理与合并分析区域",
+    "module": "epigenetics",
+    "action": "regions",
+    "outputs": [
+      "regions.bed",
+      "region_widths.png"
+    ],
+    "software": "固定 BED 区域合并"
+  },
+  "atacseq_count": {
+    "name": "汇总区域片段计数",
+    "module": "epigenetics",
+    "action": "count",
+    "outputs": [
+      "counts.tsv",
+      "samples.csv"
+    ],
+    "software": "featureCounts"
+  },
+  "atacseq_sample_qc": {
+    "name": "查看样本相关性与主成分",
+    "module": "epigenetics",
+    "action": "sample_qc",
+    "outputs": [
+      "sample_pca.tsv",
+      "sample_correlation.tsv",
+      "sample_pca.png"
+    ],
+    "software": "NumPy PCA / Pandas"
+  },
+  "atacseq_differential": {
+    "name": "比较组间差异区域",
+    "module": "epigenetics",
+    "action": "differential",
+    "outputs": [
+      "differential_regions.tsv",
+      "selected_regions.tsv",
+      "volcano.png"
+    ],
+    "software": "DESeq2"
+  },
+  "atacseq_annotation": {
+    "name": "注释区域最近基因与启动子",
+    "module": "epigenetics",
+    "action": "annotate",
+    "outputs": [
+      "region_annotations.tsv",
+      "genes.txt"
+    ],
+    "software": "GTF 转录起点最近基因注释"
+  },
+  "atacseq_motifs": {
+    "name": "比较区域的已知基序富集",
+    "module": "epigenetics",
+    "action": "motifs",
+    "outputs": [
+      "motif_enrichment.tsv"
+    ],
+    "software": "MEME AME / bedtools"
+  },
+  "atacseq_coverage": {
+    "name": "绘制区域覆盖度与热图",
+    "module": "epigenetics",
+    "action": "coverage",
+    "outputs": [
+      "coverage_matrix.gz",
+      "coverage_heatmap.png",
+      "coverage_profile.png"
+    ],
+    "software": "deepTools"
+  },
+  "atacseq_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "atacseq_enrich": {
+    "name": "解释候选基因的功能与通路",
+    "module": "community",
+    "action": "enrichment",
+    "outputs": [
+      "enrichment.tsv",
+      "enrichment.png"
+    ],
+    "software": "SciPy 超几何检验 / BH 校正"
+  },
+  "chipseq_regions": {
+    "name": "整理与合并分析区域",
+    "module": "epigenetics",
+    "action": "regions",
+    "outputs": [
+      "regions.bed",
+      "region_widths.png"
+    ],
+    "software": "固定 BED 区域合并"
+  },
+  "chipseq_count": {
+    "name": "汇总区域片段计数",
+    "module": "epigenetics",
+    "action": "count",
+    "outputs": [
+      "counts.tsv",
+      "samples.csv"
+    ],
+    "software": "featureCounts"
+  },
+  "chipseq_sample_qc": {
+    "name": "查看样本相关性与主成分",
+    "module": "epigenetics",
+    "action": "sample_qc",
+    "outputs": [
+      "sample_pca.tsv",
+      "sample_correlation.tsv",
+      "sample_pca.png"
+    ],
+    "software": "NumPy PCA / Pandas"
+  },
+  "chipseq_differential": {
+    "name": "比较组间差异区域",
+    "module": "epigenetics",
+    "action": "differential",
+    "outputs": [
+      "differential_regions.tsv",
+      "selected_regions.tsv",
+      "volcano.png"
+    ],
+    "software": "DESeq2"
+  },
+  "chipseq_annotation": {
+    "name": "注释区域最近基因与启动子",
+    "module": "epigenetics",
+    "action": "annotate",
+    "outputs": [
+      "region_annotations.tsv",
+      "genes.txt"
+    ],
+    "software": "GTF 转录起点最近基因注释"
+  },
+  "chipseq_motifs": {
+    "name": "比较区域的已知基序富集",
+    "module": "epigenetics",
+    "action": "motifs",
+    "outputs": [
+      "motif_enrichment.tsv"
+    ],
+    "software": "MEME AME / bedtools"
+  },
+  "chipseq_coverage": {
+    "name": "绘制区域覆盖度与热图",
+    "module": "epigenetics",
+    "action": "coverage",
+    "outputs": [
+      "coverage_matrix.gz",
+      "coverage_heatmap.png",
+      "coverage_profile.png"
+    ],
+    "software": "deepTools"
+  },
+  "chipseq_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "chipseq_enrich": {
+    "name": "解释候选基因的功能与通路",
+    "module": "community",
+    "action": "enrichment",
+    "outputs": [
+      "enrichment.tsv",
+      "enrichment.png"
+    ],
+    "software": "SciPy 超几何检验 / BH 校正"
+  },
+  "cutandrun_regions": {
+    "name": "整理与合并分析区域",
+    "module": "epigenetics",
+    "action": "regions",
+    "outputs": [
+      "regions.bed",
+      "region_widths.png"
+    ],
+    "software": "固定 BED 区域合并"
+  },
+  "cutandrun_count": {
+    "name": "汇总区域片段计数",
+    "module": "epigenetics",
+    "action": "count",
+    "outputs": [
+      "counts.tsv",
+      "samples.csv"
+    ],
+    "software": "featureCounts"
+  },
+  "cutandrun_sample_qc": {
+    "name": "查看样本相关性与主成分",
+    "module": "epigenetics",
+    "action": "sample_qc",
+    "outputs": [
+      "sample_pca.tsv",
+      "sample_correlation.tsv",
+      "sample_pca.png"
+    ],
+    "software": "NumPy PCA / Pandas"
+  },
+  "cutandrun_differential": {
+    "name": "比较组间差异区域",
+    "module": "epigenetics",
+    "action": "differential",
+    "outputs": [
+      "differential_regions.tsv",
+      "selected_regions.tsv",
+      "volcano.png"
+    ],
+    "software": "DESeq2"
+  },
+  "cutandrun_annotation": {
+    "name": "注释区域最近基因与启动子",
+    "module": "epigenetics",
+    "action": "annotate",
+    "outputs": [
+      "region_annotations.tsv",
+      "genes.txt"
+    ],
+    "software": "GTF 转录起点最近基因注释"
+  },
+  "cutandrun_motifs": {
+    "name": "比较区域的已知基序富集",
+    "module": "epigenetics",
+    "action": "motifs",
+    "outputs": [
+      "motif_enrichment.tsv"
+    ],
+    "software": "MEME AME / bedtools"
+  },
+  "cutandrun_coverage": {
+    "name": "绘制区域覆盖度与热图",
+    "module": "epigenetics",
+    "action": "coverage",
+    "outputs": [
+      "coverage_matrix.gz",
+      "coverage_heatmap.png",
+      "coverage_profile.png"
+    ],
+    "software": "deepTools"
+  },
+  "cutandrun_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "cutandrun_enrich": {
+    "name": "解释候选基因的功能与通路",
+    "module": "community",
+    "action": "enrichment",
+    "outputs": [
+      "enrichment.tsv",
+      "enrichment.png"
+    ],
+    "software": "SciPy 超几何检验 / BH 校正"
+  },
+  "methylseq_coverage_qc": {
+    "name": "过滤低覆盖位点与查看甲基化分布",
+    "module": "epigenetics",
+    "action": "methylation_qc",
+    "outputs": [
+      "methylation_beta.tsv",
+      "methylation_qc.tsv",
+      "methylation_distribution.png",
+      "samples.csv"
+    ],
+    "software": "Bismark coverage / Pandas"
+  },
+  "methylseq_sample_qc": {
+    "name": "比较样本甲基化主成分与相关性",
+    "module": "epigenetics",
+    "action": "methylation_samples",
+    "outputs": [
+      "sample_pca.tsv",
+      "sample_correlation.tsv",
+      "sample_pca.png"
+    ],
+    "software": "NumPy PCA / Pandas"
+  },
+  "methylseq_heatmap": {
+    "name": "绘制变化位点甲基化热图",
+    "module": "epigenetics",
+    "action": "methylation_heatmap",
+    "outputs": [
+      "displayed_sites.tsv",
+      "methylation_heatmap.png"
+    ],
+    "software": "Matplotlib"
+  },
+  "methylseq_dmr": {
+    "name": "寻找组间差异甲基化区域",
+    "module": "epigenetics",
+    "action": "dmr",
+    "outputs": [
+      "differential_sites.tsv",
+      "differential_methylated_regions.tsv",
+      "regions.bed"
+    ],
+    "software": "DSS"
+  },
+  "methylseq_annotation": {
+    "name": "注释甲基化区域附近的基因",
+    "module": "epigenetics",
+    "action": "annotate",
+    "outputs": [
+      "region_annotations.tsv",
+      "genes.txt"
+    ],
+    "software": "GTF 转录起点最近基因注释"
+  },
+  "methylseq_report": {
+    "name": "汇总图表与分析报告",
+    "module": "",
+    "action": "report",
+    "outputs": [
+      "report.html"
+    ],
+    "software": "OMaaX HTML 报告"
+  },
+  "methylseq_enrich": {
+    "name": "解释候选基因的功能与通路",
+    "module": "community",
+    "action": "enrichment",
+    "outputs": [
+      "enrichment.tsv",
+      "enrichment.png"
+    ],
+    "software": "SciPy 超几何检验 / BH 校正"
+  }
+}

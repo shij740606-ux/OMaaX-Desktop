@@ -1,0 +1,7 @@
+sample,run_accession,instrument_platform,fastq_1,fastq_2,fasta
+C1,run1,ILLUMINA,/data/C1_R1.fastq.gz,/data/C1_R2.fastq.gz,
+C2,run1,ILLUMINA,/data/C2_R1.fastq.gz,/data/C2_R2.fastq.gz,
+C3,run1,ILLUMINA,/data/C3_R1.fastq.gz,/data/C3_R2.fastq.gz,
+T1,run1,ILLUMINA,/data/T1_R1.fastq.gz,/data/T1_R2.fastq.gz,
+T2,run1,ILLUMINA,/data/T2_R1.fastq.gz,/data/T2_R2.fastq.gz,
+T3,run1,ILLUMINA,/data/T3_R1.fastq.gz,/data/T3_R2.fastq.gz,

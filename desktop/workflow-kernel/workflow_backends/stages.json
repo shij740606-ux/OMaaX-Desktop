@@ -1,0 +1,230 @@
+{
+  "singlecell_upstream": {
+    "workflow": "singlecell",
+    "action": "upstream",
+    "title": "单细胞/单核 FASTQ 定量",
+    "required_config": [
+      "input",
+      "fasta",
+      "gtf",
+      "expected_outputs"
+    ],
+    "required_outputs": [],
+    "upstream": true
+  },
+  "singlecell_analyze": {
+    "workflow": "singlecell",
+    "action": "analyze",
+    "title": "单细胞/单核矩阵分析",
+    "required_config": [
+      "samples",
+      "qc"
+    ],
+    "required_outputs": [
+      "processed.h5ad",
+      "sample_qc.tsv",
+      "cells.tsv",
+      "annotation_template.csv"
+    ],
+    "upstream": false
+  },
+  "singlecell_annotate": {
+    "workflow": "singlecell",
+    "action": "annotate",
+    "title": "单细胞人工审核注释",
+    "required_config": [
+      "input",
+      "annotations"
+    ],
+    "required_outputs": [
+      "annotated.h5ad",
+      "annotations.csv"
+    ],
+    "upstream": false
+  },
+  "singlecell_pseudobulk": {
+    "workflow": "singlecell",
+    "action": "pseudobulk",
+    "title": "按供体聚合 pseudobulk",
+    "required_config": [
+      "input"
+    ],
+    "required_outputs": [
+      "counts.tsv",
+      "samples.tsv",
+      "gene_mapping.tsv"
+    ],
+    "upstream": false
+  },
+  "singlecell_de": {
+    "workflow": "singlecell",
+    "action": "de",
+    "title": "单细胞 pseudobulk DESeq2",
+    "required_config": [
+      "counts",
+      "metadata",
+      "control",
+      "treated"
+    ],
+    "required_outputs": [
+      "manifest.tsv"
+    ],
+    "upstream": false
+  },
+  "singlecell_enrich": {
+    "workflow": "singlecell",
+    "action": "enrich",
+    "title": "单细胞差异基因富集",
+    "required_config": [
+      "selected",
+      "universe",
+      "gmt"
+    ],
+    "required_outputs": [
+      "enrichment.tsv"
+    ],
+    "upstream": false
+  },
+  "spatial_segment": {
+    "workflow": "spatial",
+    "action": "segment",
+    "title": "空间转录组 Sopa 分割",
+    "required_config": [
+      "input",
+      "profile",
+      "expected_outputs"
+    ],
+    "required_outputs": [],
+    "upstream": true
+  },
+  "spatial_export": {
+    "workflow": "spatial",
+    "action": "export",
+    "title": "SpatialData 审核后导出",
+    "required_config": [
+      "input",
+      "table",
+      "counts_source"
+    ],
+    "required_outputs": [
+      "exported.h5ad"
+    ],
+    "upstream": false
+  },
+  "spatial_analyze": {
+    "workflow": "spatial",
+    "action": "analyze",
+    "title": "独立空间转录组矩阵分析",
+    "required_config": [
+      "samples",
+      "qc"
+    ],
+    "required_outputs": [
+      "sections_summary.tsv",
+      "*/spatial_processed.h5ad",
+      "*/spatial_graph_degrees.tsv",
+      "*/spatial_moranI.tsv"
+    ],
+    "upstream": false
+  },
+  "spatial_enrich": {
+    "workflow": "spatial",
+    "action": "enrich",
+    "title": "空间候选基因富集",
+    "required_config": [
+      "selected",
+      "universe",
+      "gmt"
+    ],
+    "required_outputs": [
+      "enrichment.tsv"
+    ],
+    "upstream": false
+  },
+  "metagenome_profile": {
+    "workflow": "metagenome",
+    "action": "profile",
+    "title": "宏基因组 taxprofiler 分类",
+    "required_config": [
+      "input",
+      "databases",
+      "expected_outputs"
+    ],
+    "required_outputs": [],
+    "upstream": true
+  },
+  "metagenome_mag": {
+    "workflow": "metagenome",
+    "action": "mag",
+    "title": "宏基因组 MAG 组装与分箱",
+    "required_config": [
+      "input",
+      "expected_outputs"
+    ],
+    "required_outputs": [],
+    "upstream": true
+  },
+  "metagenome_merge": {
+    "workflow": "metagenome",
+    "action": "merge-bracken",
+    "title": "合并 Bracken 丰度",
+    "required_config": [
+      "samples"
+    ],
+    "required_outputs": [
+      "abundance.tsv",
+      "taxon_names.tsv"
+    ],
+    "upstream": false
+  },
+  "metagenome_summarize": {
+    "workflow": "metagenome",
+    "action": "summarize",
+    "title": "宏基因组群落与多样性",
+    "required_config": [
+      "samples",
+      "abundance",
+      "profiler",
+      "database_version",
+      "taxonomic_rank",
+      "abundance_type"
+    ],
+    "required_outputs": [
+      "relative_abundance.tsv",
+      "alpha_diversity.tsv",
+      "bray_curtis.tsv",
+      "pcoa.tsv"
+    ],
+    "upstream": false
+  },
+  "metagenome_differential": {
+    "workflow": "metagenome",
+    "action": "differential",
+    "title": "宏基因组 ANCOM-BC2 差异丰度",
+    "required_config": [
+      "counts",
+      "samples",
+      "control"
+    ],
+    "required_outputs": [
+      "ancombc2_results.tsv",
+      "sessionInfo.txt"
+    ],
+    "upstream": false
+  },
+  "metagenome_community": {
+    "workflow": "metagenome",
+    "action": "community",
+    "title": "宏基因组 PERMANOVA 与离散度",
+    "required_config": [
+      "abundance",
+      "samples"
+    ],
+    "required_outputs": [
+      "permanova.tsv",
+      "dispersion_test.tsv",
+      "sessionInfo.txt"
+    ],
+    "upstream": false
+  }
+}

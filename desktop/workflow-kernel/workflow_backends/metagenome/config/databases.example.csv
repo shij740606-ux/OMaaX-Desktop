@@ -1,0 +1,2 @@
+tool,db_name,db_params,db_path
+bracken,custom_build,;-r 150,/references/kraken2_database

@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source=fs.readFileSync(new URL('../src/renderer/src/dshLayoutQueue.ts',import.meta.url),'utf8');
+const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const exports={};new Function('exports',code)(exports);
+test('1000 rapid layout changes finish at the latest rectangle with one native call in flight',async()=>{
+ const pending=[],calls=[],errors=[];let inFlight=0,max=0;
+ const report=exports.dshLayoutQueue((rect,visible)=>{calls.push({rect,visible});max=Math.max(max,++inFlight);return new Promise((resolve,reject)=>pending.push({resolve:()=>{inFlight--;resolve();},reject:()=>{inFlight--;reject(Error('test failure'));}}));},e=>errors.push(e));
+ report({x:264,y:52,width:976,height:668},true);
+ for(let i=0;i<1000;i++)report({x:264,y:i,width:976,height:623},true);
+ assert.equal(calls.length,1);pending.shift().resolve();await new Promise(r=>setImmediate(r));
+ assert.equal(calls.length,2);assert.equal(calls[1].rect.y,999);assert.equal(max,1);
+ report({x:0,y:0,width:0,height:0},false);pending.shift().reject();await new Promise(r=>setImmediate(r));
+ assert.equal(calls.length,3);assert.equal(calls[2].visible,false);assert.equal(errors.length,1);
+ pending.shift().resolve();await new Promise(r=>setImmediate(r));
+ report({x:264,y:96.5,width:976,height:623.5},true);assert.equal(calls.length,4);
+ pending.shift().resolve();await new Promise(r=>setImmediate(r));assert.equal(inFlight,0);
+});

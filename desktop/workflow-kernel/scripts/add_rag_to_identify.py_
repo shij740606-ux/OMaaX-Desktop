@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+为 run_identify_web.py 添加RAG查询功能
+"""
+import re
+from pathlib import Path
+import json
+
+def add_rag_functionality():
+    script = Path("scripts/run_identify_web.py")
+    content = script.read_text(encoding='utf-8')
+    
+    # 1. 添加RAG查询函数
+    rag_function = '''
+def get_pfam_from_rag(gene_family_name: str, rag_db_path: Path = None) -> str:
+    """从RAG数据库获取Pfam ID"""
+    if rag_db_path is None:
+        # 默认RAG数据库路径 - 需要根据实际位置修改
+        rag_db_path = Path("/home/userlab/home/wutx/01.test/bba.backup/bba/data/rag_db/pfam_mapping.json")
+    
+    if not rag_db_path.exists():
+        print(f"⚠️  RAG数据库不存在: {rag_db_path}")
+        return None
+    
+    try:
+        with open(rag_db_path, "r", encoding="utf-8") as f:
+            rag_db = json.load(f)
+        
+        # 精确匹配
+        family_lower = gene_family_name.lower()
+        for key, value in rag_db.items():
+            if key.lower() == family_lower:
+                print(f"✅ 从RAG数据库找到精确匹配: {key} -> {value}")
+                return value
+        
+        # 模糊匹配（包含关系）
+        for key, value in rag_db.items():
+            if family_lower in key.lower() or key.lower() in family_lower:
+                print(f"🔍 RAG数据库模糊匹配: {key} -> {value}")
+                return value
+        
+        print(f"❌ RAG数据库中未找到基因家族: {gene_family_name}")
+        return None
+    except Exception as e:
+        print(f"❌ 读取RAG数据库失败: {e}")
+        return None
+
+def parse_gene_family_from_prefix(prefix: str) -> str:
+    """从prefix中提取基因家族名称"""
+    # 例如: "Ft.SPL" -> "SPL", "SPL.Ft" -> "SPL"
+    parts = prefix.split('.')
+    for part in parts:
+        if len(part) > 1 and not part[0].isdigit():
+            # 返回第一个看起来像基因家族名称的部分
+            return part
+    return parts[-1] if parts else prefix
+'''
+    
+    # 在 import 部分之后添加
+    import_section_end = re.search(r'^from', content, re.MULTILINE)
+    if import_section_end:
+        insert_pos = import_section_end.start()
+        content = content[:insert_pos] + rag_function + content[insert_pos:]
+        print("✅ 添加了RAG查询函数")
+    
+    # 2. 修改main()中的Pfams获取逻辑
+    # 查找 required_pfams 检查部分
+    old_check = r'if not required_pfams and not use_user_hmm:'
+    new_logic = '''# 策略1: 先检查用户HMM
+    user_hmm = find_user_query_hmm(in_dir)
+    if user_hmm:
+        print(f"✅ 使用用户上传的HMM文件: {user_hmm}")
+        use_user_hmm = True
+        query_hmm = user_hmm
+    
+    # 策略2: 检查指定的Pfam ID
+    if not required_pfams and not use_user_hmm:
+        # 策略3: 尝试从RAG数据库查询
+        gene_family = parse_gene_family_from_prefix(args.prefix)
+        print(f"🔍 尝试从基因家族名称查询Pfam: {gene_family}")
+        
+        pfam_id = get_pfam_from_rag(gene_family)
+        if pfam_id:
+            print(f"✅ 从RAG数据库获得Pfam ID: {pfam_id}")
+            required_pfams = pfam_id
+        else:
+            # 如果都失败，报错'''
+    
+    if re.search(old_check, content):
+        content = re.sub(old_check, new_logic, content, count=1)
+        print("✅ 修改了Pfams获取逻辑")
+    
+    # 保存
+    script.write_text(content, encoding='utf-8')
+    print("✅ 脚本已更新")
+
+def create_rag_database():
+    """创建示例RAG数据库"""
+    rag_dir = Path("data/rag_db")
+    rag_dir.mkdir(parents=True, exist_ok=True)
+    
+    pfam_mapping = {
+        "SPL": "PF03110",
+        "SBP": "PF03110",
+        "WRKY": "PF03106",
+        "NAC": "PF02365",
+        "MYB": "PF00249",
+        "bHLH": "PF00010",
+        "bZIP": "PF00170",
+        "MADS": "PF00319",
+        "AP2": "PF00847",
+        "ERF": "PF00847",
+        "HSF": "PF00447",
+        "TCP": "PF03634",
+        "GRAS": "PF03514",
+        "ARF": "PF06507",
+        "Aux/IAA": "PF02309"
+    }
+    
+    rag_file = rag_dir / "pfam_mapping.json"
+    with open(rag_file, "w") as f:
+        json.dump(pfam_mapping, f, indent=2)
+    
+    print(f"✅ 创建RAG数据库: {rag_file}")
+    print("包含的基因家族:")
+    for key, value in pfam_mapping.items():
+        print(f"  {key:15} -> {value}")
+
+if __name__ == "__main__":
+    create_rag_database()
+    add_rag_functionality()

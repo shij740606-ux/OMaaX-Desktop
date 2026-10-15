@@ -1,0 +1,303 @@
+record_metadata:
+  title: RNA-seq samples.yaml 权威设计与分析链路框架
+  date: "2026-07-29"
+  status: discussion_draft
+  runtime_authority: false
+  purpose: >-
+    记录远端项目新版 RNA-seq 业务逻辑，供主 Agent 理解与后续迁移对照使用；
+    本文件尚未经远端代码字段和运行阶段 ID 校验，不直接驱动分析。
+
+contract:
+  schema_version: rnaseq_business_contract_draft_v1
+  workflow_id: rnaseq_samples_authoritative_design
+  workflow_version: 0.1.0-draft
+  authoritative_inputs:
+    experiment_design: samples.yaml
+    genome_resources: config.xlsx
+  ownership:
+    main_agent:
+      - understand_user_request
+      - collect_missing_context
+      - handoff_normalized_request
+    intent_agent:
+      - identify_rnaseq_mode
+      - identify_requested_scope
+      - report_missing_information
+    planning_agent:
+      - select_existing_rnaseq_route
+      - produce_confirmable_plan
+    existing_rnaseq_pipeline:
+      - validate_inputs
+      - execute_confirmed_plan
+      - enforce_dependencies_and_gates
+      - emit_manifests_and_results
+
+analysis_modes:
+  whole_genome:
+    description: 使用全基因组定量结果进行差异表达及下游分析。
+    authoritative_design: samples.yaml
+  family_member:
+    description: >-
+      在全基因组 RNA-seq 共享差异分析结果上，使用已确认的基因家族成员进行投影，
+      不重新计算一套家族模式 DE。
+    required_evidence:
+      - successful_whole_genome_de
+      - exact_confirmed_family_members
+    prohibited_behavior:
+      - auto_select_first_final_members_file
+      - rerun_de_with_implicit_family_mode
+
+samples_yaml:
+  lifecycle:
+    - discover_from_uploaded_excel_or_fastq_names
+    - generate_draft
+    - user_review_and_revision
+    - user_confirmation
+    - project_confirmed_design_facts
+  confirmation_required: true
+  fields:
+    required:
+      sample_id:
+        type: string
+        description: 实验内唯一的样本名。
+      condition:
+        type: string
+        description: 处理、时间点或其他主要比较条件。
+      group_role:
+        type: enum
+        values:
+          - control
+          - compare
+          - ignore
+        description: 样本在当前比较中的角色。
+    optional:
+      genotype:
+        type: string
+      tissue:
+        type: string
+      time:
+        type: string_or_number
+      batch:
+        type: string
+      include:
+        type: boolean
+        default: true
+  validation:
+    - sample_ids_are_unique
+    - included_samples_have_required_fields
+    - each_requested_comparison_has_usable_samples
+    - control_and_compare_roles_are_not_ambiguous
+    - ignored_samples_do_not_enter_model
+
+design_selection:
+  policy:
+    authority: confirmed_samples_yaml
+    selection_must_be_explainable: true
+    user_visible_design_summary_required: true
+
+  M1:
+    name: simple_or_shared_baseline_design
+    applicable_when:
+      - ordinary_treatment_vs_control
+      - multiple_treatments_share_one_control
+      - timepoint_vs_baseline
+    comparison_generation:
+      ordinary: compare_each_compare_group_to_its_control
+      shared_control: compare_each_treatment_to_shared_control
+      timepoint: compare_each_timepoint_to_baseline
+    optional_global_test:
+      method: LRT
+      applicable_when: ordered_time_series_has_sufficient_samples
+      output: overall_time_effect_result
+
+  M2:
+    enabled: false
+    status: intentionally_skipped
+    reason: 本轮业务框架明确不纳入 M2。
+
+  M3:
+    name: stratified_treatment_or_time_design
+    applicable_when:
+      - treatment_comparison_stratified_by_genotype
+      - time_comparison_stratified_by_genotype
+      - treatment_comparison_stratified_by_tissue
+      - time_comparison_stratified_by_tissue
+    strata_fields:
+      - genotype
+      - tissue
+    comparison_generation: generate_valid_comparisons_within_each_stratum
+
+  M4:
+    name: genotype_by_treatment_interaction_design
+    applicable_when:
+      - genotype_and_condition_are_both_present
+      - full_interaction_cells_are_estimable
+    model_intent: genotype_plus_condition_plus_genotype_by_condition_interaction
+    outputs:
+      - genotype_main_effect
+      - treatment_main_effect
+      - genotype_by_treatment_interaction_effect
+
+  safe_fallback:
+    silent_fallback_prohibited: true
+    rules:
+      - from: M4
+        to: M3
+        when: interaction_not_estimable_but_stratified_comparisons_are_valid
+      - from: M4
+        to: M1
+        when: interaction_and_stratified_comparisons_are_not_estimable_but_simple_comparison_is_valid
+      - from: M3
+        to: M1
+        when: stratification_is_not_estimable_but_simple_comparison_is_valid
+    on_no_executable_design:
+      action: stop_before_execution
+      user_message_required: true
+    on_fallback:
+      user_message_required: true
+      report_fields:
+        - requested_design
+        - selected_design
+        - fallback_reason
+        - affected_comparisons
+
+batch_policy:
+  include_when:
+    - batch_field_is_present
+    - batch_has_at_least_two_usable_levels
+    - batch_is_estimable_with_selected_design
+  preferred_behavior: include_batch_effect_in_model
+  fallback_to_no_batch_when:
+    - batch_is_missing
+    - batch_has_only_one_usable_level
+    - batch_is_fully_confounded
+    - batch_cannot_be_estimated
+  silent_fallback_prohibited: true
+  user_visible_notice_required: true
+
+workflow:
+  preconditions:
+    - config_xlsx_confirmed
+    - samples_yaml_confirmed
+    - genome_resources_ready
+    - executable_design_selected
+  stages:
+    - logical_id: project_rna_facts
+      purpose: 将已确认的 samples.yaml、比较和模型投影为运行事实。
+      gate: confirmed_samples_yaml
+    - logical_id: rnaseq_qc
+      purpose: FASTQ 质控。
+      depends_on:
+        - project_rna_facts
+    - logical_id: rnaseq_align
+      purpose: 基因组比对。
+      depends_on:
+        - rnaseq_qc
+        - genome_resources_ready
+    - logical_id: rnaseq_quant
+      purpose: 基因定量。
+      depends_on:
+        - rnaseq_align
+    - logical_id: rnaseq_sample_qc
+      purpose: 样本相关性、PCA 及异常样本检查。
+      depends_on:
+        - rnaseq_quant
+    - logical_id: rnaseq_de
+      purpose: DESeq2 差异表达分析。
+      depends_on:
+        - rnaseq_sample_qc
+        - selected_design
+      outputs:
+        - deg_table_per_comparison
+        - ma_plot_per_comparison
+        - volcano_plot_per_comparison
+        - overall_time_lrt_when_applicable
+    - logical_id: rnaseq_go_enrich
+      purpose: 对显著 DEG 进行 GO 过度富集。
+      depends_on:
+        - rnaseq_de
+      gene_universe: significant_deg
+    - logical_id: rnaseq_kegg_enrich
+      purpose: 对显著 DEG 进行 KEGG 过度富集。
+      depends_on:
+        - rnaseq_de
+      gene_universe: significant_deg
+    - logical_id: rnaseq_fgsea
+      purpose: 对全部可排序表达基因进行 fgsea。
+      depends_on:
+        - rnaseq_de
+      gene_universe: all_rankable_expression_genes
+    - logical_id: expression_plot
+      purpose: 可选的表达可视化。
+      optional: true
+      depends_on:
+        - rnaseq_de
+    - logical_id: wgcna
+      purpose: 可选的共表达网络分析。
+      optional: true
+      depends_on:
+        - rnaseq_quant
+        - rnaseq_sample_qc
+    - logical_id: candidate_family
+      purpose: 可选的候选基因家族推荐与评分。
+      optional: true
+      depends_on:
+        - rnaseq_de
+        - rnaseq_go_enrich
+        - rnaseq_kegg_enrich
+        - rnaseq_fgsea
+
+result_semantics:
+  de:
+    required_summary:
+      - comparison_id
+      - tested_gene_count
+      - significant_deg_count
+      - upregulated_count
+      - downregulated_count
+      - thresholds
+    files:
+      - deg_tables
+      - ma_plots
+      - volcano_plots
+      - lrt_results_when_applicable
+  enrichment:
+    ora_input: significant_deg
+    fgsea_input: all_rankable_expression_genes
+    required_summary:
+      - comparison_id
+      - database
+      - tested_set_size
+      - significant_term_count
+      - top_terms
+      - thresholds
+  interpretation_boundary:
+    local_results_are_primary_evidence: true
+    rag_may_extend_biological_context: true
+    rag_must_not_replace_or_invent_local_statistics: true
+
+evidence_and_invalidation:
+  required_success_evidence:
+    - stage_manifest
+    - identity_matched_artifacts
+    - metrics_or_parseable_primary_results
+  rules:
+    - change: samples_or_include_or_group_role
+      invalidates_from: rnaseq_qc
+    - change: genome_resource_or_strandness
+      invalidates_from: rnaseq_align
+    - change: selected_design_or_batch_or_contrast
+      invalidates_from: rnaseq_de
+    - change: deg_threshold
+      invalidates_from:
+        - rnaseq_go_enrich
+        - rnaseq_kegg_enrich
+        - candidate_family
+    - change: ranking_metric
+      invalidates_from: rnaseq_fgsea
+
+runtime_mapping:
+  status: pending_remote_code_verification
+  note: >-
+    logical_id 是业务语义标识；在用于运行前，必须与远端项目实际 stage ID、
+    handler、Manifest 身份字段和 samples.yaml 字段逐项对照。

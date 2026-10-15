@@ -1,0 +1,1533 @@
+{
+  "genome_prepare": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "identify": {
+    "tools": [
+      "blastp",
+      "hmmsearch"
+    ],
+    "modules": [
+      "openpyxl",
+      "pandas",
+      "psutil"
+    ]
+  },
+  "identify_refine": {
+    "modules": []
+  },
+  "phylogeny": {
+    "tools": [
+      "iqtree",
+      "mafft"
+    ],
+    "modules": [
+      "Bio",
+      "openpyxl"
+    ],
+    "r": [
+      "Biostrings",
+      "RColorBrewer",
+      "ape",
+      "argparser",
+      "dplyr",
+      "ggplot2",
+      "ggtree",
+      "msa",
+      "tidytree"
+    ]
+  },
+  "motif": {
+    "tools": [
+      "meme"
+    ],
+    "modules": [
+      "Bio",
+      "openpyxl"
+    ],
+    "r": [
+      "RColorBrewer",
+      "ape",
+      "argparser",
+      "dplyr",
+      "ggnewscale",
+      "ggplot2",
+      "ggseqlogo",
+      "ggtree",
+      "tidytree",
+      "xml2"
+    ]
+  },
+  "domain": {
+    "tools": [
+      "interproscan"
+    ],
+    "modules": [
+      "Bio",
+      "openpyxl"
+    ],
+    "r": [
+      "RColorBrewer",
+      "ape",
+      "dplyr",
+      "ggnewscale",
+      "ggplot2",
+      "ggtree",
+      "tidytree"
+    ]
+  },
+  "synteny": {
+    "tools": [
+      "MCScanX",
+      "blastp"
+    ],
+    "modules": [
+      "matplotlib",
+      "openpyxl"
+    ]
+  },
+  "subfamily_confirm": {
+    "modules": [
+      "openpyxl"
+    ]
+  },
+  "ncbi_fetch_sequences": {
+    "services": [
+      "NCBI（当前隔离环境禁止联网）"
+    ],
+    "modules": [
+      "Bio"
+    ]
+  },
+  "sequence_extract_by_id": {
+    "modules": []
+  },
+  "msa_region_plot": {
+    "tools": [
+      "mafft"
+    ],
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "openpyxl",
+      "pandas"
+    ],
+    "r": [
+      "Biostrings",
+      "argparser",
+      "msa"
+    ]
+  },
+  "tree_plot_revise": {
+    "modules": [],
+    "r": [
+      "ape",
+      "ggplot2",
+      "ggtree",
+      "tidytree"
+    ]
+  },
+  "promoter_plot_revise": {
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "pandas"
+    ],
+    "r": [
+      "RColorBrewer",
+      "ape",
+      "tidyverse"
+    ]
+  },
+  "prepare_organize": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "prepare_normalize_gff": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "prepare_longest_transcript": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "prepare_extract_pep": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "prepare_extract_cds": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "prepare_filter_fasta": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "prepare_simplify_ncbi": {
+    "modules": [
+      "pandas"
+    ]
+  },
+  "reference_classification": {
+    "modules": [
+      "Bio",
+      "openpyxl"
+    ],
+    "r": [
+      "RColorBrewer",
+      "ape",
+      "dplyr",
+      "ggnewscale",
+      "ggplot2",
+      "ggtree",
+      "tidytree",
+      "xml2"
+    ]
+  },
+  "pep": {
+    "services": [
+      "ExPASy / DeepTMHMM / WoLF PSORT（当前隔离环境禁止联网）"
+    ],
+    "modules": [
+      "openpyxl"
+    ]
+  },
+  "interspecies_synteny": {
+    "tools": [
+      "MCScanX",
+      "blastp"
+    ],
+    "modules": [
+      "openpyxl",
+      "pandas"
+    ],
+    "r": [
+      "ape",
+      "dplyr",
+      "ggplot2",
+      "ggtree",
+      "tidytree"
+    ]
+  },
+  "structure": {
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "openpyxl",
+      "pandas"
+    ],
+    "r": [
+      "ape",
+      "dplyr",
+      "ggnewscale",
+      "ggplot2",
+      "ggtree",
+      "tidytree"
+    ]
+  },
+  "promoter": {
+    "modules": [
+      "Bio",
+      "certifi",
+      "matplotlib",
+      "openpyxl",
+      "pandas",
+      "requests"
+    ],
+    "r": [
+      "RColorBrewer",
+      "ape",
+      "ggbreak",
+      "ggnewscale",
+      "ggtree",
+      "magick",
+      "tidyverse",
+      "treeio"
+    ]
+  },
+  "tfbs": {
+    "modules": [
+      "Bio",
+      "certifi",
+      "matplotlib",
+      "networkx",
+      "openpyxl",
+      "pandas",
+      "requests",
+      "scipy",
+      "seaborn"
+    ],
+    "tools": [
+      "fimo"
+    ]
+  },
+  "ortholog": {
+    "tools": [
+      "blastp"
+    ],
+    "modules": []
+  },
+  "karyotype": {
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "openpyxl",
+      "pandas"
+    ],
+    "r": [
+      "ggplot2"
+    ]
+  },
+  "ppi": {
+    "modules": [
+      "pandas",
+      "requests"
+    ],
+    "r": [
+      "ggplot2",
+      "ggraph",
+      "igraph"
+    ]
+  },
+  "kaks": {
+    "tools": [
+      "KaKs_Calculator",
+      "mafft"
+    ],
+    "modules": [
+      "pandas"
+    ]
+  },
+  "combo": {
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "openpyxl",
+      "pandas"
+    ],
+    "r": [
+      "RColorBrewer",
+      "ape",
+      "dplyr",
+      "ggnewscale",
+      "ggplot2",
+      "ggtree",
+      "tidytree",
+      "xml2"
+    ]
+  },
+  "annotation": {
+    "modules": [],
+    "r": [
+      "AnnotationDbi",
+      "AnnotationHub",
+      "biomaRt"
+    ],
+    "tools": [
+      "interproscan",
+      "exec_annotation",
+      "hmmsearch"
+    ]
+  },
+  "gene_family_report": {
+    "modules": [
+      "requests",
+      "yaml"
+    ]
+  },
+  "synteny_plot_revise": {},
+  "msa": {
+    "tools": [
+      "mafft"
+    ],
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "openpyxl",
+      "pandas"
+    ],
+    "r": [
+      "Biostrings",
+      "argparser",
+      "msa"
+    ]
+  },
+  "rnaseq_qc": {
+    "tools": [
+      "fastp"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_align": {
+    "tools": [
+      "hisat2",
+      "samtools"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_quant": {
+    "tools": [
+      "featureCounts"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_sample_qc": {
+    "r": [
+      "DESeq2",
+      "ggplot2",
+      "pheatmap"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_de": {
+    "r": [
+      "DESeq2",
+      "ggplot2",
+      "pheatmap"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_go_enrich": {
+    "r": [
+      "clusterProfiler",
+      "ggplot2"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_wgcna": {
+    "r": [
+      "DESeq2",
+      "WGCNA",
+      "ggplot2",
+      "pheatmap"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "expression": {
+    "modules": [
+      "Bio",
+      "matplotlib",
+      "openpyxl",
+      "pandas",
+      "yaml"
+    ],
+    "r": [
+      "DESeq2",
+      "argparser",
+      "ggplot2",
+      "grid",
+      "pheatmap",
+      "tidyverse"
+    ]
+  },
+  "rnaseq_kegg_enrich": {
+    "r": [
+      "clusterProfiler",
+      "ggplot2"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_fgsea": {
+    "r": [
+      "fgsea"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "rnaseq_candidate_family": {
+    "modules": [
+      "pandas",
+      "yaml"
+    ],
+    "tools": [
+      "interproscan",
+      "exec_annotation",
+      "hmmsearch"
+    ]
+  },
+  "rnaseq_report": {
+    "modules": [
+      "yaml"
+    ]
+  },
+  "rnaseq_enrich": {
+    "r": [
+      "clusterProfiler"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "enrichment": {
+    "r": [
+      "clusterProfiler",
+      "ggplot2"
+    ],
+    "modules": [
+      "pandas",
+      "yaml"
+    ]
+  },
+  "singlecell_upstream": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_scrnaseq_4.2.0"
+    ]
+  },
+  "singlecell_analyze": {
+    "modules": [
+      "anndata",
+      "igraph",
+      "leidenalg",
+      "matplotlib",
+      "numpy",
+      "pandas",
+      "scanpy",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "singlecell_annotate": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "singlecell_pseudobulk": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "singlecell_de": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ],
+    "r": [
+      "DESeq2"
+    ]
+  },
+  "singlecell_enrich": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "spatial_segment": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_sopa_1.0.1"
+    ]
+  },
+  "spatial_export": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "spatial_analyze": {
+    "modules": [
+      "anndata",
+      "igraph",
+      "leidenalg",
+      "matplotlib",
+      "numpy",
+      "pandas",
+      "scanpy",
+      "scipy",
+      "spatialdata",
+      "squidpy",
+      "yaml"
+    ]
+  },
+  "spatial_enrich": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "metagenome_profile": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_taxprofiler_2.0.1"
+    ]
+  },
+  "metagenome_merge": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "metagenome_community": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ],
+    "r": [
+      "vegan",
+      "ggplot2"
+    ]
+  },
+  "metagenome_differential": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ],
+    "r": [
+      "ANCOMBC",
+      "vegan"
+    ]
+  },
+  "metagenome_mag": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_mag_5.5.0"
+    ]
+  },
+  "metagenome_summarize": {
+    "modules": [
+      "matplotlib",
+      "numpy",
+      "pandas",
+      "scipy",
+      "spatialdata",
+      "yaml"
+    ]
+  },
+  "singlecell_prepare": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_qc": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_doublets": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg",
+      "sklearn",
+      "skimage"
+    ]
+  },
+  "singlecell_normalize": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_pca": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_harmony": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg",
+      "harmonypy"
+    ]
+  },
+  "singlecell_embedding": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_cluster": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_markers": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_annotation": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_composition": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_bulk": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_gene_sets": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_communication": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_trajectory": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_plots": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "singlecell_report": {
+    "modules": []
+  },
+  "spatial_prepare": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_qc": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_normalize": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_pca": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_embedding": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_cluster": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_markers": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_annotation": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_composition": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_bulk": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_gene_sets": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_communication": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_neighbors": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg",
+      "squidpy"
+    ]
+  },
+  "spatial_domains": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_variable_genes": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg",
+      "squidpy"
+    ]
+  },
+  "spatial_neighborhood": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg",
+      "squidpy"
+    ]
+  },
+  "spatial_plots": {
+    "modules": [
+      "anndata",
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "scanpy",
+      "igraph",
+      "leidenalg"
+    ]
+  },
+  "spatial_report": {
+    "modules": []
+  },
+  "metagenome_prepare": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_composition": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_alpha": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_beta": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_heatmap": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_network": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_functional": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_mag_quality": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "metagenome_report": {
+    "modules": []
+  },
+  "atacseq_upstream": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_atacseq_2.1.2"
+    ]
+  },
+  "atacseq_regions": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "atacseq_count": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "featureCounts"
+    ]
+  },
+  "atacseq_sample_qc": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "atacseq_differential": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "r": [
+      "DESeq2"
+    ]
+  },
+  "atacseq_annotation": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "atacseq_motifs": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "ame",
+      "bedtools"
+    ]
+  },
+  "atacseq_coverage": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "computeMatrix",
+      "plotHeatmap",
+      "plotProfile"
+    ]
+  },
+  "atacseq_report": {
+    "modules": []
+  },
+  "chipseq_upstream": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_chipseq_2.1.0"
+    ]
+  },
+  "chipseq_regions": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "chipseq_count": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "featureCounts"
+    ]
+  },
+  "chipseq_sample_qc": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "chipseq_differential": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "r": [
+      "DESeq2"
+    ]
+  },
+  "chipseq_annotation": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "chipseq_motifs": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "ame",
+      "bedtools"
+    ]
+  },
+  "chipseq_coverage": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "computeMatrix",
+      "plotHeatmap",
+      "plotProfile"
+    ]
+  },
+  "chipseq_report": {
+    "modules": []
+  },
+  "cutandrun_upstream": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_cutandrun_3.2.2"
+    ]
+  },
+  "cutandrun_regions": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "cutandrun_count": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "featureCounts"
+    ]
+  },
+  "cutandrun_sample_qc": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "cutandrun_differential": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "r": [
+      "DESeq2"
+    ]
+  },
+  "cutandrun_annotation": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "cutandrun_motifs": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "ame",
+      "bedtools"
+    ]
+  },
+  "cutandrun_coverage": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "tools": [
+      "computeMatrix",
+      "plotHeatmap",
+      "plotProfile"
+    ]
+  },
+  "cutandrun_report": {
+    "modules": []
+  },
+  "methylseq_upstream": {
+    "tools": [
+      "java",
+      "nextflow"
+    ],
+    "modules": [
+      "yaml"
+    ],
+    "processEnvironments": [
+      "upstream_sources/nf-core_methylseq_4.2.0"
+    ]
+  },
+  "methylseq_coverage_qc": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "methylseq_dmr": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "r": [
+      "DSS"
+    ]
+  },
+  "methylseq_annotation": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "methylseq_report": {
+    "modules": []
+  },
+  "atacseq_enrich": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "chipseq_enrich": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "cutandrun_enrich": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "methylseq_sample_qc": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "methylseq_heatmap": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "methylseq_enrich": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ]
+  },
+  "singlecell_group_de": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "r": [
+      "DESeq2"
+    ]
+  },
+  "spatial_group_de": {
+    "modules": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib"
+    ],
+    "r": [
+      "DESeq2"
+    ]
+  }
+}

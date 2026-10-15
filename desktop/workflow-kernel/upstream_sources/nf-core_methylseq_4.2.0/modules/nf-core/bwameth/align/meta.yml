@@ -1,0 +1,76 @@
+name: bwameth_align
+description: Performs alignment of BS-Seq reads using bwameth
+keywords:
+  - bwameth
+  - alignment
+  - 3-letter genome
+  - map
+  - methylation
+  - 5mC
+  - methylseq
+  - bisulphite
+  - bisulfite
+  - fastq
+  - bam
+tools:
+  - bwameth:
+      description: |
+        Fast and accurate alignment of BS-Seq reads
+        using bwa-mem and a 3-letter genome.
+      homepage: https://github.com/brentp/bwa-meth
+      documentation: https://github.com/brentp/bwa-meth
+      arxiv: arXiv:1401.1129
+      licence: ["MIT"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test', single_end:false ]
+    - reads:
+        type: file
+        description: |
+          List of input FastQ files of size 1 and 2 for single-end and paired-end data,
+          respectively.
+        ontologies: []
+  - - meta2:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test', single_end:false ]
+    - fasta:
+        type: file
+        description: Input genome fasta file
+        ontologies: []
+  - - meta3:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test', single_end:false ]
+    - index:
+        type: directory
+        description: Directory containing bwameth genome index
+output:
+  bam:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.bam":
+          type: file
+          description: Output BAM file containing read alignments
+          pattern: "*.{bam}"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@phue"
+maintainers:
+  - "@phue"

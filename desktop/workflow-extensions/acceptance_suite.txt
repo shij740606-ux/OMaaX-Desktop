@@ -1,0 +1,65 @@
+import json,pathlib,importlib.util,time,sys,sqlite3,subprocess,hashlib,os,shutil,random
+base=pathlib.Path('SERVER_SCOPE');s=importlib.util.spec_from_file_location('expanded_worker',base/'worker.py');r=importlib.util.module_from_spec(s);s.loader.exec_module(r);w=sys.modules['workflow_engine'];e=sys.modules['workflow_environments']
+old=sqlite3.connect('file:/home/xzq/omaax-auto-environment-20261014-47f11d0a/control/state.sqlite?mode=ro',uri=True)
+previous={k:json.loads(v) for k,v in old.execute('select key,value from config')};old.close()
+r.dispatch({'action':'configure','body':{'sources':{},'images':previous['images']}})
+db=r.database();db.execute('INSERT OR REPLACE INTO config VALUES(?,?)',('workflowEnvironments',json.dumps(previous['workflowEnvironments'])));db.commit();shutil.copyfile(base/'desktop/resources/workflows/kernel.zip',w.bundle_path(r))
+image=previous['workflowEnvironments']['singlecell']['image'];rna=previous['workflowEnvironments']['rnaseq']['image']
+data=base/'synthetic-inputs';data.mkdir(mode=0o700)
+fixture='''import anndata as ad,numpy as np,pandas as pd,pathlib
+p=pathlib.Path('/fixtures');rng=np.random.default_rng(81)
+for sample in range(4):
+ x=rng.poisson(2,(80,180)).astype(float);x[:40,:30]+=rng.poisson(8,(40,30));x[40:,30:60]+=rng.poisson(8,(40,30))
+ if sample>=2:x[:,80:100]+=rng.poisson(4,(80,20))
+ a=ad.AnnData(x);a.var_names=['g'+str(i) for i in range(180)];a.obs_names=['c'+str(i) for i in range(80)];a.obs['truth_type']=['A' if i<40 else 'B' for i in range(80)];a.layers['counts']=x.copy();a.obsm['spatial']=np.array([[i%10,i//10] for i in range(80)],dtype=float);a.write_h5ad(p/('s'+str(sample)+'.h5ad'))
+pd.DataFrame([('s'+str(i),str(p/('s'+str(i)+'.h5ad')),'D'+str(i),'C' if i<2 else 'T','b'+str(i%2)) for i in range(4)],columns=['sample_id','path','donor','group','batch']).to_csv(p/'samples.csv',index=False)
+'''
+subprocess.run(['podman','run','--rm','-i','--pull=never','--network=none','--userns=keep-id','--user',str(os.getuid())+':'+str(os.getgid()),'--cpus=2','--memory=4096m','--volume',str(data)+':/fixtures:rw',image,'python3','-'],input=fixture,text=True,check=True)
+# Rewrite only our own synthetic sample table to account-visible file paths.
+sampletable=(data/'samples.csv').read_text().replace('/fixtures/',str(data)+'/');(data/'samples.csv').write_text(sampletable)
+(data/'annotation.csv').write_text('cluster,cell_type\n'+''.join(str(i)+',type'+str(i)+'\n' for i in range(30)))
+(data/'lr.csv').write_text('ligand,receptor\ng1,g32\ng2,g31\n')
+(data/'sets.gmt').write_text('set1\tsynthetic\t'+'\t'.join('g'+str(i) for i in range(30))+'\nset2\tsynthetic\t'+'\t'.join('g'+str(i) for i in range(50,90))+'\n')
+(data/'selected.txt').write_text('\n'.join('g'+str(i) for i in range(20)))
+(data/'universe.txt').write_text('\n'.join('g'+str(i) for i in range(180)))
+random.seed(31);names=['C1','C2','C3','T1','T2','T3']
+(data/'abundance.tsv').write_text('feature\t'+'\t'.join(names)+'\n'+''.join('region_'+str(i+1)+'\t'+'\t'.join(str(random.randint(10,200)*(3 if i<15 and name.startswith('T') else 1)) for name in names)+'\n' for i in range(120)))
+(data/'community.csv').write_text('sample_id,group\n'+''.join(name+','+name[0]+'\n' for name in names))
+(data/'peaks.bed').write_text('chr1\t20\t80\nchr1\t60\t100\nchr1\t500\t650\n')
+(data/'genes.gtf').write_text('chr1\ttest\tgene\t1\t150\t.\t+\t.\tgene_id "g1";\nchr1\ttest\tgene\t400\t800\t.\t-\t.\tgene_id "g2";\n')
+(data/'mag.tsv').write_text('bin\tcompleteness\tcontamination\na\t95\t2\nb\t40\t12\n')
+for name in names:(data/(name+'.cov')).write_text(''.join('chr1\t'+str(10*i+1)+'\t'+str(10*i+1)+'\t50\t'+str(random.randint(5,18))+'\t'+str(random.randint(5,18))+'\n' for i in range(100)))
+(data/'methyl.csv').write_text('sample_id,path,group\n'+''.join(name+','+str(data/(name+'.cov'))+','+name[0]+'\n' for name in names))
+original={str(p):w.file_hash(p) for p in data.rglob('*') if p.is_file()}
+evidence={'scope':str(base),'finished':False,'cases':[],'fullRawSequencingWorkflowsTested':False,'productionDataUsed':False}
+def save():(base/'evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
+def wait(job):
+ deadline=time.time()+2100
+ while time.time()<deadline:
+  row=r.database().execute('SELECT state,detail FROM jobs WHERE id=?',(job,)).fetchone()
+  if row['state'] not in ('queued','running'):return dict(row)
+  time.sleep(3)
+ raise RuntimeError('isolated job timeout')
+def run(name,flow,steps,configs,stageimages=None):
+ row={'name':name,'workflow':flow,'state':'preparing'};evidence['cases'].append(row);save()
+ try:
+  w.dispatch(r,'workflow_environment',{'workflow':flow,'image':image})
+  for sid,im in (stageimages or {}).items():w.dispatch(r,'workflow_environment',{'workflow':flow,'step':sid,'image':im})
+  body={'workflow':flow,'input':str(data),'steps':steps,'configs':configs,'cpu':2,'memoryMb':8192,'timeoutSeconds':1800,'prefix':'synthetic_acceptance','context':{'projectId':'expanded-tests','projectName':'独立扩展测试','sessionId':flow+'-test','sessionName':name}}
+  proposal=w.dispatch(r,'workflow_plan',body);row.update(id=proposal['plan']['id'],state='submitted');save();w.dispatch(r,'workflow_confirm',{'id':row['id'],'digest':proposal['digest']});row.update(wait(row['id']));result=w.dispatch(r,'workflow_result',{'id':row['id']});row.update(fileCount=result['fileCount'],steps=result['steps'],error=result.get('error'));row['log']=r.dispatch({'action':'logs','body':{'id':row['id']}})['text'][-4500:]
+ except Exception as error:row.update(state='failed',error=str(error))
+ save()
+for flow in ['singlecell','spatial']:
+ chosen=[s['id'] for s in w.flow_for(flow)['nodes'] if not s.get('contract',{}).get('upstream')]
+ configs={flow+'_prepare':{'samples':str(data/'samples.csv')},flow+'_qc':{'min_genes':1,'min_counts':1,'min_cells_per_gene':1},flow+'_normalize':{'n_hvg':100},flow+'_pca':{'n_pcs':10},flow+'_annotation':{'annotations':str(data/'annotation.csv')},flow+'_gene_sets':{'gmt':str(data/'sets.gmt')},flow+'_communication':{'ligand_receptor':str(data/'lr.csv'),'n_permutations':9},flow+'_bulk':{'min_cells':1,'groupby':'truth_type'},flow+'_group_de':{'control':'C','treated':'T','cell_type':'A'}}
+ if flow=='singlecell':
+  chosen.remove('singlecell_doublets');configs['singlecell_trajectory']={'root_group':'0'}
+ else:configs.update(spatial_variable_genes={'n_permutations':9},spatial_neighborhood={'n_permutations':9})
+ run(flow+'_full_downstream',flow,chosen,configs,{flow+'_group_de':rna})
+run('metagenome_downstream','metagenome',['metagenome_prepare','metagenome_composition','metagenome_alpha','metagenome_beta','metagenome_heatmap','metagenome_network','metagenome_functional','metagenome_mag_quality','metagenome_report'],{'metagenome_prepare':{'abundance':str(data/'abundance.tsv'),'samples':str(data/'community.csv')},'metagenome_functional':{'abundance':str(data/'abundance.tsv')},'metagenome_mag_quality':{'quality_table':str(data/'mag.tsv')}})
+for flow in ['atacseq','chipseq','cutandrun']:
+ run(flow+'_downstream',flow,[flow+'_regions',flow+'_sample_qc',flow+'_differential',flow+'_annotation',flow+'_enrich',flow+'_report'],{flow+'_regions':{'peaks':str(data/'peaks.bed')},flow+'_sample_qc':{'counts':str(data/'abundance.tsv')},flow+'_differential':{'counts':str(data/'abundance.tsv'),'samples':str(data/'community.csv'),'control':'C','treated':'T'},flow+'_annotation':{'gtf':str(data/'genes.gtf')},flow+'_enrich':{'selected':str(data/'selected.txt'),'universe':str(data/'universe.txt'),'gmt':str(data/'sets.gmt')}},{flow+'_differential':rna})
+run('methylation_downstream','methylseq',['methylseq_coverage_qc','methylseq_sample_qc','methylseq_heatmap','methylseq_enrich','methylseq_report'],{'methylseq_coverage_qc':{'samples':str(data/'methyl.csv')},'methylseq_enrich':{'selected':str(data/'selected.txt'),'universe':str(data/'universe.txt'),'gmt':str(data/'sets.gmt')}})
+with (base/'unit-tests.log').open('wb') as log:
+ unit=subprocess.run(['python3','-B','-m','unittest','discover','-s','desktop/resources/ssh','-p','*test.py'],cwd=base,stdout=log,stderr=subprocess.STDOUT)
+evidence.update(inputsUnchanged=all(w.file_hash(pathlib.Path(p))==value for p,value in original.items()),linuxUnitTestsPassed=unit.returncode==0,finished=True);save()

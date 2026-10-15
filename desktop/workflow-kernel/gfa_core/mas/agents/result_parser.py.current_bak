@@ -1,0 +1,1279 @@
+"""
+ResultParserAgent V3 - 结果解析、验证与生物解读
+自动解析分析结果，验证质量，生成生物解读报告
+"""
+import json
+import re
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Tuple
+from dataclasses import dataclass
+from datetime import datetime
+from .base import AgentMessage, AgentState, BaseAgent
+from gfa_core.mas.llm import LLMManager
+from gfa_core.mas.prompts.prompt_builder import build_result_parser_prompt
+from gfa_core.mas.llm.model_selector import TaskType, select_model_for_task
+
+
+@dataclass
+class ValidationResult:
+    """验证结果"""
+    rule_name: str
+    passed: bool
+    message: str
+    severity: str
+    details: Dict = None
+
+
+class ResultParserAgent(BaseAgent):
+    """
+    结果解析Agent V3
+    
+    功能：
+    1. 解析manifest.json提取关键信息
+    2. 验证分析结果质量
+    3. 生成生物解读
+    4. 生成Markdown格式综合报告
+    """
+    name = "result_parser"
+    role = "Result Parsing, Validation and Biological Interpretation Specialist"
+    
+    # 各阶段预期输出文件（从Validator整合）
+    EXPECTED_OUTPUTS = {
+        "identify": [
+            "{prefix}.final_members.id",
+            "{prefix}.final_members.pep.fa",
+            "{prefix}.identify.manifest.json",
+            "{prefix}.identify_report.md"
+        ],
+        "phylogeny": [
+            "{prefix}.tree.nwk",
+            "{prefix}.phylogeny.manifest.json",
+            "{prefix}.phylogeny_report.md"
+        ],
+        "pep": [
+            "{prefix}.pep.manifest.json",
+            "{prefix}.pep_properties.tsv",
+            "{prefix}.pep_report.md"
+        ],
+        "motif": [
+            "{prefix}.motif.manifest.json",
+            "{prefix}.motif_report.md"
+        ],
+        "domain": [
+            "{prefix}.domain.manifest.json",
+            "{prefix}.domain_report.md"
+        ],
+        "structure": [
+            "{prefix}.structure.manifest.json"
+        ],
+        "promoter": [
+            "{prefix}.promoter.manifest.json",
+            "{prefix}.promoter_report.md"
+        ],
+        "synteny": [
+            "{prefix}.synteny.manifest.json",
+            "{prefix}.synteny_report.md"
+        ],
+        "karyotype": [
+            "{prefix}.karyotype.manifest.json",
+            "{prefix}.karyotype.png"
+        ],
+        "expression": [
+            "{prefix}.expression.manifest.json"
+        ],
+        "kaks": [
+            "{prefix}.kaks.manifest.json",
+            "{prefix}.kaks_results.csv",
+            "{prefix}.kaks_plots.pdf"
+        ],
+        "ppi": [
+            "{prefix}.ppi.manifest.json",
+            "{prefix}.ppi_network.tsv"
+        ]
+    }
+    
+    # 数据合理性阈值（从Validator整合）
+    THRESHOLDS = {
+        "identify": {
+            "min_genes": 1,
+            "max_genes": 1000,
+            "max_time": 3600
+        },
+        "phylogeny": {
+            "max_time": 7200
+        }
+    }
+    
+    # 已知基因家族规模参考（用于生物解读）
+    GENE_FAMILY_REFERENCES = {
+        "SPL": {"min": 10, "max": 50, "typical": 20, "description": "SPL转录因子家族"},
+        "NAC": {"min": 100, "max": 200, "typical": 150, "description": "NAC转录因子家族"},
+        "WRKY": {"min": 30, "max": 100, "typical": 60, "description": "WRKY转录因子家族"},
+        "MYB": {"min": 50, "max": 200, "typical": 100, "description": "MYB转录因子家族"},
+        "bHLH": {"min": 80, "max": 200, "typical": 120, "description": "bHLH转录因子家族"},
+        "NBS": {"min": 50, "max": 500, "typical": 150, "description": "NBS-LRR抗病基因家族"},
+        "LEA": {"min": 20, "max": 100, "typical": 50, "description": "LEA蛋白家族"},
+        "HSP": {"min": 30, "max": 150, "typical": 80, "description": "热激蛋白家族"},
+        "default": {"min": 10, "max": 100, "typical": 30, "description": "一般基因家族"}
+    }
+    
+    def __init__(self, llm_manager: LLMManager):
+        super().__init__(llm_manager)
+        self.parsed_results: List[Dict] = []
+    
+    async def execute(self, state: AgentState, message: AgentMessage) -> AgentState:
+        """执行结果解析、验证与解读"""
+        print(f"[ResultParserAgent] 开始解析、验证与解读...")
+        
+        # 获取执行结果
+        execution_results = state.results.get("execution_results", [])
+        if execution_results:
+            last_execution = execution_results[-1] if isinstance(execution_results, list) else {}
+            execution_result = last_execution.get("result", {}) if isinstance(last_execution, dict) else {}
+            stage = last_execution.get("stage", message.payload.get("stage", "unknown"))
+        else:
+            execution_result = state.results.get("execution_result", {})
+            stage = message.payload.get("stage", "unknown")
+        
+        prefix = message.payload.get("prefix", "")
+        workspace = message.payload.get("workspace", "")
+        gene_family = message.payload.get("gene_family", "")
+        organism = message.payload.get("organism", "")
+        
+        if not execution_result:
+            state.results["parsed_report"] = {"error": "No execution result to parse"}
+            return state
+        
+        # 1. 解析结果
+        parsed = await self._parse_result(stage, execution_result)
+        
+        # 2. 验证结果
+        validation_results = await self._validate_stage(stage, prefix, workspace, execution_result)
+        validation_report = self._generate_validation_report(stage, validation_results)
+        
+        # 3. 生成生物解读
+        biological_interpretation = await self._generate_biological_interpretation(stage, parsed, gene_family, organism)
+        
+        # 4. 生成综合报告
+        report = await self._generate_report(stage, parsed, validation_report, biological_interpretation)
+        
+        # 更新状态
+        state.results["parsed_report"] = report
+        state.results["parsed_summary"] = parsed.get("summary", {})
+        state.results["validation_report"] = validation_report
+        state.results["validation_passed"] = validation_report.get("overall_passed", False)
+        state.results["biological_interpretation"] = biological_interpretation
+        
+        state.messages.append({
+            "role": "result_parser",
+            "content": f"📊 结果解析完成: {report.get('title', stage)}",
+        })
+        
+        return state
+    
+    def _get_manifest(self, execution_result: Dict) -> Dict:
+        """统一获取manifest的方法
+        
+        优先从manifest_path读取文件，如果不存在则从execution_result获取
+        """
+        import json
+        from pathlib import Path
+        
+        # 优先从manifest_path读取
+        manifest_path = execution_result.get("manifest_path", "")
+        if manifest_path:
+            try:
+                manifest_file = Path(manifest_path)
+                if manifest_file.exists():
+                    with open(manifest_file, 'r') as f:
+                        return json.load(f)
+            except Exception as e:
+                print(f"[ResultParser] 从文件读取manifest失败: {e}")
+        
+        # 回退到execution_result中的manifest
+        return execution_result.get("manifest") or {}
+    
+    async def _parse_result(self, stage: str, execution_result: Dict) -> Dict:
+        """解析执行结果"""
+        manifest = self._get_manifest(execution_result)
+        
+        parsed = {
+            "stage": stage,
+            "status": execution_result.get("status", "unknown"),
+            "execution_time": self._format_duration(manifest.get("elapsed_sec", 0)),
+            "timestamp": manifest.get("timestamp", ""),
+            "tool_versions": manifest.get("tool_versions", {}),
+            "metrics": self._extract_metrics(manifest),
+            "artifacts": self._extract_artifacts(manifest),
+            "inputs": manifest.get("inputs", []),
+            "parameters": manifest.get("parameters", {}),
+            "summary": {},
+            "parsed_data": {}
+        }
+        
+        parsed["summary"] = self._generate_summary(stage, parsed)
+        parsed["parsed_data"] = await self._parse_data_files(stage, manifest)
+        
+        return parsed
+    
+    async def _validate_stage(self, stage: str, prefix: str, 
+                             workspace: str, execution_result: Dict) -> List[ValidationResult]:
+        """验证单个阶段"""
+        results = []
+        
+        # 1. 检查执行状态
+        status = execution_result.get("status", "unknown")
+        results.append(ValidationResult(
+            rule_name="execution_status",
+            passed=status in ["success", "partial_success"],
+            message=f"执行状态: {status}",
+            severity="error" if status not in ["success", "partial_success"] else "info",
+            details={"status": status}
+        ))
+        
+        if status not in ["success", "partial_success"]:
+            return results
+        
+        # 2. 检查输出文件
+        file_results = self._check_output_files(stage, prefix, workspace)
+        results.extend(file_results)
+        
+        # 3. 检查数据合理性
+        manifest = self._get_manifest(execution_result)
+        data_results = self._check_data_validity(stage, manifest)
+        results.extend(data_results)
+        
+        # 4. 检查执行时间
+        time_results = self._check_execution_time(stage, manifest)
+        results.extend(time_results)
+        
+        # 5. 检查manifest完整性
+        manifest_results = self._check_manifest_integrity(manifest)
+        results.extend(manifest_results)
+        
+        return results
+    
+    def _check_output_files(self, stage: str, prefix: str, workspace: str) -> List[ValidationResult]:
+        """检查输出文件"""
+        results = []
+        expected_files = self.EXPECTED_OUTPUTS.get(stage, [])
+        final_dir = Path(workspace) / "final" if workspace else Path(".")
+        
+        missing_files = []
+        present_files = []
+        
+        for file_pattern in expected_files:
+            file_name = file_pattern.format(prefix=prefix)
+            file_path = final_dir / file_name
+            
+            if file_path.exists():
+                present_files.append({"name": file_name, "size": file_path.stat().st_size})
+            else:
+                missing_files.append(file_name)
+        
+        if missing_files:
+            results.append(ValidationResult(
+                rule_name="required_files",
+                passed=False,
+                message=f"缺少 {len(missing_files)} 个必需输出文件",
+                severity="error",
+                details={"missing": missing_files, "present": present_files}
+            ))
+        else:
+            results.append(ValidationResult(
+                rule_name="required_files",
+                passed=True,
+                message=f"所有 {len(expected_files)} 个必需输出文件已生成",
+                severity="info",
+                details={"present": present_files}
+            ))
+        
+        return results
+    
+    def _check_data_validity(self, stage: str, manifest: Dict) -> List[ValidationResult]:
+        """检查数据合理性"""
+        results = []
+        metrics = manifest.get("metrics", {})
+        thresholds = self.THRESHOLDS.get(stage, {})
+        
+        if stage == "identify":
+            final_members = metrics.get("final_members", 0)
+            candidates = metrics.get("candidates", 0)
+            
+            # 检查最小基因数
+            min_genes = thresholds.get("min_genes", 1)
+            if final_members < min_genes:
+                results.append(ValidationResult(
+                    rule_name="min_genes",
+                    passed=False,
+                    message=f"基因数过少: {final_members} < {min_genes}",
+                    severity="warning",
+                    details={"final_members": final_members, "min": min_genes}
+                ))
+            else:
+                results.append(ValidationResult(
+                    rule_name="min_genes",
+                    passed=True,
+                    message=f"基因数正常: {final_members}",
+                    severity="info",
+                    details={"final_members": final_members}
+                ))
+            
+            # 检查最大基因数
+            max_genes = thresholds.get("max_genes", 1000)
+            if final_members > max_genes:
+                results.append(ValidationResult(
+                    rule_name="max_genes",
+                    passed=False,
+                    message=f"基因数过多: {final_members} > {max_genes}",
+                    severity="warning",
+                    details={"final_members": final_members, "max": max_genes}
+                ))
+            
+            # 检查过滤率
+            if candidates > 0:
+                filter_rate = (candidates - final_members) / candidates
+                if filter_rate > 0.9:
+                    results.append(ValidationResult(
+                        rule_name="filter_rate",
+                        passed=False,
+                        message=f"过滤率过高: {filter_rate:.1%}",
+                        severity="warning",
+                        details={"candidates": candidates, "final": final_members, "filter_rate": filter_rate}
+                    ))
+                else:
+                    results.append(ValidationResult(
+                        rule_name="filter_rate",
+                        passed=True,
+                        message=f"过滤率正常: {filter_rate:.1%}",
+                        severity="info",
+                        details={"candidates": candidates, "final": final_members, "filter_rate": filter_rate}
+                    ))
+        
+        return results
+    
+    def _check_execution_time(self, stage: str, manifest: Dict) -> List[ValidationResult]:
+        """检查执行时间"""
+        results = []
+        elapsed = manifest.get("elapsed_sec", 0)
+        thresholds = self.THRESHOLDS.get(stage, {})
+        max_time = thresholds.get("max_time", 3600)
+        
+        if elapsed > max_time:
+            results.append(ValidationResult(
+                rule_name="execution_time",
+                passed=False,
+                message=f"执行时间过长: {elapsed:.1f}s > {max_time}s",
+                severity="warning",
+                details={"elapsed": elapsed, "max": max_time}
+            ))
+        else:
+            results.append(ValidationResult(
+                rule_name="execution_time",
+                passed=True,
+                message=f"执行时间正常: {elapsed:.1f}s",
+                severity="info",
+                details={"elapsed": elapsed}
+            ))
+        
+        return results
+    
+    def _check_manifest_integrity(self, manifest: Dict) -> List[ValidationResult]:
+        """检查manifest完整性"""
+        results = []
+        
+        required_fields = ["manifest_version", "stage", "status", "timestamp"]
+        missing_fields = [f for f in required_fields if f not in manifest]
+        
+        if missing_fields:
+            results.append(ValidationResult(
+                rule_name="manifest_fields",
+                passed=False,
+                message=f"Manifest缺少字段: {missing_fields}",
+                severity="error",
+                details={"missing": missing_fields}
+            ))
+        else:
+            results.append(ValidationResult(
+                rule_name="manifest_fields",
+                passed=True,
+                message="Manifest字段完整",
+                severity="info"
+            ))
+        
+        return results
+    
+    def _generate_validation_report(self, stage: str, results: List[ValidationResult]) -> Dict:
+        """生成验证报告"""
+        passed_count = sum(1 for r in results if r.passed)
+        total_count = len(results)
+        
+        errors = [r for r in results if not r.passed and r.severity == "error"]
+        warnings = [r for r in results if not r.passed and r.severity == "warning"]
+        
+        overall_passed = len(errors) == 0
+        score = (passed_count / total_count * 100) if total_count > 0 else 0
+        
+        if overall_passed and len(warnings) == 0:
+            summary = "✅ 验证通过，所有检查项正常"
+        elif overall_passed:
+            summary = f"⚠️ 验证通过，但有 {len(warnings)} 个警告"
+        else:
+            summary = f"❌ 验证失败，发现 {len(errors)} 个错误"
+        
+        return {
+            "stage": stage,
+            "overall_passed": overall_passed,
+            "score": round(score, 1),
+            "summary": summary,
+            "total_checks": total_count,
+            "passed_checks": passed_count,
+            "errors": [{"rule": r.rule_name, "message": r.message, "details": r.details} for r in errors],
+            "warnings": [{"rule": r.rule_name, "message": r.message, "details": r.details} for r in warnings],
+            "details": [{"rule": r.rule_name, "passed": r.passed, "message": r.message, "severity": r.severity} for r in results]
+        }
+    
+    async def _generate_biological_interpretation(self, stage: str, parsed: Dict, gene_family: str, organism: str) -> Dict:
+        """生成生物解读（使用Prompt Builder + LLM）"""
+        interpretation = {
+            "stage": stage,
+            "gene_family": gene_family,
+            "organism": organism,
+            "findings": [],
+            "significance": "",
+            "recommendations": [],
+            "llm_prompt": "",
+            "llm_response": ""
+        }
+        
+        metrics = parsed.get("metrics", {})
+        
+        # 构建结果数据
+        results = {
+            "member_count": metrics.get("final_members", 0),
+            "reference_count": self.GENE_FAMILY_REFERENCES.get(gene_family.upper(), self.GENE_FAMILY_REFERENCES["default"]).get("typical", 20)
+        }
+        
+        # 用户假设
+        user_hypothesis = f"{gene_family}家族在{organism}中发生扩张" if results["member_count"] > results["reference_count"] * 1.5 else None
+        
+        # 构建Prompt
+        try:
+            prompt = build_result_parser_prompt(
+                stage_key="gene_identification",
+                results=results,
+                user_hypothesis=user_hypothesis
+            )
+            interpretation["llm_prompt"] = prompt
+        except Exception as e:
+            print(f"[ResultParser] 构建Prompt失败: {e}")
+            interpretation["llm_prompt"] = ""
+            return interpretation
+        
+        # 调用 LLM 生成解读
+        try:
+            # 构建消息
+            messages = [
+                {"role": "system", "content": "你是专业的生物信息学分析专家，擅长基因家族分析。请根据提供的数据和示例格式，生成专业的生物解读。"},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # 选择模型
+            model_config = select_model_for_task(TaskType.ANALYSIS)
+            provider = model_config.get("provider", "ollama")
+            model = model_config.get("model", "qwen2.5:14b")
+            
+            print(f"[ResultParser] 使用模型: {provider}/{model}")
+            
+            # 调用 LLM
+            llm_response = await self.llm_manager.acall(
+                messages=messages,
+                provider=provider,
+                model=model,
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            interpretation["llm_response"] = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
+            
+            # 解析 LLM 输出
+            self._parse_llm_response(interpretation["llm_response"], interpretation)
+            
+        except Exception as e:
+            print(f"[ResultParser] LLM调用失败: {e}")
+            # LLM 失败时使用 fallback 逻辑
+            self._generate_fallback_interpretation(stage, metrics, gene_family, interpretation)
+        
+        return interpretation
+    
+    def _parse_llm_response(self, response: str, interpretation: Dict) -> None:
+        """解析 LLM 响应，提取结构化数据"""
+        # 提取 【解读】
+        interpretation_match = re.search(r'【解读】\s*(.+?)(?=【假设验证】|$)', response, re.DOTALL)
+        if interpretation_match:
+            interpretation["findings"] = [interpretation_match.group(1).strip()]
+        
+        # 提取 【假设验证】
+        hypothesis_match = re.search(r'【假设验证】\s*(.+?)(?=【建议】|$)', response, re.DOTALL)
+        if hypothesis_match:
+            interpretation["significance"] = hypothesis_match.group(1).strip()
+        
+        # 提取 【建议】
+        recommendation_match = re.search(r'【建议】\s*(.+?)(?=【|$)', response, re.DOTALL)
+        if recommendation_match:
+            rec_text = recommendation_match.group(1).strip()
+            # 分割多条建议
+            recs = [r.strip() for r in rec_text.split('\n') if r.strip()]
+            interpretation["recommendations"] = recs
+    
+    def _generate_fallback_interpretation(self, stage: str, metrics: Dict, gene_family: str, interpretation: Dict) -> None:
+        """LLM 失败时的 fallback 逻辑"""
+        final_members = metrics.get("final_members", 0)
+        
+        # 获取基因家族参考信息
+        gf_ref = self.GENE_FAMILY_REFERENCES.get(gene_family.upper(), self.GENE_FAMILY_REFERENCES["default"])
+        
+        # 生成发现
+        if final_members < gf_ref["min"]:
+            interpretation["findings"] = [f"鉴定到的基因数量({final_members})低于{gene_family}家族典型范围({gf_ref['min']}-{gf_ref['max']})"]
+            interpretation["significance"] = "基因数量偏少，可能存在鉴定参数过于严格或基因丢失的情况"
+        elif final_members > gf_ref["max"]:
+            interpretation["findings"] = [f"鉴定到的基因数量({final_members})高于{gene_family}家族典型范围({gf_ref['min']}-{gf_ref['max']})"]
+            interpretation["significance"] = "基因数量偏多，可能存在基因家族扩张或假阳性"
+        else:
+            interpretation["findings"] = [f"鉴定到{final_members}个基因，符合{gene_family}家族典型规模"]
+            interpretation["significance"] = "基因家族规模正常，建议进行后续分析"
+        
+        # 生成建议
+        interpretation["recommendations"] = [
+            f"建议进行系统发育分析，了解{gene_family}家族的进化关系",
+            "建议分析基因结构和保守基序",
+            "建议研究基因表达模式"
+        ]
+        
+        if stage == "phylogeny":
+            interpretation["findings"] = ["系统发育树构建完成"]
+            interpretation["significance"] = "进化树揭示了基因家族的进化关系和亚家族分类"
+            interpretation["recommendations"] = [
+                "建议结合基因结构分析验证亚家族分类",
+                "建议进行Ka/Ks分析研究选择压力"
+            ]
+    
+    async def _generate_report(self, stage: str, parsed: Dict, 
+                               validation_report: Dict, biological_interpretation: Dict) -> Dict:
+        """生成综合报告"""
+        summary = parsed.get("summary", {})
+        metrics = parsed.get("metrics", {})
+        
+        # 构建Markdown报告
+        md_lines = [
+            f"# {summary.get('title', stage)} 报告",
+            "",
+            f"**分析阶段**: {stage}",
+            f"**执行状态**: {'✅ 成功' if parsed.get('status') in ['success', 'partial_success'] else '❌ 失败'}",
+            f"**执行时间**: {parsed.get('execution_time', 'N/A')}",
+            "",
+            "## 执行摘要",
+            "",
+            summary.get('key_metric', ''),
+            "",
+            summary.get('description', ''),
+            "",
+            "## 验证结果",
+            "",
+            validation_report.get('summary', ''),
+            f"**质量评分**: {validation_report.get('score', 0)}分",
+            "",
+            "## 生物解读",
+            "",
+        ]
+        
+        # 添加生物解读
+        for finding in biological_interpretation.get("findings", []):
+            md_lines.append(f"- {finding}")
+        
+        md_lines.extend([
+            "",
+            f"**生物学意义**: {biological_interpretation.get('significance', '')}",
+            "",
+            "## 后续建议",
+            "",
+        ])
+        
+        for rec in biological_interpretation.get("recommendations", []):
+            md_lines.append(f"- {rec}")
+        
+        return {
+            "title": summary.get('title', stage),
+            "stage": stage,
+            "status": parsed.get('status'),
+            "markdown": "\n".join(md_lines),
+            "validation": validation_report,
+            "interpretation": biological_interpretation,
+            "metrics": metrics
+        }
+    
+    async def _parse_data_files(self, stage: str, manifest: Dict) -> Dict:
+        """解析数据文件"""
+        parsed_data = {}
+        artifacts = manifest.get("artifacts", {})
+        
+        if stage == "identify":
+            members_file = artifacts.get("final_members", {}).get("full_path", "")
+            if members_file and Path(members_file).exists():
+                parsed_data["gene_list"] = self._parse_fasta_ids(members_file)
+                parsed_data["gene_count"] = len(parsed_data["gene_list"])
+        
+        elif stage == "phylogeny":
+            tree_file = artifacts.get("tree", {}).get("full_path", "")
+            if tree_file and Path(tree_file).exists():
+                parsed_data["tree_newick"] = self._read_text_file(tree_file)
+        
+        return parsed_data
+    
+    def _parse_fasta_ids(self, file_path: str) -> List[str]:
+        """解析FASTA文件ID"""
+        ids = []
+        try:
+            with open(file_path, 'r') as f:
+                for line in f:
+                    if line.startswith('>'):
+                        id_line = line[1:].strip()
+                        gene_id = id_line.split()[0]
+                        ids.append(gene_id)
+        except Exception as e:
+            print(f"[ResultParser] 解析FASTA失败: {e}")
+        return ids
+    
+    def _read_text_file(self, file_path: str) -> str:
+        """读取文本文件"""
+        try:
+            with open(file_path, 'r') as f:
+                return f.read()
+        except Exception as e:
+            print(f"[ResultParser] 读取文件失败: {e}")
+            return ""
+    
+    def _extract_metrics(self, manifest: Dict) -> Dict:
+        """提取关键指标"""
+        metrics = manifest.get("metrics", {})
+        return {
+            "total_proteins": metrics.get("total_proteins", 0),
+            "final_members": metrics.get("final_members", 0),
+            "candidates": metrics.get("candidates", 0),
+            "execution_time_sec": manifest.get("elapsed_sec", 0)
+        }
+    
+    def _extract_artifacts(self, manifest: Dict) -> List[Dict]:
+        """提取输出文件"""
+        artifacts = manifest.get("artifacts", {})
+        result = []
+        for key, artifact in artifacts.items():
+            if isinstance(artifact, dict):
+                result.append({
+                    "name": key,
+                    "file": artifact.get("file", ""),
+                    "type": artifact.get("type", "unknown"),
+                    "size": artifact.get("size", 0),
+                    "path": artifact.get("full_path", "")
+                })
+        return result
+    
+    def _generate_summary(self, stage: str, parsed: Dict) -> Dict:
+        """生成执行摘要"""
+        metrics = parsed.get("metrics", {})
+        
+        summaries = {
+            "identify": {
+                "title": "基因家族鉴定",
+                "key_metric": f"找到 {metrics.get('final_members', 0)} 个基因成员",
+                "description": "使用HMM和BLAST鉴定基因家族成员"
+            },
+            "phylogeny": {
+                "title": "系统发育分析",
+                "key_metric": f"构建进化树（{metrics.get('execution_time_sec', 0):.1f}s）",
+                "description": "使用MAFFT和IQ-TREE构建系统发育树"
+            }
+        }
+        
+        return summaries.get(stage, {
+            "title": f"{stage}分析",
+            "key_metric": "分析完成",
+            "description": "基因家族分析阶段"
+        })
+    
+    def _format_duration(self, seconds: float) -> str:
+        """格式化持续时间"""
+        if seconds < 60:
+            return f"{seconds:.1f}秒"
+        elif seconds < 3600:
+            minutes = seconds / 60
+            return f"{minutes:.1f}分钟"
+        else:
+            hours = seconds / 3600
+            return f"{hours:.1f}小时"
+
+    # ============ 累积解读功能（新增） ============
+
+    async def generate_cumulative_report(self, job_id: str, prefix: str, 
+                                         completed_stages: List[str]) -> Dict:
+        """
+        生成累积解读报告
+        
+        Args:
+            job_id: 任务ID
+            prefix: 前缀（如 Ft.SPL）
+            completed_stages: 已完成阶段列表
+        
+        Returns:
+            累积解读报告
+        """
+        from datetime import datetime
+        
+        workspace_dir = Path(f"/home/xia-lab/wutx/00test/bbav5/workspace/{job_id}/final")
+        
+        # 读取所有已完成阶段的 manifest
+        stage_manifests = {}
+        stage_interpretations = {}
+        
+        for stage in completed_stages:
+            manifest_file = workspace_dir / f"{prefix}.{stage}.manifest.json"
+            if manifest_file.exists():
+                try:
+                    with open(manifest_file, 'r') as f:
+                        manifest = json.load(f)
+                    stage_manifests[stage] = manifest
+                    
+                    # 生成单阶段解读
+                    stage_interp = await self._generate_stage_interpretation(stage, manifest, prefix)
+                    stage_interpretations[stage] = stage_interp
+                except Exception as e:
+                    print(f"[ResultParser] 读取 {stage} manifest 失败: {e}")
+                    continue
+        
+        # 生成阶段间关联分析
+        stage_connections = self._generate_stage_connections(stage_manifests, completed_stages)
+        
+        # 生成生物学故事（综合所有阶段）
+        biological_story = self._generate_cumulative_biological_story(stage_interpretations, prefix)
+        
+        # 生成下一步建议
+        next_steps = self._generate_next_steps(completed_stages, stage_manifests)
+        
+        # 构建累积报告
+        report = {
+            "version": "1.0",
+            "job_id": job_id,
+            "prefix": prefix,
+            "generated_at": datetime.now().isoformat(),
+            "cumulative": {
+                "stages_completed": completed_stages,
+                "stage_count": len(completed_stages),
+                "stage_interpretations": stage_interpretations,
+                "synthesis": {
+                    "biological_story": biological_story,
+                    "stage_connections": stage_connections,
+                    "next_steps": next_steps
+                }
+            }
+        }
+        
+        return report
+
+    async def _generate_stage_interpretation(self, stage: str, manifest: Dict, prefix: str) -> Dict:
+        """生成单阶段解读 - 支持 Stage Examples + Prompt Builder"""
+        from datetime import datetime
+
+        metrics = manifest.get("metrics", {})
+        status = manifest.get("status", "unknown")
+
+        # 阶段名称映射
+        stage_names = {
+            "identify": "基因家族鉴定",
+            "phylogeny": "系统发育分析",
+            "motif": "Motif分析",
+            "domain": "结构域分析",
+            "structure": "基因结构分析",
+            "promoter": "启动子分析",
+            "pep": "蛋白属性分析",
+            "synteny": "共线性分析",
+            "karyotype": "核型分析",
+            "expression": "表达分析",
+            "kaks": "Ka/Ks分析",
+            "ppi": "蛋白互作分析",
+            "summary": "综合分析"
+        }
+
+        # 提取关键指标
+        key_metrics = self._extract_key_metrics_for_stage(stage, metrics)
+
+        # 阶段1 (identify) 使用 Stage Examples + Prompt Builder
+        if stage == "identify":
+            interpretation_data = await self._generate_identify_interpretation_with_template(metrics, prefix, manifest)
+            return {
+                "stage_name": stage_names.get(stage, stage),
+                "stage_id": stage,
+                "status": status,
+                "key_findings": interpretation_data.get("key_findings", []),
+                "interpretation": interpretation_data.get("interpretation", ""),
+                "metrics": key_metrics,
+                "discovery": interpretation_data.get("discovery"),
+                "generated_at": datetime.now().isoformat()
+            }
+
+        # 其他阶段使用原有规则生成
+        key_findings = self._generate_stage_findings(stage, metrics, prefix)
+        interpretation = self._generate_stage_interpretation_text(stage, metrics, prefix)
+
+        return {
+            "stage_name": stage_names.get(stage, stage),
+            "stage_id": stage,
+            "status": status,
+            "key_findings": key_findings,
+            "interpretation": interpretation,
+            "metrics": key_metrics,
+            "generated_at": datetime.now().isoformat()
+        }
+
+    async def _generate_identify_interpretation_with_template(self, metrics: Dict, prefix: str, manifest: Dict = None) -> Dict:
+        """
+        使用 Stage Examples + Prompt Builder 生成阶段1解读
+        """
+        from gfa_core.mas.prompts.prompt_builder import detect_pattern_type
+        from gfa_core.mas.prompts.stage_examples import get_stage_example
+
+        # 准备结果数据
+        results = {
+            "member_count": metrics.get("final_members", 0),
+            "candidates": metrics.get("candidates", 0),
+            "total_proteins": metrics.get("total_proteins", 0),
+            "reference_count": 10  # 默认参考值
+        }
+
+        # 从 manifest 获取参考物种数据
+        reference_data = {}
+        if manifest:
+            comparative = manifest.get("comparative_summary", {})
+            reference_species = comparative.get("reference_species", {})
+            # 尝试从输入文件计算参考物种成员数
+            inputs = manifest.get("inputs", [])
+            for inp in inputs:
+                path = inp.get("path", "")
+                if "_Ath." in path or "Ath_" in path or path.startswith("SPL_Ath"):
+                    # 拟南芥参考文件
+                    full_path = inp.get("full_path", "")
+                    if full_path and Path(full_path).exists():
+                        try:
+                            # 计算 fasta 文件中的序列数
+                            with open(full_path, 'r') as f:
+                                count = sum(1 for line in f if line.startswith('>'))
+                            reference_data["Ath"] = {"name": "拟南芥", "count": count}
+                        except Exception as e:
+                            print(f"[ResultParser] 读取参考文件失败: {e}")
+
+        # 检测模式类型
+        pattern_type = detect_pattern_type("gene_identification", results)
+
+        # 获取 Stage Example
+        try:
+            example = get_stage_example("gene_identification", pattern_type, "result_parser")
+            discovery_example = get_stage_example("gene_identification", pattern_type, "discovery")
+        except ValueError as e:
+            print(f"[ResultParser] 获取 Stage Example 失败: {e}，使用默认")
+            example = None
+            discovery_example = None
+
+        # 构建解读 - 基于真实数据和参考物种比较
+        interpretation = self._apply_identify_template({}, results, prefix, reference_data)
+        key_findings = [f"鉴定出 {results['member_count']} 个基因家族成员"]
+
+        # 构建 discovery 字段 - 参考模板分析框架，基于真实数据
+        member_count = results.get("member_count", 0)
+        parts = prefix.split('.')
+        species = parts[0] if len(parts) > 0 else "目标物种"
+        gene_family = parts[1] if len(parts) > 1 else "该基因家族"
+
+        # 根据模式类型构建不同的 discovery 内容
+        if member_count > 50:
+            discovery = {
+                "pattern_type": "expansion",
+                "anomaly": f"通过不同方法（HMMER vs BLAST）鉴定的初始名单可能有细微差别。这些'边缘'基因是否具有非典型结构域？它们可能是假基因，也可能代表了{gene_family}家族一个新的、功能未知的旁系同源分支，值得单独审视。",
+                "storyline": f"起点：{gene_family}转录因子家族在{species}中扩张至{member_count}个成员，为功能分化奠定了数量基础。",
+                "insight": f"成员鉴定是分析的基石，其首要信息是家族规模。{gene_family}家族在{species}中具有较多成员（{member_count}个），这为后续探究其扩张机制、功能分化及生物学意义奠定了基础。"
+            }
+        elif member_count < 10:
+            discovery = {
+                "pattern_type": "contraction",
+                "anomaly": f"基因家族的'收缩'或'丢失'是进化的重要方面。{gene_family}家族在{species}中仅{member_count}个成员，需要进一步分析这是否反映了真实的生物学收缩或技术因素。",
+                "storyline": f"精简适应：{gene_family}家族在{species}中保持精简的基因组特征。",
+                "insight": f"这可能反映了研究对象的偏向性。若需分析此模式，应补充如{species}基因组学特征或特定谱系基因丢失研究的文献。"
+            }
+        else:
+            discovery = {
+                "pattern_type": "conservation",
+                "anomaly": f"要分析'保守'模式，需要超越单物种鉴定，引入系统的跨物种比较分析。{gene_family}家族在{species}中的{member_count}个成员是否符合该家族在进化上的保守特征？",
+                "storyline": f"核心保守：{gene_family}基因家族在进化长河中的稳定传承。",
+                "insight": f"真正的'保守'模式需在比较基因组学框架下验证。这指明了未来分析的一个重要方向：与其他物种的{gene_family}家族进行对比。"
+            }
+
+        return {
+            "key_findings": key_findings,
+            "interpretation": interpretation,
+            "discovery": discovery
+        }
+
+    def _apply_identify_template(self, example: Dict, results: Dict, prefix: str, reference_data: Dict = None) -> str:
+        """应用阶段1模板生成解读 - 参考模板分析方法，基于真实数据和参考物种比较"""
+        member_count = results.get("member_count", 0)
+        candidates = results.get("candidates", 0)
+        total_proteins = results.get("total_proteins", 0)
+
+        # 解析 prefix 获取物种和基因家族
+        parts = prefix.split('.')
+        species = parts[0] if len(parts) > 0 else "目标物种"
+        gene_family = parts[1] if len(parts) > 1 else "该基因家族"
+
+        # 优先使用实际参考物种数据进行比较（模板逻辑）
+        if reference_data and "Ath" in reference_data:
+            ref_count = reference_data["Ath"]["count"]
+            ref_name = reference_data["Ath"]["name"]
+            deviation = member_count - ref_count
+            deviation_pct = (deviation / ref_count * 100) if ref_count > 0 else 0
+
+            # 模板逻辑：与参考物种比较判断模式
+            if member_count > ref_count * 1.5:  # 超过1.5倍 = 扩张
+                interpretation = f"在{prefix}中鉴定出{member_count}个基因家族成员，数量远超{ref_name}（{ref_count}个）。这种显著的扩张（+{deviation_pct:.1f}%）很可能与{species}经历的古多倍化事件（全基因组复制）密切相关，为其复杂的生长发育和信号转导提供了更丰富的遗传材料和功能冗余保障。"
+            elif member_count < ref_count * 0.5:  # 少于0.5倍 = 收缩
+                interpretation = f"在{prefix}中鉴定出{member_count}个基因家族成员，数量远少于{ref_name}（{ref_count}个）。这种收缩（{deviation_pct:.1f}%）可能表明该家族在{species}中经历了基因丢失或功能简化。"
+            else:  # 相近 = 保守
+                if abs(deviation_pct) <= 20:
+                    interpretation = f"在{prefix}中鉴定出{member_count}个基因家族成员，与{ref_name}（{ref_count}个）数量基本一致。表明该家族在进化过程中保持稳定，核心功能受到纯化选择。"
+                elif deviation > 0:
+                    interpretation = f"在{prefix}中鉴定出{member_count}个基因家族成员，略多于{ref_name}（{ref_count}个，+{deviation_pct:.1f}%），可能存在轻度扩张。"
+                else:
+                    interpretation = f"在{prefix}中鉴定出{member_count}个基因家族成员，略少于{ref_name}（{ref_count}个，{deviation_pct:.1f}%），可能存在轻度收缩。"
+        else:
+            # 没有参考数据时，使用一般性描述（不判断模式）
+            interpretation = f"在{prefix}中鉴定出{member_count}个基因家族成员。建议进行跨物种比较分析，以确定该家族在进化上的扩张/保守/收缩模式。"
+
+        return interpretation
+
+    def _extract_key_metrics_for_stage(self, stage: str, metrics: Dict) -> Dict:
+        """提取阶段关键指标"""
+        key_mapping = {
+            "identify": ["final_members", "candidates", "total_proteins"],
+            "phylogeny": ["sequences_count", "tree_model", "msa_length"],
+            "motif": ["motif_count", "motif_types"],
+            "domain": ["domain_count", "domain_types"],
+            "structure": ["genes_total", "avg_exon_count_per_gene"],
+            "promoter": ["genes_with_elements", "total_elements", "unique_elements"],
+            "synteny": ["syntenic_blocks", "anchor_pairs"],
+            "expression": ["sample_count", "deg_count"]
+        }
+        
+        keys = key_mapping.get(stage, [])
+        result = {}
+        for key in keys:
+            if key in metrics:
+                result[key] = metrics[key]
+        return result
+
+    def _generate_stage_findings(self, stage: str, metrics: Dict, prefix: str) -> List[str]:
+        """生成阶段关键发现"""
+        findings = []
+        
+        if stage == "identify":
+            final = metrics.get("final_members", 0)
+            if final > 0:
+                findings.append(f"鉴定出 {final} 个基因家族成员")
+                # 判断家族规模
+                if final > 50:
+                    findings.append(f"该家族成员数量({final})显著扩张")
+                elif final < 10:
+                    findings.append(f"该家族成员数量({final})相对较少")
+        
+        elif stage == "phylogeny":
+            seq_count = metrics.get("sequences_count", 0)
+            if seq_count > 0:
+                findings.append(f"系统发育分析包含 {seq_count} 条序列")
+        
+        elif stage == "promoter":
+            genes_with = metrics.get("genes_with_elements", 0)
+            total = metrics.get("total_elements", 0)
+            if genes_with > 0:
+                findings.append(f"{genes_with} 个基因含有顺式作用元件")
+                findings.append(f"共识别出 {total} 个调控元件")
+        
+        return findings
+
+    def _generate_stage_interpretation_text(self, stage: str, metrics: Dict, prefix: str) -> str:
+        """生成阶段解读文本"""
+        interpretations = []
+        
+        if stage == "identify":
+            final = metrics.get("final_members", 0)
+            if final > 0:
+                interpretations.append(f"在{prefix}中鉴定出{final}个基因家族成员。")
+                if final > 50:
+                    interpretations.append("该家族呈现显著扩张特征，可能与物种特异性的基因组复制事件相关。")
+                elif final < 10:
+                    interpretations.append("该家族成员数量相对较少，可能经历了基因丢失或功能特化。")
+        
+        elif stage == "phylogeny":
+            seq_count = metrics.get("sequences_count", 0)
+            if seq_count > 0:
+                interpretations.append(f"基于{seq_count}条序列构建的系统发育树揭示了基因家族的进化关系。")
+                interpretations.append("进化树可用于推断亚家族分类和基因复制事件。")
+        
+        elif stage == "promoter":
+            genes_with = metrics.get("genes_with_elements", 0)
+            unique = metrics.get("unique_elements", 0)
+            if genes_with > 0:
+                interpretations.append(f"在{genes_with}个基因的启动子区域识别出顺式作用元件")
+                interpretations.append(f"共发现{total}个元件，涉及{unique}种调控元件类型")
+                interpretations.append("这些元件可能参与调控基因家族的时空特异性表达")
+
+        return "；".join(interpretations) if interpretations else "分析完成"
+
+    def _generate_stage_interpretation_text(self, stage: str, metrics: Dict, prefix: str) -> str:
+        """生成阶段解读文本 - 完整版"""
+        interpretations = []
+
+        if stage == "identify":
+            final = metrics.get("final_members", 0)
+            candidates = metrics.get("candidates", 0)
+            if final > 0:
+                interpretations.append(f"在{prefix}中鉴定出{final}个基因家族成员")
+                if candidates > 0:
+                    interpretations.append(f"（从{candidates}个候选基因中筛选）")
+                if final > 50:
+                    interpretations.append("该家族呈现显著扩张特征，可能与物种特异性的基因组复制事件相关")
+                elif final < 10:
+                    interpretations.append("该家族成员数量相对较少，可能经历了基因丢失或功能特化")
+
+        elif stage == "phylogeny":
+            seq_count = metrics.get("sequences_count", 0)
+            if seq_count > 0:
+                interpretations.append(f"基于{seq_count}条序列构建的系统发育树揭示了基因家族的进化关系")
+                interpretations.append("进化树可用于推断亚家族分类和基因复制事件")
+
+        elif stage == "promoter":
+            genes_with = metrics.get("genes_with_elements", 0)
+            total = metrics.get("total_elements", 0)
+            unique = metrics.get("unique_elements", 0)
+            if genes_with > 0:
+                interpretations.append(f"在{genes_with}个基因的启动子区域识别出顺式作用元件")
+                interpretations.append(f"共发现{total}个元件，涉及{unique}种调控元件类型")
+                interpretations.append("这些元件可能参与调控基因家族的时空特异性表达")
+
+        elif stage == "motif":
+            motif_count = metrics.get("motif_count", 0)
+            if motif_count > 0:
+                interpretations.append(f"识别出{motif_count}个保守基序")
+                interpretations.append("保守基序可能对应重要的功能结构域或结合位点")
+
+        elif stage == "domain":
+            domain_count = metrics.get("domain_count", 0)
+            if domain_count > 0:
+                interpretations.append(f"识别出{domain_count}个功能结构域")
+                interpretations.append("结构域组成反映了基因家族的功能特征")
+
+        elif stage == "structure":
+            genes_total = metrics.get("genes_total", 0)
+            if genes_total > 0:
+                interpretations.append(f"分析了{genes_total}个基因的结构特征")
+                interpretations.append("基因结构信息有助于理解进化关系和功能分化")
+
+        elif stage == "synteny":
+            blocks = metrics.get("syntenic_blocks", 0)
+            if blocks > 0:
+                interpretations.append(f"识别出{blocks}个共线性区块")
+                interpretations.append("共线性分析揭示了基因组复制和基因保留模式")
+
+        return "；".join(interpretations) if interpretations else "分析完成"
+
+    def _generate_stage_connections(self, stage_manifests: Dict, completed_stages: List[str]) -> List[Dict]:
+        """生成阶段间关联分析"""
+        connections = []
+
+        for i in range(len(completed_stages) - 1):
+            from_stage = completed_stages[i]
+            to_stage = completed_stages[i + 1]
+
+            from_manifest = stage_manifests.get(from_stage, {})
+            to_manifest = stage_manifests.get(to_stage, {})
+
+            from_metrics = from_manifest.get("metrics", {})
+            to_metrics = to_manifest.get("metrics", {})
+
+            # 生成关联描述
+            connection = self._create_stage_connection(from_stage, to_stage, from_metrics, to_metrics)
+            if connection:
+                connections.append(connection)
+
+        return connections
+
+    def _create_stage_connection(self, from_stage: str, to_stage: str, from_metrics: Dict, to_metrics: Dict) -> Optional[Dict]:
+        """创建两个阶段的关联"""
+        stage_names = {
+            "identify": "基因家族鉴定",
+            "phylogeny": "系统发育分析",
+            "motif": "Motif分析",
+            "domain": "结构域分析",
+            "structure": "基因结构分析",
+            "promoter": "启动子分析",
+            "synteny": "共线性分析"
+        }
+
+        from_name = stage_names.get(from_stage, from_stage)
+        to_name = stage_names.get(to_stage, to_stage)
+
+        # identify -> phylogeny
+        if from_stage == "identify" and to_stage == "phylogeny":
+            final_members = from_metrics.get("final_members", 0)
+            seq_count = to_metrics.get("sequences_count", 0)
+            return {
+                "from": from_stage,
+                "to": to_stage,
+                "description": f"基于鉴定的{final_members}个基因构建系统发育树",
+                "insight": f"进化分析包含{seq_count}条序列，揭示家族进化关系"
+            }
+
+        # identify -> structure
+        if from_stage == "identify" and to_stage == "structure":
+            final_members = from_metrics.get("final_members", 0)
+            genes_total = to_metrics.get("genes_total", 0)
+            return {
+                "from": from_stage,
+                "to": to_stage,
+                "description": f"为{final_members}个鉴定基因提取结构信息",
+                "insight": f"成功获取{genes_total}个基因的结构注释"
+            }
+
+        # phylogeny -> motif
+        if from_stage == "phylogeny" and to_stage == "motif":
+            return {
+                "from": from_stage,
+                "to": to_stage,
+                "description": "基于进化树分组分析保守基序",
+                "insight": "motif分析可验证亚家族分类的功能相关性"
+            }
+
+        # 默认关联
+        return {
+            "from": from_stage,
+            "to": to_stage,
+            "description": f"{from_name}为{to_name}提供数据基础",
+            "insight": "连续分析确保数据一致性"
+        }
+
+    def _generate_cumulative_biological_story(self, stage_interpretations: Dict, prefix: str) -> str:
+        """生成累积生物学故事"""
+        stories = []
+
+        # 按阶段顺序构建故事
+        stage_order = ["identify", "phylogeny", "structure", "motif", "domain", "promoter", "synteny", "expression"]
+
+        for stage in stage_order:
+            if stage in stage_interpretations:
+                interp = stage_interpretations[stage]
+                stage_name = interp.get("stage_name", stage)
+                interpretation = interp.get("interpretation", "")
+                if interpretation:
+                    stories.append(f"【{stage_name}】{interpretation}")
+
+        if not stories:
+            return f"{prefix}基因家族分析正在进行中"
+
+        # 添加综合分析
+        stories.append(f"\n综合以上分析，{prefix}基因家族的特征已初步揭示。")
+
+        return "\n\n".join(stories)
+
+    def _generate_next_steps(self, completed_stages: List[str], stage_manifests: Dict) -> List[Dict]:
+        """生成下一步建议"""
+        next_steps = []
+
+        # 定义推荐顺序
+        stage_pipeline = ["identify", "phylogeny", "structure", "motif", "domain", "promoter", "synteny", "expression", "kaks"]
+
+        # 找出未完成的阶段
+        completed_set = set(completed_stages)
+        for stage in stage_pipeline:
+            if stage not in completed_set:
+                next_steps.append({
+                    "stage": stage,
+                    "priority": "high" if len(next_steps) < 2 else "medium",
+                    "description": self._get_stage_description(stage),
+                    "rationale": self._get_stage_rationale(stage, completed_stages)
+                })
+
+        return next_steps[:3]  # 最多返回3个建议
+
+    def _get_stage_description(self, stage: str) -> str:
+        """获取阶段描述"""
+        descriptions = {
+            "identify": "基因家族鉴定",
+            "phylogeny": "系统发育分析",
+            "structure": "基因结构分析",
+            "motif": "Motif分析",
+            "domain": "结构域分析",
+            "promoter": "启动子分析",
+            "synteny": "共线性分析",
+            "expression": "表达分析",
+            "kaks": "Ka/Ks分析"
+        }
+        return descriptions.get(stage, stage)
+
+    def _get_stage_rationale(self, stage: str, completed_stages: List[str]) -> str:
+        """获取阶段推荐理由"""
+        if stage == "phylogeny" and "identify" in completed_stages:
+            return "基于已鉴定的基因家族成员，构建进化树揭示进化关系"
+        elif stage == "structure" and "identify" in completed_stages:
+            return "分析基因结构特征，验证进化关系"
+        elif stage == "promoter" and "structure" in completed_stages:
+            return "基于基因结构信息提取启动子序列，分析调控元件"
+        elif stage == "motif" and "phylogeny" in completed_stages:
+            return "结合进化树分组，分析保守基序特征"
+        elif stage == "synteny" and "identify" in completed_stages:
+            return "分析基因家族在基因组中的分布和复制模式"
+        elif stage == "expression" and "identify" in completed_stages:
+            return "研究基因家族的表达模式，揭示功能特征"
+        else:
+            return f"补充{self._get_stage_description(stage)}，完善研究体系"
+
+    def save_interpretation(self, job_id: str, prefix: str, report: Dict) -> bool:
+        """保存解读报告到 interpretation.json"""
+        try:
+            workspace_dir = Path(f"/home/xia-lab/wutx/00test/bbav5/workspace/{job_id}/final")
+            workspace_dir.mkdir(parents=True, exist_ok=True)
+
+            interpretation_path = workspace_dir / "interpretation.json"
+
+            with open(interpretation_path, 'w', encoding='utf-8') as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+
+            print(f"[ResultParser] 解读报告已保存: {interpretation_path}")
+            return True
+        except Exception as e:
+            print(f"[ResultParser] 保存解读报告失败: {e}")
+            return False
+
+    def load_interpretation(self, job_id: str) -> Optional[Dict]:
+        """从 interpretation.json 加载解读报告"""
+        try:
+            interpretation_path = Path(f"/home/xia-lab/wutx/00test/bbav5/workspace/{job_id}/final/interpretation.json")
+
+            if not interpretation_path.exists():
+                return None
+
+            with open(interpretation_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[ResultParser] 加载解读报告失败: {e}")
+            return None
+
+
+def create_result_parser_agent(llm_manager) -> "ResultParserAgent":
+    """创建ResultParserAgent实例"""
+    return ResultParserAgent(llm_manager)

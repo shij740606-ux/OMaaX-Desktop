@@ -1,0 +1,16 @@
+{
+  "abundance": "../results/merged/abundance.tsv",
+  "samples": "samples.example.csv",
+  "outdir": "../results/community",
+  "profiler": "Kraken2+Bracken",
+  "database_version": "REPLACE_WITH_ACTUAL_DATABASE_BUILD",
+  "taxonomic_rank": "species",
+  "abundance_type": "bracken_estimated_reads",
+  "top_taxa": 20,
+  "plots": true,
+  "permanova": false,
+  "design": "independent_one_factor",
+  "n_permutations": 999,
+  "seed": 42,
+  "taxon_names": "../results/merged/taxon_names.tsv"
+}

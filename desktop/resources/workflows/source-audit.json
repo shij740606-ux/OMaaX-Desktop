@@ -1,0 +1,8015 @@
+{
+  "archiveSha256": "6aead389416aa4acc5cd3abd536a851a9f69c68a4c773c4cfda0959f15dbb4ae",
+  "entryRecords": 65,
+  "missingEntries": [
+    "synteny_plot_revise"
+  ],
+  "vendoredFiles": {
+    "cli/run_rnaseq_de.py": "01b0acb8bb5fa003035ad027dac730d8818206de1bad4cdcc3428a81e405129b",
+    "gfa_core/rnaseq_context.py": "d7b0c4e1779b0010fa75261c7ccde7b128b411455f5706b9c41c2b068668be39",
+    "gfa_core/rnaseq_de_design.py": "e423e09648edc45d8af4ddf20b37b25f01649d5b33f6b7d7ef8b7f6485155ee6"
+  },
+  "entries": [
+    {
+      "stage": "genome_prepare",
+      "workflow": "gene_family",
+      "module": "cli.run_genome_prepare",
+      "main_file": "project_source/bioflow_kernel/cli/run_genome_prepare.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "dataclasses",
+        "datetime",
+        "gzip",
+        "hashlib",
+        "json",
+        "logging",
+        "os",
+        "pandas",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "traceback",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_bymRNAID.py",
+        "gff_filter_longest.py",
+        "map_gff_ids.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "_clean_text",
+          "line": 64
+        },
+        {
+          "name": "_clean_bool",
+          "line": 77
+        },
+        {
+          "name": "_is_generated_ref_combined_name",
+          "line": 83
+        },
+        {
+          "name": "_normalize_file_type",
+          "line": 87
+        },
+        {
+          "name": "_standardized_name",
+          "line": 104
+        },
+        {
+          "name": "_infer_gene_family_from_filename",
+          "line": 129
+        },
+        {
+          "name": "_config_species_role",
+          "line": 143
+        },
+        {
+          "name": "_preflight_add_error",
+          "line": 157
+        },
+        {
+          "name": "preflight_config",
+          "line": 172
+        },
+        {
+          "name": "_open_text_maybe_gzip",
+          "line": 317
+        },
+        {
+          "name": "_first_fasta_record_stats",
+          "line": 323
+        },
+        {
+          "name": "_first_fasta_record_length",
+          "line": 359
+        },
+        {
+          "name": "_looks_like_genome_fasta",
+          "line": 365
+        },
+        {
+          "name": "_declared_sequence_looks_like_genome",
+          "line": 377
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 424
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 436
+        },
+        {
+          "name": "organize_files_by_config",
+          "line": 640
+        },
+        {
+          "name": "merge_species_files",
+          "line": 821
+        },
+        {
+          "name": "generate_species_config",
+          "line": 933
+        },
+        {
+          "name": "_extract_gene_family_from_filename",
+          "line": 1036
+        },
+        {
+          "name": "validate_input_directory",
+          "line": 1048
+        },
+        {
+          "name": "prepare_directories",
+          "line": 1107
+        },
+        {
+          "name": "scan_hmm_files",
+          "line": 1903
+        },
+        {
+          "name": "write_manifest",
+          "line": 1921
+        },
+        {
+          "name": "write_report",
+          "line": 2116
+        },
+        {
+          "name": "main",
+          "line": 2218
+        }
+      ]
+    },
+    {
+      "stage": "identify",
+      "workflow": "gene_family",
+      "module": "cli.run_identify",
+      "main_file": "project_source/bioflow_kernel/cli/run_identify.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "跨环境: 主 test4py311; InterProScan 域检查子步骤走 bioflow-interproscan 镜像(编排层拆分)",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gzip",
+        "hashlib",
+        "json",
+        "logging",
+        "os",
+        "pandas",
+        "pathlib",
+        "platform",
+        "psutil",
+        "re",
+        "shlex",
+        "shutil",
+        "subprocess",
+        "sys",
+        "textwrap",
+        "time",
+        "typing",
+        "urllib.error",
+        "urllib.parse",
+        "urllib.request"
+      ],
+      "script_references": [
+        "apps/cli/resolve_scope.py",
+        "interproscan.sh"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "copy2_if_different",
+          "line": 63
+        },
+        {
+          "name": "get_pfam_from_rag",
+          "line": 73
+        },
+        {
+          "name": "query_pfam_from_rag_service",
+          "line": 121
+        },
+        {
+          "name": "parse_gene_family_from_prefix",
+          "line": 195
+        },
+        {
+          "name": "normalize_identify_prefix",
+          "line": 206
+        },
+        {
+          "name": "run_cmd",
+          "line": 226
+        },
+        {
+          "name": "sanitize_fasta_for_interproscan",
+          "line": 245
+        },
+        {
+          "name": "prepare_fasta_for_hmmsearch",
+          "line": 309
+        },
+        {
+          "name": "summarize_interproscan_tsv",
+          "line": 379
+        },
+        {
+          "name": "write_interproscan_status_file",
+          "line": 407
+        },
+        {
+          "name": "read_id_list",
+          "line": 446
+        },
+        {
+          "name": "write_id_list",
+          "line": 463
+        },
+        {
+          "name": "write_domain_review_from_interproscan",
+          "line": 471
+        },
+        {
+          "name": "run_interproscan_domain_check",
+          "line": 557
+        },
+        {
+          "name": "prepare_directories",
+          "line": 648
+        },
+        {
+          "name": "write_manifest",
+          "line": 665
+        },
+        {
+          "name": "write_failed_identify_manifest",
+          "line": 673
+        },
+        {
+          "name": "_is_user_hmm_name",
+          "line": 719
+        },
+        {
+          "name": "_decompress_hmm_gz",
+          "line": 727
+        },
+        {
+          "name": "find_user_query_hmms",
+          "line": 743
+        },
+        {
+          "name": "find_pep_file",
+          "line": 773
+        },
+        {
+          "name": "_clean_config_bool",
+          "line": 802
+        },
+        {
+          "name": "_clean_config_text",
+          "line": 811
+        },
+        {
+          "name": "_config_file_candidates",
+          "line": 824
+        },
+        {
+          "name": "read_analysis_family",
+          "line": 848
+        },
+        {
+          "name": "read_required_pfams_from_config",
+          "line": 882
+        },
+        {
+          "name": "_input_search_dirs",
+          "line": 922
+        },
+        {
+          "name": "_resolve_config_file",
+          "line": 937
+        },
+        {
+          "name": "is_likely_protein_fasta",
+          "line": 973
+        },
+        {
+          "name": "find_pep_files",
+          "line": 1015
+        },
+        {
+          "name": "read_config_sheet_dataframe",
+          "line": 1101
+        },
+        {
+          "name": "read_reference_policy_from_config",
+          "line": 1107
+        },
+        {
+          "name": "find_reference_file_simple",
+          "line": 1155
+        },
+        {
+          "name": "infer_reference_label",
+          "line": 1199
+        },
+        {
+          "name": "collect_reference_files",
+          "line": 1215
+        },
+        {
+          "name": "extract_gene_family",
+          "line": 1307
+        },
+        {
+          "name": "count_fasta_records",
+          "line": 1368
+        },
+        {
+          "name": "write_fasta_ids",
+          "line": 1379
+        },
+        {
+          "name": "merge_final_members",
+          "line": 1394
+        },
+        {
+          "name": "find_reference_file",
+          "line": 1442
+        },
+        {
+          "name": "_normalize_pfam_query",
+          "line": 1564
+        },
+        {
+          "name": "_pfam_alias_to_accession",
+          "line": 1583
+        },
+        {
+          "name": "_normalize_pfam_accession",
+          "line": 1611
+        },
+        {
+          "name": "_is_pfam_accession",
+          "line": 1622
+        },
+        {
+          "name": "parse_hmm_models",
+          "line": 1626
+        },
+        {
+          "name": "hmm_model_audit",
+          "line": 1658
+        },
+        {
+          "name": "assert_hmm_models_complete",
+          "line": 1684
+        },
+        {
+          "name": "_split_pfam_queries",
+          "line": 1696
+        },
+        {
+          "name": "_resolve_pfam_db",
+          "line": 1707
+        },
+        {
+          "name": "_decompress_pfam_db_if_needed",
+          "line": 1736
+        },
+        {
+          "name": "_is_valid_hmm_file",
+          "line": 1749
+        },
+        {
+          "name": "_pfam_hmm_matches_query",
+          "line": 1759
+        },
+        {
+          "name": "_local_hmm_search_roots",
+          "line": 1778
+        },
+        {
+          "name": "_find_cached_pfam_hmm",
+          "line": 1803
+        },
+        {
+          "name": "_copy_cached_hmm_to_query_cache",
+          "line": 1828
+        },
+        {
+          "name": "_download_single_pfam_hmm",
+          "line": 1837
+        },
+        {
+          "name": "download_required_pfam_hmms",
+          "line": 1887
+        },
+        {
+          "name": "hmmfetch_models",
+          "line": 1914
+        },
+        {
+          "name": "python_fetch_models",
+          "line": 1961
+        },
+        {
+          "name": "build_required_pfam_hmm",
+          "line": 2025
+        },
+        {
+          "name": "hmmsearch_bin",
+          "line": 2041
+        },
+        {
+          "name": "hmmfetch_bin",
+          "line": 2050
+        },
+        {
+          "name": "read_pep_ids",
+          "line": 2059
+        },
+        {
+          "name": "read_ids_from_file",
+          "line": 2071
+        },
+        {
+          "name": "summarize_domtblout_by_model",
+          "line": 2083
+        },
+        {
+          "name": "parse_domtblout",
+          "line": 2113
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 2168
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 2181
+        },
+        {
+          "name": "select_final_members",
+          "line": 2253
+        },
+        {
+          "name": "write_fasta_subset",
+          "line": 2302
+        },
+        {
+          "name": "write_report",
+          "line": 2331
+        },
+        {
+          "name": "run_hmm_analysis",
+          "line": 2460
+        },
+        {
+          "name": "cleanup_current_blast_intermediates",
+          "line": 2561
+        },
+        {
+          "name": "build_target_proteome_blast_db",
+          "line": 2582
+        },
+        {
+          "name": "parse_blast_outfmt6_target_hits",
+          "line": 2612
+        },
+        {
+          "name": "run_blast_analysis",
+          "line": 2659
+        },
+        {
+          "name": "run_multi_reference_blast_analysis",
+          "line": 2777
+        },
+        {
+          "name": "combine_hmm_blast_results",
+          "line": 2884
+        },
+        {
+          "name": "main",
+          "line": 2933
+        }
+      ]
+    },
+    {
+      "stage": "identify_refine",
+      "workflow": "gene_family",
+      "module": "cli.run_identify_refine",
+      "main_file": "project_source/bioflow_kernel/cli/run_identify_refine.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "datetime",
+        "hashlib",
+        "json",
+        "pathlib",
+        "shutil",
+        "sys",
+        "typing"
+      ],
+      "script_references": [],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "sha256",
+          "line": 32
+        },
+        {
+          "name": "read_ids",
+          "line": 40
+        },
+        {
+          "name": "read_manifest",
+          "line": 55
+        },
+        {
+          "name": "single_target_prefix",
+          "line": 64
+        },
+        {
+          "name": "find_id_file",
+          "line": 73
+        },
+        {
+          "name": "fasta_record_iter",
+          "line": 97
+        },
+        {
+          "name": "fasta_ids",
+          "line": 113
+        },
+        {
+          "name": "first_column_ids",
+          "line": 122
+        },
+        {
+          "name": "find_source_fastas",
+          "line": 141
+        },
+        {
+          "name": "write_subset",
+          "line": 195
+        },
+        {
+          "name": "artifact",
+          "line": 227
+        },
+        {
+          "name": "backup",
+          "line": 239
+        },
+        {
+          "name": "main",
+          "line": 247
+        }
+      ]
+    },
+    {
+      "stage": "subfamily_confirm",
+      "workflow": "gene_family",
+      "module": "cli.run_subfamily_confirm",
+      "main_file": "project_source/bioflow_kernel/cli/run_subfamily_confirm.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "hashlib",
+        "json",
+        "pathlib",
+        "sys",
+        "typing"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "_read_table",
+          "line": 23
+        },
+        {
+          "name": "_row_value",
+          "line": 46
+        },
+        {
+          "name": "_load_labels",
+          "line": 55
+        },
+        {
+          "name": "_read_id_list",
+          "line": 75
+        },
+        {
+          "name": "_read_fasta_ids",
+          "line": 89
+        },
+        {
+          "name": "_sha256",
+          "line": 106
+        },
+        {
+          "name": "_atomic_promote_pair",
+          "line": 114
+        },
+        {
+          "name": "_member_prefix_candidates",
+          "line": 129
+        },
+        {
+          "name": "_promote_curated_members_to_final",
+          "line": 147
+        },
+        {
+          "name": "_find_source",
+          "line": 199
+        },
+        {
+          "name": "_compact_confirmed_prefix",
+          "line": 233
+        },
+        {
+          "name": "_load_assignment_confidence",
+          "line": 257
+        },
+        {
+          "name": "_read_manifest",
+          "line": 276
+        },
+        {
+          "name": "_family_from_scope_or_prefix",
+          "line": 290
+        },
+        {
+          "name": "_scope_data_from_prediction_manifest",
+          "line": 306
+        },
+        {
+          "name": "main",
+          "line": 340
+        }
+      ]
+    },
+    {
+      "stage": "ncbi_fetch_sequences",
+      "workflow": "gene_family",
+      "module": "cli.run_ncbi_fetch_sequences",
+      "main_file": "project_source/bioflow_kernel/cli/run_ncbi_fetch_sequences.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "Bio",
+        "Bio.SeqRecord",
+        "__future__",
+        "argparse",
+        "csv",
+        "dataclasses",
+        "datetime",
+        "hashlib",
+        "io",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shlex",
+        "sys",
+        "time",
+        "typing"
+      ],
+      "script_references": [
+        "commands.sh"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 43
+        },
+        {
+          "name": "file_sha256",
+          "line": 47
+        },
+        {
+          "name": "safe_name",
+          "line": 58
+        },
+        {
+          "name": "read_query_file",
+          "line": 63
+        },
+        {
+          "name": "write_tsv",
+          "line": 74
+        },
+        {
+          "name": "wrap_fasta",
+          "line": 83
+        },
+        {
+          "name": "write_fasta",
+          "line": 87
+        },
+        {
+          "name": "create_family_reference_link",
+          "line": 105
+        },
+        {
+          "name": "normalize_locus_tag",
+          "line": 125
+        },
+        {
+          "name": "_dedupe_paths",
+          "line": 130
+        },
+        {
+          "name": "_paths_from_genome_prepare_manifests",
+          "line": 145
+        },
+        {
+          "name": "discover_local_reference_files",
+          "line": 175
+        },
+        {
+          "name": "_index_local_record",
+          "line": 214
+        },
+        {
+          "name": "build_local_sequence_index",
+          "line": 224
+        },
+        {
+          "name": "build_local_reference_store",
+          "line": 256
+        },
+        {
+          "name": "lookup_local_candidates",
+          "line": 266
+        },
+        {
+          "name": "_select_local_records",
+          "line": 297
+        },
+        {
+          "name": "fetch_gene_from_local_reference",
+          "line": 317
+        },
+        {
+          "name": "taxon_clause",
+          "line": 502
+        },
+        {
+          "name": "build_gene_search_term",
+          "line": 510
+        },
+        {
+          "name": "gene_summary_taxid",
+          "line": 527
+        },
+        {
+          "name": "gene_summary_organism",
+          "line": 534
+        },
+        {
+          "name": "summary_exactly_matches_query",
+          "line": 541
+        },
+        {
+          "name": "resolve_gene_queries",
+          "line": 554
+        },
+        {
+          "name": "cds_matches_gene",
+          "line": 631
+        },
+        {
+          "name": "transcript_rank",
+          "line": 639
+        },
+        {
+          "name": "select_transcripts",
+          "line": 655
+        },
+        {
+          "name": "protein_rank",
+          "line": 666
+        },
+        {
+          "name": "fetch_gene_protein_via_elink",
+          "line": 678
+        },
+        {
+          "name": "fetch_gene_sequences",
+          "line": 736
+        },
+        {
+          "name": "artifact",
+          "line": 825
+        },
+        {
+          "name": "write_report",
+          "line": 839
+        },
+        {
+          "name": "parse_args",
+          "line": 869
+        },
+        {
+          "name": "main",
+          "line": 891
+        }
+      ]
+    },
+    {
+      "stage": "sequence_extract_by_id",
+      "workflow": "gene_family",
+      "module": "cli.run_sequence_extract_by_id",
+      "main_file": "project_source/bioflow_kernel/cli/run_sequence_extract_by_id.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "collections",
+        "csv",
+        "dataclasses",
+        "json",
+        "pathlib",
+        "re",
+        "shutil",
+        "time",
+        "typing"
+      ],
+      "script_references": [],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "normalize_id",
+          "line": 43
+        },
+        {
+          "name": "split_inline_ids",
+          "line": 53
+        },
+        {
+          "name": "read_ids",
+          "line": 63
+        },
+        {
+          "name": "fasta_candidates",
+          "line": 106
+        },
+        {
+          "name": "_species_code_from_prefix",
+          "line": 154
+        },
+        {
+          "name": "_add_bundled_reference_candidates",
+          "line": 161
+        },
+        {
+          "name": "choose_fastas",
+          "line": 179
+        },
+        {
+          "name": "parse_fasta",
+          "line": 249
+        },
+        {
+          "name": "header_keys",
+          "line": 276
+        },
+        {
+          "name": "build_index",
+          "line": 292
+        },
+        {
+          "name": "unique_records",
+          "line": 304
+        },
+        {
+          "name": "resolve_query",
+          "line": 315
+        },
+        {
+          "name": "renamed_header",
+          "line": 324
+        },
+        {
+          "name": "write_outputs",
+          "line": 334
+        },
+        {
+          "name": "create_family_reference_alias",
+          "line": 424
+        },
+        {
+          "name": "write_clean_all_outputs",
+          "line": 447
+        },
+        {
+          "name": "write_manifest",
+          "line": 493
+        },
+        {
+          "name": "main",
+          "line": 498
+        }
+      ]
+    },
+    {
+      "stage": "msa_region_plot",
+      "workflow": "gene_family",
+      "module": "cli.run_msa_region_plot",
+      "main_file": "project_source/bioflow_kernel/cli/run_msa_region_plot.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "msa_figure_from_aligned.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "read_fasta",
+          "line": 32
+        },
+        {
+          "name": "write_fasta",
+          "line": 53
+        },
+        {
+          "name": "validate_alignment",
+          "line": 62
+        },
+        {
+          "name": "conservation_profile",
+          "line": 71
+        },
+        {
+          "name": "reference_residue_range_to_alignment_cols",
+          "line": 92
+        },
+        {
+          "name": "best_window",
+          "line": 133
+        },
+        {
+          "name": "extract_region",
+          "line": 172
+        },
+        {
+          "name": "resolve_msa",
+          "line": 184
+        },
+        {
+          "name": "collect_outputs",
+          "line": 194
+        },
+        {
+          "name": "run_r_plot",
+          "line": 202
+        },
+        {
+          "name": "write_profile",
+          "line": 236
+        },
+        {
+          "name": "read_json_dict",
+          "line": 244
+        },
+        {
+          "name": "route_from_prefix",
+          "line": 252
+        },
+        {
+          "name": "find_source_manifest",
+          "line": 261
+        },
+        {
+          "name": "scope_from_manifest",
+          "line": 312
+        },
+        {
+          "name": "parse_args",
+          "line": 348
+        },
+        {
+          "name": "main",
+          "line": 376
+        }
+      ]
+    },
+    {
+      "stage": "tree_plot_revise",
+      "workflow": "gene_family",
+      "module": "cli.run_tree_plot",
+      "main_file": "project_source/bioflow_kernel/cli/run_tree_plot.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "json",
+        "os",
+        "pathlib",
+        "subprocess",
+        "sys"
+      ],
+      "script_references": [
+        "draw_msa_from_file.R",
+        "plot_tree.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "_now_tag",
+          "line": 17
+        },
+        {
+          "name": "main",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "stage": "promoter_plot_revise",
+      "workflow": "gene_family",
+      "module": "cli.run_promoter_plot_revise",
+      "main_file": "project_source/bioflow_kernel/cli/run_promoter_plot_revise.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "typing"
+      ],
+      "script_references": [
+        "promoter_custom_plot.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "sha256_file",
+          "line": 24
+        },
+        {
+          "name": "split_csv",
+          "line": 32
+        },
+        {
+          "name": "sanitize_label",
+          "line": 47
+        },
+        {
+          "name": "relpath",
+          "line": 56
+        },
+        {
+          "name": "load_json",
+          "line": 63
+        },
+        {
+          "name": "artifact_path",
+          "line": 71
+        },
+        {
+          "name": "latest_manifest",
+          "line": 83
+        },
+        {
+          "name": "find_promoter_file",
+          "line": 88
+        },
+        {
+          "name": "find_tree_file",
+          "line": 107
+        },
+        {
+          "name": "find_subfamily_file",
+          "line": 129
+        },
+        {
+          "name": "artifact_record",
+          "line": 151
+        },
+        {
+          "name": "build_arg_parser",
+          "line": 164
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "prepare_organize",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "prepare_normalize_gff",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "prepare_longest_transcript",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "prepare_extract_pep",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "prepare_extract_cds",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "prepare_filter_fasta",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "prepare_simplify_ncbi",
+      "workflow": "gene_family",
+      "module": "cli.run_prepare_substep",
+      "main_file": "project_source/bioflow_kernel/cli/run_prepare_substep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.run_genome_prepare",
+        "datetime",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "gff_filter_longest.py",
+        "run_genome_prepare.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_genome_prepare.py"
+      ],
+      "functions": [
+        {
+          "name": "_artifact",
+          "line": 47
+        },
+        {
+          "name": "_write_manifest",
+          "line": 59
+        },
+        {
+          "name": "_preparer",
+          "line": 114
+        },
+        {
+          "name": "_iter_species",
+          "line": 121
+        },
+        {
+          "name": "_run_organize",
+          "line": 125
+        },
+        {
+          "name": "_run_normalize_gff",
+          "line": 149
+        },
+        {
+          "name": "_run_longest_transcript",
+          "line": 165
+        },
+        {
+          "name": "_run_gffread",
+          "line": 193
+        },
+        {
+          "name": "_run_filter_fasta",
+          "line": 217
+        },
+        {
+          "name": "_run_simplify_ncbi",
+          "line": 237
+        },
+        {
+          "name": "run_operation",
+          "line": 257
+        },
+        {
+          "name": "main",
+          "line": 283
+        }
+      ]
+    },
+    {
+      "stage": "phylogeny",
+      "workflow": "gene_family",
+      "module": "cli.run_phylogeny",
+      "main_file": "project_source/bioflow_kernel/cli/run_phylogeny.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "跨环境: 主 test4py311; iqtree3 探测链已 PATH 化, 镜像内用 test4py311 自带 iqtree, 单镜像执行",
+      "imports": [
+        "Bio",
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shlex",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "traceback",
+        "typing"
+      ],
+      "script_references": [
+        "msa_figure.R",
+        "msa_figure.mafft.R",
+        "msa_figure_from_aligned.R",
+        "plot_tree.R",
+        "run_msa_region_plot.py",
+        "run_phylogeny.py",
+        "tree_plot.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "route_output_suffix",
+          "line": 36
+        },
+        {
+          "name": "resolve_iqtree_executable",
+          "line": 52
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 70
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 146
+        },
+        {
+          "name": "infer_effective_prefix",
+          "line": 160
+        },
+        {
+          "name": "validate_identify_output",
+          "line": 201
+        },
+        {
+          "name": "read_fasta_records",
+          "line": 307
+        },
+        {
+          "name": "write_fasta_records",
+          "line": 336
+        },
+        {
+          "name": "display_path",
+          "line": 346
+        },
+        {
+          "name": "current_input_dir",
+          "line": 351
+        },
+        {
+          "name": "inside_current_job",
+          "line": 355
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 364
+        },
+        {
+          "name": "resolve_job_path",
+          "line": 389
+        },
+        {
+          "name": "manifest_artifact_path",
+          "line": 414
+        },
+        {
+          "name": "rebase_job_path_text",
+          "line": 424
+        },
+        {
+          "name": "rebase_manifest_payload_paths",
+          "line": 447
+        },
+        {
+          "name": "first_existing_scope_file",
+          "line": 457
+        },
+        {
+          "name": "infer_input_dir",
+          "line": 469
+        },
+        {
+          "name": "find_species_family_pep",
+          "line": 492
+        },
+        {
+          "name": "find_refined_species_members",
+          "line": 537
+        },
+        {
+          "name": "prepare_phylogeny_scope_fasta",
+          "line": 591
+        },
+        {
+          "name": "prepare_directories",
+          "line": 736
+        },
+        {
+          "name": "force_option_value",
+          "line": 752
+        },
+        {
+          "name": "run_mafft_alignment",
+          "line": 770
+        },
+        {
+          "name": "compute_msa_metrics",
+          "line": 857
+        },
+        {
+          "name": "count_tree_tips",
+          "line": 922
+        },
+        {
+          "name": "run_iqtree_tree",
+          "line": 932
+        },
+        {
+          "name": "run_msa_plotting",
+          "line": 1010
+        },
+        {
+          "name": "run_msa_conserved_region_plotting",
+          "line": 1157
+        },
+        {
+          "name": "infer_species_family_from_output_prefix",
+          "line": 1222
+        },
+        {
+          "name": "find_cross_scope_subfamily_file",
+          "line": 1230
+        },
+        {
+          "name": "run_tree_plotting",
+          "line": 1255
+        },
+        {
+          "name": "extract_best_model",
+          "line": 1470
+        },
+        {
+          "name": "write_report",
+          "line": 1487
+        },
+        {
+          "name": "write_manifest",
+          "line": 1603
+        },
+        {
+          "name": "main",
+          "line": 1702
+        }
+      ]
+    },
+    {
+      "stage": "reference_classification",
+      "workflow": "gene_family",
+      "module": "cli.run_reference_classification",
+      "main_file": "project_source/bioflow_kernel/cli/run_reference_classification.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "跨环境: 主 test4py311; combo 绘图 Rscript 曾指向 gfpy312(已适配 PATH 查找)",
+      "imports": [
+        "Bio",
+        "Bio.Phylo.TreeConstruction",
+        "__future__",
+        "argparse",
+        "collections",
+        "copy",
+        "csv",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing",
+        "xml.etree.ElementTree"
+      ],
+      "script_references": [
+        "combo_tree_motif_structure_domain.R",
+        "reference_classification_from_tree.py",
+        "resolve_scope.py",
+        "tree_plot.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "resolve_path",
+          "line": 33
+        },
+        {
+          "name": "has_two_column_data",
+          "line": 49
+        },
+        {
+          "name": "read_reference_gene_ids",
+          "line": 62
+        },
+        {
+          "name": "read_reference_gene_labels",
+          "line": 79
+        },
+        {
+          "name": "fasta_records",
+          "line": 89
+        },
+        {
+          "name": "fasta_id",
+          "line": 108
+        },
+        {
+          "name": "read_fasta_ids",
+          "line": 112
+        },
+        {
+          "name": "gene_id_aliases",
+          "line": 124
+        },
+        {
+          "name": "clean_protein_sequence",
+          "line": 136
+        },
+        {
+          "name": "find_reference_subfamily",
+          "line": 140
+        },
+        {
+          "name": "find_target_proteins",
+          "line": 187
+        },
+        {
+          "name": "find_reference_proteins",
+          "line": 229
+        },
+        {
+          "name": "resolve_manifest_path",
+          "line": 260
+        },
+        {
+          "name": "collect_target_ids_from_scope",
+          "line": 271
+        },
+        {
+          "name": "collect_target_ids_by_species",
+          "line": 341
+        },
+        {
+          "name": "rewrite_tsv_rows",
+          "line": 402
+        },
+        {
+          "name": "filter_reference_classification_outputs",
+          "line": 409
+        },
+        {
+          "name": "write_per_species_subfamily_outputs",
+          "line": 462
+        },
+        {
+          "name": "tree_tip_counts",
+          "line": 579
+        },
+        {
+          "name": "write_joint_fasta",
+          "line": 600
+        },
+        {
+          "name": "run_logged",
+          "line": 639
+        },
+        {
+          "name": "run_subfamily_tree_plot",
+          "line": 654
+        },
+        {
+          "name": "read_subfamily_labels",
+          "line": 712
+        },
+        {
+          "name": "find_publication_phylogeny_tree",
+          "line": 726
+        },
+        {
+          "name": "normalize_reference_tip_labels_for_plot",
+          "line": 743
+        },
+        {
+          "name": "prune_tree_to_labels",
+          "line": 771
+        },
+        {
+          "name": "tree_label_match_summary",
+          "line": 792
+        },
+        {
+          "name": "run_per_species_subfamily_tree_plots",
+          "line": 822
+        },
+        {
+          "name": "latest_stage_manifest",
+          "line": 949
+        },
+        {
+          "name": "latest_species_evidence_manifest",
+          "line": 973
+        },
+        {
+          "name": "manifest_artifact_path",
+          "line": 1023
+        },
+        {
+          "name": "_strip_species_alias",
+          "line": 1043
+        },
+        {
+          "name": "_canonical_evidence_id",
+          "line": 1050
+        },
+        {
+          "name": "parse_meme_sequence_ids",
+          "line": 1066
+        },
+        {
+          "name": "parse_domtblout_sequence_ids",
+          "line": 1085
+        },
+        {
+          "name": "parse_gff_gene_ids",
+          "line": 1101
+        },
+        {
+          "name": "evidence_id_match_summary",
+          "line": 1126
+        },
+        {
+          "name": "resolve_combo_evidence_inputs",
+          "line": 1167
+        },
+        {
+          "name": "run_evidence_combo_plot",
+          "line": 1193
+        },
+        {
+          "name": "run_per_species_evidence_combo_plots",
+          "line": 1242
+        },
+        {
+          "name": "build_neighbor_joining_tree",
+          "line": 1339
+        },
+        {
+          "name": "build_joint_tree_if_needed",
+          "line": 1352
+        },
+        {
+          "name": "write_confidence_table",
+          "line": 1431
+        },
+        {
+          "name": "summarize_assignment_table",
+          "line": 1452
+        },
+        {
+          "name": "infer_target_prefix",
+          "line": 1475
+        },
+        {
+          "name": "main",
+          "line": 1495
+        }
+      ]
+    },
+    {
+      "stage": "synteny",
+      "workflow": "gene_family",
+      "module": "cli.run_synteny",
+      "main_file": "project_source/bioflow_kernel/cli/run_synteny.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gzip",
+        "hashlib",
+        "json",
+        "matplotlib",
+        "matplotlib.patches",
+        "matplotlib.path",
+        "matplotlib.pyplot",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "traceback",
+        "typing"
+      ],
+      "script_references": [
+        "resolve_scope.py",
+        "run_synteny.py",
+        "scripts/get_mcscanx_circos.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py"
+      ],
+      "functions": [
+        {
+          "name": "compute_file_hash",
+          "line": 51
+        },
+        {
+          "name": "_relative_to_workspace",
+          "line": 63
+        },
+        {
+          "name": "_scoped_copy_destination",
+          "line": 70
+        },
+        {
+          "name": "materialize_scoped_artifacts",
+          "line": 87
+        },
+        {
+          "name": "current_input_dir",
+          "line": 125
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 129
+        },
+        {
+          "name": "rebase_job_path_text",
+          "line": 167
+        },
+        {
+          "name": "rebase_manifest_payload_paths",
+          "line": 182
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 192
+        },
+        {
+          "name": "validate_inputs",
+          "line": 267
+        },
+        {
+          "name": "first_existing_scope_file",
+          "line": 379
+        },
+        {
+          "name": "first_existing_path",
+          "line": 396
+        },
+        {
+          "name": "prefer_representative_target_file",
+          "line": 403
+        },
+        {
+          "name": "resolve_synteny_scope_inputs",
+          "line": 468
+        },
+        {
+          "name": "open_text_maybe_gzip",
+          "line": 494
+        },
+        {
+          "name": "write_blast_safe_protein_fasta",
+          "line": 500
+        },
+        {
+          "name": "prepare_directories",
+          "line": 554
+        },
+        {
+          "name": "run_diamond_blastp",
+          "line": 570
+        },
+        {
+          "name": "run_blastp",
+          "line": 669
+        },
+        {
+          "name": "read_fasta_ids_for_matching",
+          "line": 761
+        },
+        {
+          "name": "parse_gff3_attributes",
+          "line": 776
+        },
+        {
+          "name": "gff_id_candidates",
+          "line": 795
+        },
+        {
+          "name": "choose_gff_feature_id",
+          "line": 826
+        },
+        {
+          "name": "filter_gff3",
+          "line": 842
+        },
+        {
+          "name": "run_duplicate_classifier",
+          "line": 890
+        },
+        {
+          "name": "run_mcscanx",
+          "line": 943
+        },
+        {
+          "name": "find_scope_gene_id_file",
+          "line": 998
+        },
+        {
+          "name": "_read_id_set",
+          "line": 1020
+        },
+        {
+          "name": "_parse_mcscanx_gff",
+          "line": 1032
+        },
+        {
+          "name": "_parse_collinearity_pairs",
+          "line": 1054
+        },
+        {
+          "name": "generate_synteny_fallback_plot",
+          "line": 1067
+        },
+        {
+          "name": "_is_primary_chromosome_name",
+          "line": 1195
+        },
+        {
+          "name": "_is_obvious_non_nuclear_sequence",
+          "line": 1202
+        },
+        {
+          "name": "_select_circos_chromosomes",
+          "line": 1209
+        },
+        {
+          "name": "_format_circos_points",
+          "line": 1270
+        },
+        {
+          "name": "_format_circos_radius",
+          "line": 1282
+        },
+        {
+          "name": "run_circos_prepare",
+          "line": 1294
+        },
+        {
+          "name": "_create_circos_config_files",
+          "line": 1583
+        },
+        {
+          "name": "compute_blast_stats",
+          "line": 1689
+        },
+        {
+          "name": "compute_collinearity_stats",
+          "line": 1705
+        },
+        {
+          "name": "write_report",
+          "line": 1731
+        },
+        {
+          "name": "write_manifest",
+          "line": 1817
+        },
+        {
+          "name": "main",
+          "line": 1911
+        }
+      ]
+    },
+    {
+      "stage": "pep",
+      "workflow": "gene_family",
+      "module": "cli.run_pep",
+      "main_file": "project_source/bioflow_kernel/cli/run_pep.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "concurrent.futures",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "scripts.pep_v2.deeptmhmm",
+        "scripts.pep_v2.plotting",
+        "scripts.pep_v2.protparam",
+        "scripts.pep_v2.subcellular",
+        "shutil",
+        "subprocess",
+        "sys",
+        "traceback",
+        "typing"
+      ],
+      "script_references": [
+        "run_pep.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/scripts/pep_v2/deeptmhmm.py",
+        "project_source/bioflow_kernel/scripts/pep_v2/plotting.py",
+        "project_source/bioflow_kernel/scripts/pep_v2/protparam.py",
+        "project_source/bioflow_kernel/scripts/pep_v2/subcellular.py"
+      ],
+      "functions": [
+        {
+          "name": "load_manifest",
+          "line": 55
+        },
+        {
+          "name": "count_fasta_records",
+          "line": 62
+        },
+        {
+          "name": "ensure_protein_fasta_without_stop_markers",
+          "line": 71
+        },
+        {
+          "name": "resolve_identify_protein_fasta_for_scope",
+          "line": 95
+        },
+        {
+          "name": "resolve_scope_protein_fasta",
+          "line": 117
+        },
+        {
+          "name": "scope_parameters",
+          "line": 155
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 170
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 181
+        },
+        {
+          "name": "prepare_directories",
+          "line": 197
+        },
+        {
+          "name": "parse_fasta",
+          "line": 208
+        },
+        {
+          "name": "external_tool_timeout",
+          "line": 227
+        },
+        {
+          "name": "write_clean_fasta",
+          "line": 240
+        },
+        {
+          "name": "task_protparam",
+          "line": 251
+        },
+        {
+          "name": "task_deeptmhmm",
+          "line": 287
+        },
+        {
+          "name": "task_subcellular",
+          "line": 326
+        },
+        {
+          "name": "write_report",
+          "line": 361
+        },
+        {
+          "name": "write_manifest",
+          "line": 440
+        },
+        {
+          "name": "collect_artifacts",
+          "line": 493
+        },
+        {
+          "name": "main",
+          "line": 518
+        }
+      ]
+    },
+    {
+      "stage": "interspecies_synteny",
+      "workflow": "gene_family",
+      "module": "cli.run_interspecies_synteny",
+      "main_file": "project_source/bioflow_kernel/cli/run_interspecies_synteny.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gzip",
+        "hashlib",
+        "json",
+        "os",
+        "pandas",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "typing"
+      ],
+      "script_references": [
+        "interspecies_tree.R",
+        "resolve_scope.py",
+        "scripts/interspecies_tree.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "open_text",
+          "line": 67
+        },
+        {
+          "name": "materialize_plain_fasta",
+          "line": 74
+        },
+        {
+          "name": "pdf_to_png",
+          "line": 113
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 137
+        },
+        {
+          "name": "current_input_dir",
+          "line": 149
+        },
+        {
+          "name": "looks_like_path_candidate",
+          "line": 153
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 164
+        },
+        {
+          "name": "rebase_job_path_text",
+          "line": 194
+        },
+        {
+          "name": "rebase_manifest_payload_paths",
+          "line": 215
+        },
+        {
+          "name": "summarize_process_result",
+          "line": 225
+        },
+        {
+          "name": "resolve_iqtree_executable",
+          "line": 246
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 266
+        },
+        {
+          "name": "prepare_directories",
+          "line": 286
+        },
+        {
+          "name": "merge_protein_sequences",
+          "line": 298
+        },
+        {
+          "name": "build_phylogenetic_tree",
+          "line": 328
+        },
+        {
+          "name": "filter_gff_files",
+          "line": 393
+        },
+        {
+          "name": "run_reciprocal_blast",
+          "line": 452
+        },
+        {
+          "name": "run_mcscanx_interspecies",
+          "line": 496
+        },
+        {
+          "name": "fasta_ids",
+          "line": 533
+        },
+        {
+          "name": "display_species_code",
+          "line": 542
+        },
+        {
+          "name": "species_for_gene",
+          "line": 548
+        },
+        {
+          "name": "write_gene_species_map",
+          "line": 557
+        },
+        {
+          "name": "normalize_seq_id",
+          "line": 568
+        },
+        {
+          "name": "id_variants",
+          "line": 582
+        },
+        {
+          "name": "fasta_ids",
+          "line": 604
+        },
+        {
+          "name": "fasta_id_set",
+          "line": 615
+        },
+        {
+          "name": "display_species_code",
+          "line": 622
+        },
+        {
+          "name": "species_for_gene",
+          "line": 628
+        },
+        {
+          "name": "collect_species_id_sets",
+          "line": 642
+        },
+        {
+          "name": "write_gene_species_map",
+          "line": 652
+        },
+        {
+          "name": "_merge_blast_outputs",
+          "line": 674
+        },
+        {
+          "name": "_run_reciprocal_blastp_engine",
+          "line": 685
+        },
+        {
+          "name": "_run_reciprocal_diamond_engine",
+          "line": 748
+        },
+        {
+          "name": "run_reciprocal_blast",
+          "line": 811
+        },
+        {
+          "name": "run_mcscanx_interspecies",
+          "line": 853
+        },
+        {
+          "name": "_read_tree_tip_labels",
+          "line": 881
+        },
+        {
+          "name": "_merge_matching_subfamily_files",
+          "line": 889
+        },
+        {
+          "name": "plot_interspecies_tree",
+          "line": 926
+        },
+        {
+          "name": "convert_blast_to_family_simple",
+          "line": 1050
+        },
+        {
+          "name": "convert_collinearity_to_simple",
+          "line": 1117
+        },
+        {
+          "name": "_chr_sort_key",
+          "line": 1198
+        },
+        {
+          "name": "_read_bed_chroms",
+          "line": 1205
+        },
+        {
+          "name": "_bed_gene_ids",
+          "line": 1216
+        },
+        {
+          "name": "_is_family_gene",
+          "line": 1228
+        },
+        {
+          "name": "_family_links_from_blast",
+          "line": 1232
+        },
+        {
+          "name": "_family_block_signatures_from_anchors",
+          "line": 1263
+        },
+        {
+          "name": "_simple_block_signature",
+          "line": 1303
+        },
+        {
+          "name": "_write_marked_simple_file",
+          "line": 1310
+        },
+        {
+          "name": "plot_multi_species_synteny",
+          "line": 1349
+        },
+        {
+          "name": "plot_pairwise_synteny",
+          "line": 1454
+        },
+        {
+          "name": "write_report",
+          "line": 1562
+        },
+        {
+          "name": "get_file_info",
+          "line": 1619
+        },
+        {
+          "name": "write_manifest",
+          "line": 1633
+        },
+        {
+          "name": "_clean_bool",
+          "line": 1736
+        },
+        {
+          "name": "_clean_text",
+          "line": 1740
+        },
+        {
+          "name": "_gene_family_from_prefix",
+          "line": 1753
+        },
+        {
+          "name": "_scope_file_record",
+          "line": 1757
+        },
+        {
+          "name": "_add_scope_species_to_groups",
+          "line": 1767
+        },
+        {
+          "name": "_apply_scope_selection_to_args",
+          "line": 1785
+        },
+        {
+          "name": "_resolve_path",
+          "line": 1799
+        },
+        {
+          "name": "_read_config_groups",
+          "line": 1815
+        },
+        {
+          "name": "_read_genome_prepare_artifacts",
+          "line": 1858
+        },
+        {
+          "name": "_find_species_file",
+          "line": 1880
+        },
+        {
+          "name": "_find_species_family_pep",
+          "line": 1915
+        },
+        {
+          "name": "_parse_species_selection",
+          "line": 1938
+        },
+        {
+          "name": "_filter_group_by_selection",
+          "line": 1944
+        },
+        {
+          "name": "_species_default_selection",
+          "line": 1951
+        },
+        {
+          "name": "_gene_matches_species",
+          "line": 1963
+        },
+        {
+          "name": "_filter_fasta_by_species",
+          "line": 1970
+        },
+        {
+          "name": "discover_group_inputs",
+          "line": 1992
+        },
+        {
+          "name": "merge_many_fastas",
+          "line": 2154
+        },
+        {
+          "name": "_parse_gff_attr",
+          "line": 2163
+        },
+        {
+          "name": "_is_primary_chromosome_name",
+          "line": 2179
+        },
+        {
+          "name": "_is_obvious_non_nuclear_sequence",
+          "line": 2186
+        },
+        {
+          "name": "_select_primary_chromosomes_from_lengths",
+          "line": 2193
+        },
+        {
+          "name": "_match_gff_id",
+          "line": 2241
+        },
+        {
+          "name": "build_species_position_files",
+          "line": 2256
+        },
+        {
+          "name": "collect_family_ids",
+          "line": 2320
+        },
+        {
+          "name": "add_artifact",
+          "line": 2333
+        },
+        {
+          "name": "write_failure_manifest",
+          "line": 2348
+        },
+        {
+          "name": "main",
+          "line": 2377
+        }
+      ]
+    },
+    {
+      "stage": "motif",
+      "workflow": "gene_family",
+      "module": "cli.run_motif",
+      "main_file": "project_source/bioflow_kernel/cli/run_motif.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "跨环境: 主 test4py311; MEME 实测在 test4py311 bin, 单镜像执行",
+      "imports": [
+        "Bio",
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gfa_core.mas.effective_members",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "traceback",
+        "typing",
+        "uuid",
+        "xml.etree.ElementTree"
+      ],
+      "script_references": [
+        "draw_motif_seqlogo.R",
+        "get_meme_pos.py",
+        "plot_motif.R",
+        "resolve_scope.py",
+        "tree_motif.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py",
+        "project_source/bioflow_kernel/gfa_core/mas/effective_members.py"
+      ],
+      "functions": [
+        {
+          "name": "display_path",
+          "line": 40
+        },
+        {
+          "name": "current_input_dir",
+          "line": 45
+        },
+        {
+          "name": "workspace_root_dir",
+          "line": 49
+        },
+        {
+          "name": "inside_current_job",
+          "line": 53
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 62
+        },
+        {
+          "name": "resolve_job_path",
+          "line": 78
+        },
+        {
+          "name": "manifest_artifact_path",
+          "line": 103
+        },
+        {
+          "name": "meme_runtime_env",
+          "line": 113
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 161
+        },
+        {
+          "name": "prepare_directories",
+          "line": 193
+        },
+        {
+          "name": "check_meme_available",
+          "line": 208
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 230
+        },
+        {
+          "name": "read_gene_ids",
+          "line": 242
+        },
+        {
+          "name": "count_fasta_records",
+          "line": 253
+        },
+        {
+          "name": "ensure_protein_fasta_without_stop_markers",
+          "line": 262
+        },
+        {
+          "name": "resolve_scope_protein_fasta",
+          "line": 285
+        },
+        {
+          "name": "resolve_scope_tree_file",
+          "line": 320
+        },
+        {
+          "name": "load_manifest",
+          "line": 356
+        },
+        {
+          "name": "resolve_protein_fasta",
+          "line": 365
+        },
+        {
+          "name": "resolve_subfamily_file",
+          "line": 447
+        },
+        {
+          "name": "run_meme",
+          "line": 504
+        },
+        {
+          "name": "run_meme_summary",
+          "line": 676
+        },
+        {
+          "name": "run_seqlogo_plot",
+          "line": 740
+        },
+        {
+          "name": "run_tree_motif_plot",
+          "line": 814
+        },
+        {
+          "name": "parse_meme_xml_basic",
+          "line": 883
+        },
+        {
+          "name": "generate_report",
+          "line": 933
+        },
+        {
+          "name": "write_manifest",
+          "line": 1025
+        },
+        {
+          "name": "quarantine_stale_unscoped_failure",
+          "line": 1032
+        },
+        {
+          "name": "write_failure_manifest",
+          "line": 1051
+        },
+        {
+          "name": "main",
+          "line": 1134
+        }
+      ]
+    },
+    {
+      "stage": "structure",
+      "workflow": "gene_family",
+      "module": "cli.run_structure",
+      "main_file": "project_source/bioflow_kernel/cli/run_structure.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "Bio",
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gfa_core.mas.effective_members",
+        "gzip",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing",
+        "uuid"
+      ],
+      "script_references": [
+        "plot_structure.R",
+        "resolve_scope.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py",
+        "project_source/bioflow_kernel/gfa_core/mas/effective_members.py"
+      ],
+      "functions": [
+        {
+          "name": "display_path",
+          "line": 36
+        },
+        {
+          "name": "current_input_dir",
+          "line": 41
+        },
+        {
+          "name": "inside_current_job",
+          "line": 45
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 54
+        },
+        {
+          "name": "resolve_job_path",
+          "line": 70
+        },
+        {
+          "name": "manifest_artifact_path",
+          "line": 95
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 105
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 124
+        },
+        {
+          "name": "read_gene_ids",
+          "line": 136
+        },
+        {
+          "name": "open_text_auto",
+          "line": 147
+        },
+        {
+          "name": "read_tree_order",
+          "line": 153
+        },
+        {
+          "name": "should_strip_version",
+          "line": 165
+        },
+        {
+          "name": "strip_gff_id",
+          "line": 170
+        },
+        {
+          "name": "id_variants",
+          "line": 188
+        },
+        {
+          "name": "build_target_id_lookup",
+          "line": 204
+        },
+        {
+          "name": "canonical_target_id",
+          "line": 215
+        },
+        {
+          "name": "parse_gff3_attributes",
+          "line": 222
+        },
+        {
+          "name": "canonical_from_attr_values",
+          "line": 232
+        },
+        {
+          "name": "resolve_gff3_path",
+          "line": 243
+        },
+        {
+          "name": "find_prepared_gff3",
+          "line": 308
+        },
+        {
+          "name": "resolve_scope_gff3_paths",
+          "line": 322
+        },
+        {
+          "name": "resolve_scope_tree_file",
+          "line": 358
+        },
+        {
+          "name": "filter_scope_gff3",
+          "line": 395
+        },
+        {
+          "name": "resolve_subfamily_file",
+          "line": 433
+        },
+        {
+          "name": "filter_gff3",
+          "line": 513
+        },
+        {
+          "name": "gff3_to_tsv",
+          "line": 597
+        },
+        {
+          "name": "calculate_structure_metrics",
+          "line": 713
+        },
+        {
+          "name": "run_r_plotting",
+          "line": 770
+        },
+        {
+          "name": "generate_report",
+          "line": 830
+        },
+        {
+          "name": "write_manifest",
+          "line": 922
+        },
+        {
+          "name": "write_failure_manifest",
+          "line": 929
+        },
+        {
+          "name": "main",
+          "line": 965
+        }
+      ]
+    },
+    {
+      "stage": "domain",
+      "workflow": "gene_family",
+      "module": "cli.run_domain",
+      "main_file": "project_source/bioflow_kernel/cli/run_domain.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "Bio",
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gfa_core.mas.effective_members",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "typing",
+        "uuid"
+      ],
+      "script_references": [
+        "resolve_scope.py",
+        "scripts/tree_domain.R",
+        "tree_domain.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py",
+        "project_source/bioflow_kernel/gfa_core/mas/effective_members.py"
+      ],
+      "functions": [
+        {
+          "name": "display_path",
+          "line": 58
+        },
+        {
+          "name": "current_input_dir",
+          "line": 63
+        },
+        {
+          "name": "workspace_root_dir",
+          "line": 67
+        },
+        {
+          "name": "inside_current_job",
+          "line": 71
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 80
+        },
+        {
+          "name": "resolve_job_path",
+          "line": 96
+        },
+        {
+          "name": "manifest_artifact_path",
+          "line": 121
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 130
+        },
+        {
+          "name": "prepare_directories",
+          "line": 161
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 177
+        },
+        {
+          "name": "find_latest_manifest",
+          "line": 189
+        },
+        {
+          "name": "read_manifest",
+          "line": 198
+        },
+        {
+          "name": "resolve_scope_tree_file",
+          "line": 204
+        },
+        {
+          "name": "count_fasta_records",
+          "line": 241
+        },
+        {
+          "name": "ensure_protein_fasta_without_stop_markers",
+          "line": 250
+        },
+        {
+          "name": "resolve_scope_protein_fasta",
+          "line": 273
+        },
+        {
+          "name": "resolve_project_root",
+          "line": 308
+        },
+        {
+          "name": "resolve_subfamily_file",
+          "line": 318
+        },
+        {
+          "name": "prepare_pfam_database",
+          "line": 386
+        },
+        {
+          "name": "run_hmmscan",
+          "line": 435
+        },
+        {
+          "name": "parse_domtblout",
+          "line": 504
+        },
+        {
+          "name": "run_r_plotting",
+          "line": 603
+        },
+        {
+          "name": "generate_report",
+          "line": 685
+        },
+        {
+          "name": "write_manifest",
+          "line": 767
+        },
+        {
+          "name": "write_failure_manifest",
+          "line": 774
+        },
+        {
+          "name": "quarantine_stale_unscoped_failure",
+          "line": 810
+        },
+        {
+          "name": "calculate_domain_metrics",
+          "line": 830
+        },
+        {
+          "name": "main",
+          "line": 862
+        }
+      ]
+    },
+    {
+      "stage": "promoter",
+      "workflow": "gene_family",
+      "module": "cli.run_promoter",
+      "main_file": "project_source/bioflow_kernel/cli/run_promoter.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "Bio",
+        "argparse",
+        "certifi",
+        "csv",
+        "datetime",
+        "email",
+        "email.header",
+        "email.parser",
+        "email.utils",
+        "gfa_core.gene_family_scope",
+        "gzip",
+        "hashlib",
+        "http.client",
+        "imaplib",
+        "io",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "smtplib",
+        "socket",
+        "ssl",
+        "subprocess",
+        "sys",
+        "tarfile",
+        "time",
+        "typing",
+        "urllib.parse",
+        "urllib.request",
+        "uuid",
+        "zipfile"
+      ],
+      "script_references": [
+        "resolve_scope.py",
+        "scripts/promoter_position_distribution.R",
+        "scripts/promoter_v6_combined.R",
+        "scripts/promoter_visualization_enhanced_v2.R",
+        "tiqu_miaoshuwenjian.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py"
+      ],
+      "functions": [
+        {
+          "name": "load_project_env",
+          "line": 54
+        },
+        {
+          "name": "plantcare_ssl_context",
+          "line": 68
+        },
+        {
+          "name": "mask_email",
+          "line": 93
+        },
+        {
+          "name": "calculate_timeout",
+          "line": 128
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 135
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 166
+        },
+        {
+          "name": "_relative_to_workspace",
+          "line": 178
+        },
+        {
+          "name": "_scoped_copy_destination",
+          "line": 185
+        },
+        {
+          "name": "materialize_scoped_outputs",
+          "line": 202
+        },
+        {
+          "name": "run_cmd",
+          "line": 262
+        },
+        {
+          "name": "find_gff3_file",
+          "line": 283
+        },
+        {
+          "name": "find_genome_file",
+          "line": 305
+        },
+        {
+          "name": "find_gene_id_file",
+          "line": 338
+        },
+        {
+          "name": "first_existing_scope_file",
+          "line": 373
+        },
+        {
+          "name": "resolve_promoter_scope_inputs",
+          "line": 386
+        },
+        {
+          "name": "find_scope_target_final_gff3",
+          "line": 406
+        },
+        {
+          "name": "normalize_promoter_id",
+          "line": 427
+        },
+        {
+          "name": "promoter_gene_like_id",
+          "line": 438
+        },
+        {
+          "name": "promoter_id_variants",
+          "line": 446
+        },
+        {
+          "name": "extract_gtf_attr",
+          "line": 459
+        },
+        {
+          "name": "read_promoter_id_alias_map",
+          "line": 464
+        },
+        {
+          "name": "canonicalize_promoter_id",
+          "line": 486
+        },
+        {
+          "name": "prepare_promoter_sequences",
+          "line": 497
+        },
+        {
+          "name": "read_fasta_ids",
+          "line": 769
+        },
+        {
+          "name": "read_plantcare_gene_ids",
+          "line": 782
+        },
+        {
+          "name": "validate_plantcare_matches_promoters",
+          "line": 796
+        },
+        {
+          "name": "write_canonical_plantcare_tab",
+          "line": 821
+        },
+        {
+          "name": "split_fasta_by_count",
+          "line": 849
+        },
+        {
+          "name": "count_fasta_records",
+          "line": 884
+        },
+        {
+          "name": "safe_plantcare_upload_stem",
+          "line": 892
+        },
+        {
+          "name": "materialize_plantcare_upload_fastas",
+          "line": 899
+        },
+        {
+          "name": "split_fasta_by_upload_size",
+          "line": 913
+        },
+        {
+          "name": "merge_plantcare_results",
+          "line": 992
+        },
+        {
+          "name": "submit_to_plantcare",
+          "line": 1021
+        },
+        {
+          "name": "wait_for_plantcare_email",
+          "line": 1108
+        },
+        {
+          "name": "parse_plantcare_output",
+          "line": 1330
+        },
+        {
+          "name": "categorize_element",
+          "line": 1464
+        },
+        {
+          "name": "generate_promoter_report",
+          "line": 1528
+        },
+        {
+          "name": "calculate_enrichment",
+          "line": 1785
+        },
+        {
+          "name": "calculate_cooccurrence",
+          "line": 1891
+        },
+        {
+          "name": "calculate_promoter_complexity",
+          "line": 1967
+        },
+        {
+          "name": "_promoter_viz_glob_patterns",
+          "line": 2077
+        },
+        {
+          "name": "collect_promoter_viz_files",
+          "line": 2086
+        },
+        {
+          "name": "relocate_stray_promoter_viz",
+          "line": 2102
+        },
+        {
+          "name": "run_r_visualization",
+          "line": 2123
+        },
+        {
+          "name": "prepare_directories",
+          "line": 2190
+        },
+        {
+          "name": "write_manifest",
+          "line": 2206
+        },
+        {
+          "name": "_arg_value",
+          "line": 2293
+        },
+        {
+          "name": "write_failure_promoter_manifest_from_argv",
+          "line": 2303
+        },
+        {
+          "name": "main",
+          "line": 2381
+        }
+      ]
+    },
+    {
+      "stage": "tfbs",
+      "workflow": "gene_family",
+      "module": "cli.run_tfbs",
+      "main_file": "project_source/bioflow_kernel/cli/run_tfbs.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "Bio",
+        "__future__",
+        "argparse",
+        "cli.run_promoter",
+        "collections",
+        "csv",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gzip",
+        "hashlib",
+        "json",
+        "math",
+        "matplotlib",
+        "matplotlib.patches",
+        "matplotlib.pyplot",
+        "networkx",
+        "os",
+        "pandas",
+        "pathlib",
+        "re",
+        "scipy.stats",
+        "seaborn",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tarfile",
+        "tempfile",
+        "typing"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_promoter.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 80
+        },
+        {
+          "name": "sha256_file",
+          "line": 84
+        },
+        {
+          "name": "relpath",
+          "line": 92
+        },
+        {
+          "name": "artifact",
+          "line": 99
+        },
+        {
+          "name": "run_cmd",
+          "line": 111
+        },
+        {
+          "name": "count_fasta_records",
+          "line": 128
+        },
+        {
+          "name": "fasta_ids",
+          "line": 137
+        },
+        {
+          "name": "write_fasta_subset",
+          "line": 146
+        },
+        {
+          "name": "parse_config_species",
+          "line": 163
+        },
+        {
+          "name": "resolve_existing_path",
+          "line": 183
+        },
+        {
+          "name": "resolve_scope_inputs",
+          "line": 213
+        },
+        {
+          "name": "parse_planttfdb_manifest",
+          "line": 241
+        },
+        {
+          "name": "read_taxdump",
+          "line": 266
+        },
+        {
+          "name": "lineage",
+          "line": 297
+        },
+        {
+          "name": "common_lineage_choice",
+          "line": 311
+        },
+        {
+          "name": "motif_count",
+          "line": 359
+        },
+        {
+          "name": "materialize_motif_file",
+          "line": 369
+        },
+        {
+          "name": "select_motif_database",
+          "line": 379
+        },
+        {
+          "name": "run_fimo",
+          "line": 447
+        },
+        {
+          "name": "parse_fimo",
+          "line": 505
+        },
+        {
+          "name": "write_table",
+          "line": 559
+        },
+        {
+          "name": "bh_adjust",
+          "line": 568
+        },
+        {
+          "name": "summarize_hits",
+          "line": 583
+        },
+        {
+          "name": "tree_leaf_order",
+          "line": 659
+        },
+        {
+          "name": "make_plots",
+          "line": 677
+        },
+        {
+          "name": "write_report",
+          "line": 940
+        },
+        {
+          "name": "build_manifest",
+          "line": 975
+        },
+        {
+          "name": "parse_args",
+          "line": 1048
+        },
+        {
+          "name": "main",
+          "line": 1079
+        }
+      ]
+    },
+    {
+      "stage": "ortholog",
+      "workflow": "gene_family",
+      "module": "cli.run_ortholog",
+      "main_file": "project_source/bioflow_kernel/cli/run_ortholog.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "collections",
+        "os",
+        "pathlib",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "run_blast",
+          "line": 22
+        },
+        {
+          "name": "parse_blast_results",
+          "line": 59
+        },
+        {
+          "name": "main",
+          "line": 112
+        }
+      ]
+    },
+    {
+      "stage": "karyotype",
+      "workflow": "gene_family",
+      "module": "cli.run_karyotype",
+      "main_file": "project_source/bioflow_kernel/cli/run_karyotype.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gzip",
+        "hashlib",
+        "json",
+        "os",
+        "pandas",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "traceback",
+        "typing"
+      ],
+      "script_references": [
+        "resolve_scope.py",
+        "run_karyotype.py",
+        "scripts/karyogram_gene_family.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "open_text",
+          "line": 57
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 64
+        },
+        {
+          "name": "current_input_dir",
+          "line": 76
+        },
+        {
+          "name": "rebase_current_job_path",
+          "line": 80
+        },
+        {
+          "name": "rebase_job_path_text",
+          "line": 114
+        },
+        {
+          "name": "rebase_manifest_payload_paths",
+          "line": 135
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 145
+        },
+        {
+          "name": "prepare_directories",
+          "line": 179
+        },
+        {
+          "name": "clean_id",
+          "line": 195
+        },
+        {
+          "name": "gene_like_id",
+          "line": 205
+        },
+        {
+          "name": "id_variants",
+          "line": 219
+        },
+        {
+          "name": "parse_gff_attributes",
+          "line": 228
+        },
+        {
+          "name": "read_target_ids",
+          "line": 244
+        },
+        {
+          "name": "read_config_targets",
+          "line": 258
+        },
+        {
+          "name": "resolve_path",
+          "line": 303
+        },
+        {
+          "name": "read_genome_prepare_artifacts",
+          "line": 319
+        },
+        {
+          "name": "find_standardized_file",
+          "line": 340
+        },
+        {
+          "name": "scope_file_record",
+          "line": 366
+        },
+        {
+          "name": "discover_species_inputs",
+          "line": 376
+        },
+        {
+          "name": "build_simplified_gff",
+          "line": 412
+        },
+        {
+          "name": "prepare_gene_id_file_for_species",
+          "line": 449
+        },
+        {
+          "name": "is_primary_chromosome_name",
+          "line": 466
+        },
+        {
+          "name": "is_obvious_non_nuclear_sequence",
+          "line": 473
+        },
+        {
+          "name": "select_primary_chromosomes",
+          "line": 480
+        },
+        {
+          "name": "generate_genome_len",
+          "line": 536
+        },
+        {
+          "name": "prepare_gene_id_file",
+          "line": 565
+        },
+        {
+          "name": "create_empty_tandem_file",
+          "line": 584
+        },
+        {
+          "name": "summarize_family_tandem_genes",
+          "line": 593
+        },
+        {
+          "name": "run_karyotype_plot",
+          "line": 639
+        },
+        {
+          "name": "convert_pdf_to_png",
+          "line": 703
+        },
+        {
+          "name": "write_report",
+          "line": 740
+        },
+        {
+          "name": "write_manifest",
+          "line": 795
+        },
+        {
+          "name": "main",
+          "line": 895
+        }
+      ]
+    },
+    {
+      "stage": "ppi",
+      "workflow": "gene_family",
+      "module": "cli.run_ppi",
+      "main_file": "project_source/bioflow_kernel/cli/run_ppi.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.mas.effective_members",
+        "hashlib",
+        "json",
+        "os",
+        "pandas",
+        "pathlib",
+        "re",
+        "requests",
+        "shutil",
+        "string_api",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "typing"
+      ],
+      "script_references": [
+        "draw_ppi_network.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/mas/effective_members.py"
+      ],
+      "functions": [
+        {
+          "name": "compute_file_hash",
+          "line": 46
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 58
+        },
+        {
+          "name": "run_ppi_analysis",
+          "line": 86
+        },
+        {
+          "name": "normalize_gene_ids_for_string",
+          "line": 227
+        },
+        {
+          "name": "generate_network_plot",
+          "line": 243
+        },
+        {
+          "name": "generate_report",
+          "line": 315
+        },
+        {
+          "name": "generate_manifest",
+          "line": 375
+        },
+        {
+          "name": "main",
+          "line": 454
+        }
+      ]
+    },
+    {
+      "stage": "kaks",
+      "workflow": "gene_family",
+      "module": "cli.run_kaks_v2",
+      "main_file": "project_source/bioflow_kernel/cli/run_kaks_v2.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gzip",
+        "hashlib",
+        "json",
+        "logging",
+        "os",
+        "pandas",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "pal2nal.pl",
+        "skills/kaks/scripts/plot_kaks.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "conda_tool_env",
+          "line": 31
+        },
+        {
+          "name": "open_text",
+          "line": 43
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 50
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 62
+        },
+        {
+          "name": "parse_fasta",
+          "line": 98
+        },
+        {
+          "name": "find_matching_id",
+          "line": 117
+        },
+        {
+          "name": "parse_pairs",
+          "line": 140
+        },
+        {
+          "name": "run_kaks_pair",
+          "line": 153
+        },
+        {
+          "name": "load_gene_list",
+          "line": 277
+        },
+        {
+          "name": "filter_pairs_by_gene_list",
+          "line": 293
+        },
+        {
+          "name": "write_kaks_failure_manifest",
+          "line": 312
+        },
+        {
+          "name": "main",
+          "line": 381
+        }
+      ]
+    },
+    {
+      "stage": "combo",
+      "workflow": "gene_family",
+      "module": "cli.run_combo",
+      "main_file": "project_source/bioflow_kernel/cli/run_combo.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "跨环境: 主 test4py311; mafft/iqtree/meme 实测在 test4py311 bin, 单镜像执行",
+      "imports": [
+        "argparse",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "json",
+        "os",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "combo_tree_motif_structure_domain.R",
+        "resolve_scope.py"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "find_file_by_glob",
+          "line": 35
+        },
+        {
+          "name": "find_meme_xml",
+          "line": 41
+        },
+        {
+          "name": "resolve_meme_xml_from_manifest",
+          "line": 54
+        },
+        {
+          "name": "load_manifest",
+          "line": 81
+        },
+        {
+          "name": "motif_manifest_failure_message",
+          "line": 88
+        },
+        {
+          "name": "manifest_artifact_path",
+          "line": 104
+        },
+        {
+          "name": "materialize_aggregate_subfamily_file",
+          "line": 156
+        },
+        {
+          "name": "find_latest_manifest",
+          "line": 203
+        },
+        {
+          "name": "compact_output_prefix",
+          "line": 238
+        },
+        {
+          "name": "sanitize_output_label",
+          "line": 260
+        },
+        {
+          "name": "normalize_panels",
+          "line": 274
+        },
+        {
+          "name": "run_combo_plot",
+          "line": 302
+        },
+        {
+          "name": "promote_scoped_combo_outputs",
+          "line": 384
+        },
+        {
+          "name": "main",
+          "line": 407
+        }
+      ]
+    },
+    {
+      "stage": "annotation",
+      "workflow": "gene_family",
+      "module": "cli.run_annotation",
+      "main_file": "project_source/bioflow_kernel/cli/run_annotation.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "collections",
+        "concurrent.futures",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "typing"
+      ],
+      "script_references": [
+        "fetch_gene2go_bioc.R",
+        "interproscan.sh"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 67
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 71
+        },
+        {
+          "name": "read_fasta_ids",
+          "line": 82
+        },
+        {
+          "name": "sanitize_protein_fasta_for_local_annotation",
+          "line": 93
+        },
+        {
+          "name": "canonical_gene_id",
+          "line": 124
+        },
+        {
+          "name": "normalize_species_hint",
+          "line": 145
+        },
+        {
+          "name": "infer_species_hint",
+          "line": 153
+        },
+        {
+          "name": "prepare_dirs",
+          "line": 158
+        },
+        {
+          "name": "write_progress",
+          "line": 169
+        },
+        {
+          "name": "infer_annotation_scope",
+          "line": 176
+        },
+        {
+          "name": "scoped_name",
+          "line": 187
+        },
+        {
+          "name": "run_interproscan",
+          "line": 193
+        },
+        {
+          "name": "make_interproscan_run_dir",
+          "line": 237
+        },
+        {
+          "name": "interproscan_tmp_root",
+          "line": 241
+        },
+        {
+          "name": "make_interproscan_scratch_dir",
+          "line": 246
+        },
+        {
+          "name": "make_annotation_run_dir",
+          "line": 254
+        },
+        {
+          "name": "copy_interproscan_outputs",
+          "line": 272
+        },
+        {
+          "name": "parse_interproscan_tsv",
+          "line": 283
+        },
+        {
+          "name": "write_gene2go",
+          "line": 315
+        },
+        {
+          "name": "parse_gene2go_tsv",
+          "line": 325
+        },
+        {
+          "name": "run_bioc_gene2go",
+          "line": 367
+        },
+        {
+          "name": "write_gene2terms",
+          "line": 408
+        },
+        {
+          "name": "write_gene_id_map",
+          "line": 418
+        },
+        {
+          "name": "run_kofamscan",
+          "line": 427
+        },
+        {
+          "name": "kofam_config_ready",
+          "line": 463
+        },
+        {
+          "name": "parse_kofamscan_detail_tsv",
+          "line": 506
+        },
+        {
+          "name": "write_summary",
+          "line": 534
+        },
+        {
+          "name": "write_report",
+          "line": 563
+        },
+        {
+          "name": "rel_artifact",
+          "line": 591
+        },
+        {
+          "name": "write_reproducibility",
+          "line": 599
+        },
+        {
+          "name": "main",
+          "line": 633
+        }
+      ]
+    },
+    {
+      "stage": "gene_family_report",
+      "workflow": "gene_family",
+      "module": "cli.run_gene_family_report",
+      "main_file": "project_source/bioflow_kernel/cli/run_gene_family_report.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "gfa_core.gene_family_report",
+        "json",
+        "pathlib",
+        "sys",
+        "typing"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_report.py"
+      ],
+      "functions": [
+        {
+          "name": "_parser",
+          "line": 19
+        },
+        {
+          "name": "main",
+          "line": 35
+        }
+      ]
+    },
+    {
+      "stage": "synteny_plot_revise",
+      "workflow": "gene_family",
+      "module": null,
+      "main_file": null,
+      "registered_executable": true,
+      "present": false,
+      "cli_contract": [],
+      "note": "入口脚本缺失(dev 未提供 run_synteny_plot_revise.py)"
+    },
+    {
+      "stage": "msa",
+      "workflow": "gene_family",
+      "module": "cli.run_msa_region_plot",
+      "main_file": "project_source/bioflow_kernel/cli/run_msa_region_plot.py",
+      "registered_executable": false,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "json",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "script_references": [
+        "msa_figure_from_aligned.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py"
+      ],
+      "functions": [
+        {
+          "name": "read_fasta",
+          "line": 32
+        },
+        {
+          "name": "write_fasta",
+          "line": 53
+        },
+        {
+          "name": "validate_alignment",
+          "line": 62
+        },
+        {
+          "name": "conservation_profile",
+          "line": 71
+        },
+        {
+          "name": "reference_residue_range_to_alignment_cols",
+          "line": 92
+        },
+        {
+          "name": "best_window",
+          "line": 133
+        },
+        {
+          "name": "extract_region",
+          "line": 172
+        },
+        {
+          "name": "resolve_msa",
+          "line": 184
+        },
+        {
+          "name": "collect_outputs",
+          "line": 194
+        },
+        {
+          "name": "run_r_plot",
+          "line": 202
+        },
+        {
+          "name": "write_profile",
+          "line": 236
+        },
+        {
+          "name": "read_json_dict",
+          "line": 244
+        },
+        {
+          "name": "route_from_prefix",
+          "line": 252
+        },
+        {
+          "name": "find_source_manifest",
+          "line": 261
+        },
+        {
+          "name": "scope_from_manifest",
+          "line": 312
+        },
+        {
+          "name": "parse_args",
+          "line": 348
+        },
+        {
+          "name": "main",
+          "line": 376
+        }
+      ]
+    },
+    {
+      "stage": "expression",
+      "workflow": "rnaseq",
+      "module": "cli.run_expression",
+      "main_file": "project_source/bioflow_kernel/cli/run_expression.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ],
+      "note": "跨环境: 主 rnaR(R 绘图); 内部 rnaseq_quant 矩阵触发走 rnaseq 镜像子阶段(编排层拆分)",
+      "imports": [
+        "argparse",
+        "cli.rnaseq_env",
+        "csv",
+        "datetime",
+        "gfa_core.gene_family_scope",
+        "gfa_core.gene_family_stage_context",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "platform",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "traceback",
+        "typing"
+      ],
+      "script_references": [
+        "draw_rnaseq_expression.R",
+        "run_expression.py",
+        "scripts/draw_expression.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_scope.py",
+        "project_source/bioflow_kernel/gfa_core/gene_family_stage_context.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "scope_parameters",
+          "line": 59
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 83
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 130
+        },
+        {
+          "name": "abs_text",
+          "line": 142
+        },
+        {
+          "name": "parse_metric_tsv",
+          "line": 146
+        },
+        {
+          "name": "truthy_metric",
+          "line": 160
+        },
+        {
+          "name": "resolve_rnaseq_expression_matrices",
+          "line": 164
+        },
+        {
+          "name": "validate_previous_stage",
+          "line": 214
+        },
+        {
+          "name": "prepare_directories",
+          "line": 267
+        },
+        {
+          "name": "run_rnaseq_auto_expression",
+          "line": 284
+        },
+        {
+          "name": "run_expression_analysis",
+          "line": 538
+        },
+        {
+          "name": "write_report",
+          "line": 658
+        },
+        {
+          "name": "write_manifest",
+          "line": 719
+        },
+        {
+          "name": "main",
+          "line": 894
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_qc",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_qc",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_qc.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--config",
+          "samples_yaml"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "argparse",
+        "cli.rnaseq_env",
+        "concurrent.futures",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "typing",
+        "yaml",
+        "zipfile"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "validate_input_files",
+          "line": 40
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 122
+        },
+        {
+          "name": "fastp_version",
+          "line": 134
+        },
+        {
+          "name": "resolve_fastp_bin",
+          "line": 151
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 167
+        },
+        {
+          "name": "load_samples_config",
+          "line": 218
+        },
+        {
+          "name": "resolve_thread_plan",
+          "line": 234
+        },
+        {
+          "name": "fastqc_output_base",
+          "line": 248
+        },
+        {
+          "name": "sample_qc_outputs_complete",
+          "line": 257
+        },
+        {
+          "name": "run_fastqc",
+          "line": 280
+        },
+        {
+          "name": "run_cutadapt",
+          "line": 313
+        },
+        {
+          "name": "run_fastp",
+          "line": 381
+        },
+        {
+          "name": "run_multiqc",
+          "line": 446
+        },
+        {
+          "name": "get_sample_stats",
+          "line": 462
+        },
+        {
+          "name": "generate_report",
+          "line": 545
+        },
+        {
+          "name": "generate_manifest",
+          "line": 587
+        },
+        {
+          "name": "main",
+          "line": 760
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_align",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_align",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_align.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--hisat2-index",
+          "param:hisat2_index"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "argparse",
+        "cli.rnaseq_env",
+        "concurrent.futures",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "typing",
+        "yaml"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "resolve_thread_plan",
+          "line": 50
+        },
+        {
+          "name": "species_token_from_prefix",
+          "line": 63
+        },
+        {
+          "name": "find_canonical_genome_fasta",
+          "line": 71
+        },
+        {
+          "name": "canonical_genome_index_prefix",
+          "line": 82
+        },
+        {
+          "name": "build_hisat2_index",
+          "line": 92
+        },
+        {
+          "name": "resolve_locked_hisat2_index",
+          "line": 109
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 176
+        },
+        {
+          "name": "parse_annotation_attributes",
+          "line": 188
+        },
+        {
+          "name": "annotation_transcript_id",
+          "line": 203
+        },
+        {
+          "name": "extract_hisat2_splice_sites",
+          "line": 216
+        },
+        {
+          "name": "resolve_known_splice_site",
+          "line": 260
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 307
+        },
+        {
+          "name": "run_hisat2_sort",
+          "line": 356
+        },
+        {
+          "name": "index_bam",
+          "line": 408
+        },
+        {
+          "name": "run_samtools_qc",
+          "line": 419
+        },
+        {
+          "name": "parse_samtools_flagstat",
+          "line": 449
+        },
+        {
+          "name": "run_multiqc",
+          "line": 471
+        },
+        {
+          "name": "parse_hisat2_log",
+          "line": 486
+        },
+        {
+          "name": "resolve_clean_fastq",
+          "line": 554
+        },
+        {
+          "name": "generate_report",
+          "line": 583
+        },
+        {
+          "name": "generate_manifest",
+          "line": 628
+        },
+        {
+          "name": "main",
+          "line": 778
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_quant",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_quant",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_quant.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--gtf",
+          "param:gtf"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "argparse",
+        "cli.rnaseq_env",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "traceback",
+        "typing",
+        "yaml"
+      ],
+      "script_references": [
+        "pipeline_backend.py",
+        "scripts/tximport_abundance.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "resolve_thread_plan",
+          "line": 47
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 60
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 72
+        },
+        {
+          "name": "resolve_sample_bam",
+          "line": 148
+        },
+        {
+          "name": "run_stringtie",
+          "line": 162
+        },
+        {
+          "name": "convert_gff3_to_gtf",
+          "line": 187
+        },
+        {
+          "name": "run_featurecounts",
+          "line": 299
+        },
+        {
+          "name": "run_multiqc",
+          "line": 348
+        },
+        {
+          "name": "parse_gff3_attrs",
+          "line": 365
+        },
+        {
+          "name": "parse_annotation_attrs",
+          "line": 369
+        },
+        {
+          "name": "first_annotation_value",
+          "line": 389
+        },
+        {
+          "name": "extract_gene_id_from_fasta_header",
+          "line": 397
+        },
+        {
+          "name": "parse_tx2gene_from_gff",
+          "line": 405
+        },
+        {
+          "name": "normalize_transcriptome_and_tx2gene",
+          "line": 432
+        },
+        {
+          "name": "read_gene_matrix_signature",
+          "line": 499
+        },
+        {
+          "name": "read_tx2gene_stats",
+          "line": 526
+        },
+        {
+          "name": "parse_salmon_index_duplicate_count",
+          "line": 551
+        },
+        {
+          "name": "format_metric_value",
+          "line": 574
+        },
+        {
+          "name": "write_matrix_bridge_qc",
+          "line": 586
+        },
+        {
+          "name": "compute_matrix_bridge_qc",
+          "line": 594
+        },
+        {
+          "name": "auto_find_transcriptome",
+          "line": 672
+        },
+        {
+          "name": "resolve_sample_fastqs",
+          "line": 694
+        },
+        {
+          "name": "run_salmon_abundance_track",
+          "line": 747
+        },
+        {
+          "name": "run_kallisto_abundance_track",
+          "line": 902
+        },
+        {
+          "name": "sample_name_from_featurecounts_column",
+          "line": 1045
+        },
+        {
+          "name": "read_featurecounts_table",
+          "line": 1054
+        },
+        {
+          "name": "parse_featurecounts_summary",
+          "line": 1103
+        },
+        {
+          "name": "read_featurecounts_summary_table",
+          "line": 1142
+        },
+        {
+          "name": "write_featurecounts_table",
+          "line": 1163
+        },
+        {
+          "name": "merge_featurecounts_outputs",
+          "line": 1184
+        },
+        {
+          "name": "merge_featurecounts_summaries",
+          "line": 1228
+        },
+        {
+          "name": "run_featurecounts_by_strandness",
+          "line": 1252
+        },
+        {
+          "name": "parse_featurecounts_output",
+          "line": 1344
+        },
+        {
+          "name": "generate_expression_matrices",
+          "line": 1383
+        },
+        {
+          "name": "generate_report",
+          "line": 1478
+        },
+        {
+          "name": "add_artifact_to_manifest",
+          "line": 1577
+        },
+        {
+          "name": "generate_manifest",
+          "line": 1591
+        },
+        {
+          "name": "main",
+          "line": 1810
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_sample_qc",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_sample_qc",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_sample_qc.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "pathlib",
+        "re",
+        "shlex",
+        "subprocess",
+        "sys",
+        "time",
+        "typing",
+        "yaml"
+      ],
+      "script_references": [
+        "commands.sh",
+        "run_sample_qc.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 40
+        },
+        {
+          "name": "sha256",
+          "line": 44
+        },
+        {
+          "name": "abs_text",
+          "line": 55
+        },
+        {
+          "name": "relpath",
+          "line": 59
+        },
+        {
+          "name": "read_json",
+          "line": 66
+        },
+        {
+          "name": "infer_prefix",
+          "line": 73
+        },
+        {
+          "name": "find_count_matrix",
+          "line": 89
+        },
+        {
+          "name": "sample_names_from_count_matrix",
+          "line": 106
+        },
+        {
+          "name": "infer_condition",
+          "line": 119
+        },
+        {
+          "name": "normalize_condition",
+          "line": 132
+        },
+        {
+          "name": "load_groups",
+          "line": 154
+        },
+        {
+          "name": "load_sample_times",
+          "line": 204
+        },
+        {
+          "name": "write_sample_table",
+          "line": 223
+        },
+        {
+          "name": "write_r_script",
+          "line": 235
+        },
+        {
+          "name": "r_versions",
+          "line": 359
+        },
+        {
+          "name": "read_summary",
+          "line": 381
+        },
+        {
+          "name": "add_artifact",
+          "line": 398
+        },
+        {
+          "name": "write_report",
+          "line": 410
+        },
+        {
+          "name": "main",
+          "line": 435
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_wgcna",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_wgcna",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_wgcna.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "pathlib",
+        "re",
+        "shlex",
+        "shutil",
+        "subprocess",
+        "sys",
+        "time",
+        "typing",
+        "yaml"
+      ],
+      "script_references": [
+        "SFT.R",
+        "commands.sh",
+        "run_wgcna.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 46
+        },
+        {
+          "name": "sha256",
+          "line": 50
+        },
+        {
+          "name": "abs_text",
+          "line": 61
+        },
+        {
+          "name": "relpath",
+          "line": 65
+        },
+        {
+          "name": "read_json",
+          "line": 74
+        },
+        {
+          "name": "infer_prefix",
+          "line": 81
+        },
+        {
+          "name": "find_matrix",
+          "line": 97
+        },
+        {
+          "name": "sample_names_from_matrix",
+          "line": 120
+        },
+        {
+          "name": "infer_condition",
+          "line": 133
+        },
+        {
+          "name": "load_groups",
+          "line": 141
+        },
+        {
+          "name": "write_sample_table",
+          "line": 183
+        },
+        {
+          "name": "write_r_script",
+          "line": 198
+        },
+        {
+          "name": "r_versions",
+          "line": 418
+        },
+        {
+          "name": "read_summary",
+          "line": 440
+        },
+        {
+          "name": "add_artifact",
+          "line": 457
+        },
+        {
+          "name": "write_report",
+          "line": 470
+        },
+        {
+          "name": "cleanup_previous_outputs",
+          "line": 495
+        },
+        {
+          "name": "main",
+          "line": 508
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_de",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_de",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_de.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--config",
+          "samples_yaml"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ],
+      "note": "跨环境: DE 表在 rnaseq; DESeq2 R 统计/绘图可拆分 r_de_analysis 镜像子阶段(编排层)",
+      "imports": [
+        "argparse",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "gfa_core.rnaseq_de_design",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "typing",
+        "yaml"
+      ],
+      "script_references": [
+        "run_deseq2.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_de_design.py"
+      ],
+      "functions": [
+        {
+          "name": "normalize_gene_id",
+          "line": 51
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 62
+        },
+        {
+          "name": "abs_text",
+          "line": 74
+        },
+        {
+          "name": "get_tool_versions",
+          "line": 78
+        },
+        {
+          "name": "r_string",
+          "line": 102
+        },
+        {
+          "name": "r_vector",
+          "line": 107
+        },
+        {
+          "name": "parse_bool",
+          "line": 111
+        },
+        {
+          "name": "parse_time_sort_value",
+          "line": 119
+        },
+        {
+          "name": "comparison_name",
+          "line": 127
+        },
+        {
+          "name": "normalize_samples_config",
+          "line": 131
+        },
+        {
+          "name": "extract_sample_metadata",
+          "line": 142
+        },
+        {
+          "name": "normalize_group_label",
+          "line": 163
+        },
+        {
+          "name": "load_groups_from_config",
+          "line": 181
+        },
+        {
+          "name": "load_sample_times",
+          "line": 202
+        },
+        {
+          "name": "build_replicate_counts",
+          "line": 214
+        },
+        {
+          "name": "get_replicate_policy",
+          "line": 222
+        },
+        {
+          "name": "validate_replicates",
+          "line": 236
+        },
+        {
+          "name": "build_group_times",
+          "line": 254
+        },
+        {
+          "name": "infer_group_times_from_labels",
+          "line": 273
+        },
+        {
+          "name": "dedupe_comparisons",
+          "line": 289
+        },
+        {
+          "name": "filter_comparisons_to_groups",
+          "line": 303
+        },
+        {
+          "name": "build_auto_time_comparisons",
+          "line": 323
+        },
+        {
+          "name": "get_experiment_cfg",
+          "line": 360
+        },
+        {
+          "name": "normalize_design",
+          "line": 365
+        },
+        {
+          "name": "normalize_group_list",
+          "line": 381
+        },
+        {
+          "name": "load_configured_comparisons",
+          "line": 391
+        },
+        {
+          "name": "configured_group_value",
+          "line": 399
+        },
+        {
+          "name": "build_control_comparisons",
+          "line": 414
+        },
+        {
+          "name": "build_de_plan",
+          "line": 447
+        },
+        {
+          "name": "run_family_de_analysis",
+          "line": 605
+        },
+        {
+          "name": "generate_family_plots",
+          "line": 680
+        },
+        {
+          "name": "generate_modular_r_script",
+          "line": 782
+        },
+        {
+          "name": "run_deseq2",
+          "line": 1190
+        },
+        {
+          "name": "generate_report",
+          "line": 1577
+        },
+        {
+          "name": "generate_manifest",
+          "line": 1638
+        },
+        {
+          "name": "parse_de_results",
+          "line": 1831
+        },
+        {
+          "name": "cleanup_previous_outputs",
+          "line": 1864
+        },
+        {
+          "name": "main",
+          "line": 1889
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_go_enrich",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_enrich",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_enrich.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--output",
+          "output_final"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "collections",
+        "csv",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "html",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "typing",
+        "urllib.request"
+      ],
+      "script_references": [
+        "commands.sh",
+        "run_enrichment_orgdb.R",
+        "scripts/plot_rnaseq_go_enrichment.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 64
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 68
+        },
+        {
+          "name": "abs_text",
+          "line": 79
+        },
+        {
+          "name": "split_terms",
+          "line": 83
+        },
+        {
+          "name": "split_kos",
+          "line": 86
+        },
+        {
+          "name": "normalize_gene_id",
+          "line": 99
+        },
+        {
+          "name": "parse_gene2go",
+          "line": 114
+        },
+        {
+          "name": "load_go_ontology",
+          "line": 142
+        },
+        {
+          "name": "parse_gene2ko",
+          "line": 185
+        },
+        {
+          "name": "normalize_pathway_id",
+          "line": 210
+        },
+        {
+          "name": "generic_pathway_id",
+          "line": 219
+        },
+        {
+          "name": "kegg_cache_dir",
+          "line": 224
+        },
+        {
+          "name": "fetch_kegg_rest",
+          "line": 233
+        },
+        {
+          "name": "load_kegg_pathway_maps",
+          "line": 246
+        },
+        {
+          "name": "build_gene_pathway_maps",
+          "line": 351
+        },
+        {
+          "name": "parse_de_genes",
+          "line": 365
+        },
+        {
+          "name": "find_de_files",
+          "line": 386
+        },
+        {
+          "name": "comparison_name",
+          "line": 404
+        },
+        {
+          "name": "hypergeom_tail",
+          "line": 417
+        },
+        {
+          "name": "bh_adjust",
+          "line": 450
+        },
+        {
+          "name": "enrich_go",
+          "line": 464
+        },
+        {
+          "name": "enrich_term_table",
+          "line": 503
+        },
+        {
+          "name": "foreground_background_overlap",
+          "line": 511
+        },
+        {
+          "name": "annotate_go_rows",
+          "line": 524
+        },
+        {
+          "name": "write_go_table",
+          "line": 536
+        },
+        {
+          "name": "write_kegg_table",
+          "line": 550
+        },
+        {
+          "name": "annotate_kegg_pathway_rows",
+          "line": 566
+        },
+        {
+          "name": "kegg_is_plant_compatible",
+          "line": 598
+        },
+        {
+          "name": "filter_kegg_rows",
+          "line": 615
+        },
+        {
+          "name": "write_kegg_hit_table",
+          "line": 621
+        },
+        {
+          "name": "write_kegg_mapper_files",
+          "line": 658
+        },
+        {
+          "name": "write_enrichment_bar_svg",
+          "line": 695
+        },
+        {
+          "name": "write_enrichment_r_plot",
+          "line": 799
+        },
+        {
+          "name": "write_enrichment_r_plot_legacy",
+          "line": 908
+        },
+        {
+          "name": "parse_de_results_log2fc",
+          "line": 1054
+        },
+        {
+          "name": "build_ko_log2fc",
+          "line": 1081
+        },
+        {
+          "name": "strip_pathway_prefix",
+          "line": 1098
+        },
+        {
+          "name": "run_pathview_kegg_plots",
+          "line": 1104
+        },
+        {
+          "name": "r_string",
+          "line": 1217
+        },
+        {
+          "name": "build_orgdb_r_script",
+          "line": 1221
+        },
+        {
+          "name": "run_orgdb_enrichment",
+          "line": 1330
+        },
+        {
+          "name": "rel_artifact",
+          "line": 1371
+        },
+        {
+          "name": "cleanup_previous_outputs",
+          "line": 1379
+        },
+        {
+          "name": "stage_id_from_args",
+          "line": 1395
+        },
+        {
+          "name": "result_prefix",
+          "line": 1405
+        },
+        {
+          "name": "write_reproducibility",
+          "line": 1409
+        },
+        {
+          "name": "build_manifest",
+          "line": 1444
+        },
+        {
+          "name": "write_report",
+          "line": 1518
+        },
+        {
+          "name": "parse_args",
+          "line": 1554
+        },
+        {
+          "name": "main",
+          "line": 1627
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_kegg_enrich",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_enrich",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_enrich.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--output",
+          "output_final"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "collections",
+        "csv",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "html",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "typing",
+        "urllib.request"
+      ],
+      "script_references": [
+        "commands.sh",
+        "run_enrichment_orgdb.R",
+        "scripts/plot_rnaseq_go_enrichment.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 64
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 68
+        },
+        {
+          "name": "abs_text",
+          "line": 79
+        },
+        {
+          "name": "split_terms",
+          "line": 83
+        },
+        {
+          "name": "split_kos",
+          "line": 86
+        },
+        {
+          "name": "normalize_gene_id",
+          "line": 99
+        },
+        {
+          "name": "parse_gene2go",
+          "line": 114
+        },
+        {
+          "name": "load_go_ontology",
+          "line": 142
+        },
+        {
+          "name": "parse_gene2ko",
+          "line": 185
+        },
+        {
+          "name": "normalize_pathway_id",
+          "line": 210
+        },
+        {
+          "name": "generic_pathway_id",
+          "line": 219
+        },
+        {
+          "name": "kegg_cache_dir",
+          "line": 224
+        },
+        {
+          "name": "fetch_kegg_rest",
+          "line": 233
+        },
+        {
+          "name": "load_kegg_pathway_maps",
+          "line": 246
+        },
+        {
+          "name": "build_gene_pathway_maps",
+          "line": 351
+        },
+        {
+          "name": "parse_de_genes",
+          "line": 365
+        },
+        {
+          "name": "find_de_files",
+          "line": 386
+        },
+        {
+          "name": "comparison_name",
+          "line": 404
+        },
+        {
+          "name": "hypergeom_tail",
+          "line": 417
+        },
+        {
+          "name": "bh_adjust",
+          "line": 450
+        },
+        {
+          "name": "enrich_go",
+          "line": 464
+        },
+        {
+          "name": "enrich_term_table",
+          "line": 503
+        },
+        {
+          "name": "foreground_background_overlap",
+          "line": 511
+        },
+        {
+          "name": "annotate_go_rows",
+          "line": 524
+        },
+        {
+          "name": "write_go_table",
+          "line": 536
+        },
+        {
+          "name": "write_kegg_table",
+          "line": 550
+        },
+        {
+          "name": "annotate_kegg_pathway_rows",
+          "line": 566
+        },
+        {
+          "name": "kegg_is_plant_compatible",
+          "line": 598
+        },
+        {
+          "name": "filter_kegg_rows",
+          "line": 615
+        },
+        {
+          "name": "write_kegg_hit_table",
+          "line": 621
+        },
+        {
+          "name": "write_kegg_mapper_files",
+          "line": 658
+        },
+        {
+          "name": "write_enrichment_bar_svg",
+          "line": 695
+        },
+        {
+          "name": "write_enrichment_r_plot",
+          "line": 799
+        },
+        {
+          "name": "write_enrichment_r_plot_legacy",
+          "line": 908
+        },
+        {
+          "name": "parse_de_results_log2fc",
+          "line": 1054
+        },
+        {
+          "name": "build_ko_log2fc",
+          "line": 1081
+        },
+        {
+          "name": "strip_pathway_prefix",
+          "line": 1098
+        },
+        {
+          "name": "run_pathview_kegg_plots",
+          "line": 1104
+        },
+        {
+          "name": "r_string",
+          "line": 1217
+        },
+        {
+          "name": "build_orgdb_r_script",
+          "line": 1221
+        },
+        {
+          "name": "run_orgdb_enrichment",
+          "line": 1330
+        },
+        {
+          "name": "rel_artifact",
+          "line": 1371
+        },
+        {
+          "name": "cleanup_previous_outputs",
+          "line": 1379
+        },
+        {
+          "name": "stage_id_from_args",
+          "line": 1395
+        },
+        {
+          "name": "result_prefix",
+          "line": 1405
+        },
+        {
+          "name": "write_reproducibility",
+          "line": 1409
+        },
+        {
+          "name": "build_manifest",
+          "line": 1444
+        },
+        {
+          "name": "write_report",
+          "line": 1518
+        },
+        {
+          "name": "parse_args",
+          "line": 1554
+        },
+        {
+          "name": "main",
+          "line": 1627
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_fgsea",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_fgsea",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_fgsea.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shlex",
+        "subprocess",
+        "sys",
+        "time",
+        "typing",
+        "urllib.request"
+      ],
+      "script_references": [
+        "commands.sh",
+        "run_fgsea_kegg.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 70
+        },
+        {
+          "name": "file_sha256",
+          "line": 74
+        },
+        {
+          "name": "abs_text",
+          "line": 85
+        },
+        {
+          "name": "relpath",
+          "line": 89
+        },
+        {
+          "name": "read_json",
+          "line": 96
+        },
+        {
+          "name": "infer_prefix",
+          "line": 103
+        },
+        {
+          "name": "find_de_results",
+          "line": 122
+        },
+        {
+          "name": "comparison_from_de_file",
+          "line": 144
+        },
+        {
+          "name": "write_text",
+          "line": 153
+        },
+        {
+          "name": "infer_kegg_organism",
+          "line": 158
+        },
+        {
+          "name": "fetch_url_text",
+          "line": 166
+        },
+        {
+          "name": "ensure_species_kegg_cache",
+          "line": 171
+        },
+        {
+          "name": "make_r_script",
+          "line": 222
+        },
+        {
+          "name": "get_r_versions",
+          "line": 459
+        },
+        {
+          "name": "write_manifest",
+          "line": 481
+        },
+        {
+          "name": "write_report",
+          "line": 486
+        },
+        {
+          "name": "main",
+          "line": 523
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_candidate_family",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_candidate_family",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_candidate_family.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "collections",
+        "csv",
+        "dataclasses",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "shlex",
+        "shutil",
+        "subprocess",
+        "time",
+        "typing"
+      ],
+      "script_references": [
+        "interproscan.sh"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 128
+        },
+        {
+          "name": "sha256",
+          "line": 132
+        },
+        {
+          "name": "abs_text",
+          "line": 142
+        },
+        {
+          "name": "artifact",
+          "line": 146
+        },
+        {
+          "name": "localize_external_resource",
+          "line": 163
+        },
+        {
+          "name": "canonical_gene_id",
+          "line": 186
+        },
+        {
+          "name": "id_variants",
+          "line": 200
+        },
+        {
+          "name": "build_variant_map",
+          "line": 210
+        },
+        {
+          "name": "read_de_files",
+          "line": 218
+        },
+        {
+          "name": "parse_float",
+          "line": 261
+        },
+        {
+          "name": "fasta_iter",
+          "line": 270
+        },
+        {
+          "name": "prefix_species_family",
+          "line": 287
+        },
+        {
+          "name": "species_aliases",
+          "line": 294
+        },
+        {
+          "name": "is_family_subset_protein",
+          "line": 308
+        },
+        {
+          "name": "is_species_resource",
+          "line": 320
+        },
+        {
+          "name": "shared_resource_roots",
+          "line": 327
+        },
+        {
+          "name": "historical_annotation_roots",
+          "line": 348
+        },
+        {
+          "name": "resource_diagnostics",
+          "line": 380
+        },
+        {
+          "name": "find_protein_fasta",
+          "line": 419
+        },
+        {
+          "name": "is_family_member_interproscan",
+          "line": 476
+        },
+        {
+          "name": "write_deg_protein_subset",
+          "line": 488
+        },
+        {
+          "name": "find_interproscan_tsv",
+          "line": 515
+        },
+        {
+          "name": "run_interproscan",
+          "line": 542
+        },
+        {
+          "name": "parse_interproscan_tsv",
+          "line": 592
+        },
+        {
+          "name": "classify_hit",
+          "line": 631
+        },
+        {
+          "name": "read_enrichment_terms",
+          "line": 648
+        },
+        {
+          "name": "build_evidence",
+          "line": 681
+        },
+        {
+          "name": "first_existing",
+          "line": 760
+        },
+        {
+          "name": "bh_adjust",
+          "line": 767
+        },
+        {
+          "name": "hypergeom_sf",
+          "line": 782
+        },
+        {
+          "name": "build_family_background",
+          "line": 800
+        },
+        {
+          "name": "comparison_from_fgsea_name",
+          "line": 812
+        },
+        {
+          "name": "read_fgsea_support",
+          "line": 820
+        },
+        {
+          "name": "read_wgcna_support",
+          "line": 859
+        },
+        {
+          "name": "make_family_enrichment_rows",
+          "line": 927
+        },
+        {
+          "name": "tier_for_family",
+          "line": 955
+        },
+        {
+          "name": "evidence_summary",
+          "line": 974
+        },
+        {
+          "name": "write_candidate_extension_tables",
+          "line": 992
+        },
+        {
+          "name": "write_tables",
+          "line": 1089
+        },
+        {
+          "name": "read_tsv_rows",
+          "line": 1125
+        },
+        {
+          "name": "read_json_file",
+          "line": 1138
+        },
+        {
+          "name": "markdown_file_link",
+          "line": 1147
+        },
+        {
+          "name": "md_escape",
+          "line": 1153
+        },
+        {
+          "name": "short_text",
+          "line": 1159
+        },
+        {
+          "name": "fmt_number",
+          "line": 1166
+        },
+        {
+          "name": "row_int",
+          "line": 1175
+        },
+        {
+          "name": "tier_label",
+          "line": 1182
+        },
+        {
+          "name": "is_generic_domain_family",
+          "line": 1192
+        },
+        {
+          "name": "unique_rows_by_family",
+          "line": 1197
+        },
+        {
+          "name": "evidence_layers",
+          "line": 1208
+        },
+        {
+          "name": "summarize_support",
+          "line": 1222
+        },
+        {
+          "name": "key_gene_map",
+          "line": 1240
+        },
+        {
+          "name": "family_lookup",
+          "line": 1249
+        },
+        {
+          "name": "build_rag_queries",
+          "line": 1253
+        },
+        {
+          "name": "build_rag_references_stub",
+          "line": 1367
+        },
+        {
+          "name": "write_family_detail",
+          "line": 1384
+        },
+        {
+          "name": "write_report",
+          "line": 1410
+        },
+        {
+          "name": "write_manifest",
+          "line": 1636
+        },
+        {
+          "name": "cleanup_previous_outputs",
+          "line": 1640
+        },
+        {
+          "name": "main",
+          "line": 1660
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_report",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_report",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_report.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "gfa_core.rnaseq_report",
+        "pathlib",
+        "sys"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/gfa_core/rnaseq_report.py"
+      ],
+      "functions": [
+        {
+          "name": "_csv",
+          "line": 17
+        },
+        {
+          "name": "main",
+          "line": 22
+        }
+      ]
+    },
+    {
+      "stage": "rnaseq_enrich",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_enrich_v2",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_enrich_v2.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--output",
+          "output_final"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ]
+      ],
+      "note": "",
+      "imports": [
+        "__future__",
+        "cli.run_rnaseq_enrich",
+        "pathlib",
+        "sys"
+      ],
+      "script_references": [],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/run_rnaseq_enrich.py"
+      ],
+      "functions": []
+    },
+    {
+      "stage": "enrichment",
+      "workflow": "rnaseq",
+      "module": "cli.run_rnaseq_enrich",
+      "main_file": "project_source/bioflow_kernel/cli/run_rnaseq_enrich.py",
+      "registered_executable": false,
+      "present": true,
+      "cli_contract": [],
+      "note": "",
+      "imports": [
+        "__future__",
+        "argparse",
+        "cli.rnaseq_env",
+        "collections",
+        "csv",
+        "datetime",
+        "gfa_core.rnaseq_context",
+        "hashlib",
+        "html",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "typing",
+        "urllib.request"
+      ],
+      "script_references": [
+        "commands.sh",
+        "run_enrichment_orgdb.R",
+        "scripts/plot_rnaseq_go_enrichment.R"
+      ],
+      "local_import_sources": [
+        "project_source/bioflow_kernel/cli/rnaseq_env.py",
+        "project_source/bioflow_kernel/gfa_core/rnaseq_context.py"
+      ],
+      "functions": [
+        {
+          "name": "now_iso",
+          "line": 64
+        },
+        {
+          "name": "compute_file_hash",
+          "line": 68
+        },
+        {
+          "name": "abs_text",
+          "line": 79
+        },
+        {
+          "name": "split_terms",
+          "line": 83
+        },
+        {
+          "name": "split_kos",
+          "line": 86
+        },
+        {
+          "name": "normalize_gene_id",
+          "line": 99
+        },
+        {
+          "name": "parse_gene2go",
+          "line": 114
+        },
+        {
+          "name": "load_go_ontology",
+          "line": 142
+        },
+        {
+          "name": "parse_gene2ko",
+          "line": 185
+        },
+        {
+          "name": "normalize_pathway_id",
+          "line": 210
+        },
+        {
+          "name": "generic_pathway_id",
+          "line": 219
+        },
+        {
+          "name": "kegg_cache_dir",
+          "line": 224
+        },
+        {
+          "name": "fetch_kegg_rest",
+          "line": 233
+        },
+        {
+          "name": "load_kegg_pathway_maps",
+          "line": 246
+        },
+        {
+          "name": "build_gene_pathway_maps",
+          "line": 351
+        },
+        {
+          "name": "parse_de_genes",
+          "line": 365
+        },
+        {
+          "name": "find_de_files",
+          "line": 386
+        },
+        {
+          "name": "comparison_name",
+          "line": 404
+        },
+        {
+          "name": "hypergeom_tail",
+          "line": 417
+        },
+        {
+          "name": "bh_adjust",
+          "line": 450
+        },
+        {
+          "name": "enrich_go",
+          "line": 464
+        },
+        {
+          "name": "enrich_term_table",
+          "line": 503
+        },
+        {
+          "name": "foreground_background_overlap",
+          "line": 511
+        },
+        {
+          "name": "annotate_go_rows",
+          "line": 524
+        },
+        {
+          "name": "write_go_table",
+          "line": 536
+        },
+        {
+          "name": "write_kegg_table",
+          "line": 550
+        },
+        {
+          "name": "annotate_kegg_pathway_rows",
+          "line": 566
+        },
+        {
+          "name": "kegg_is_plant_compatible",
+          "line": 598
+        },
+        {
+          "name": "filter_kegg_rows",
+          "line": 615
+        },
+        {
+          "name": "write_kegg_hit_table",
+          "line": 621
+        },
+        {
+          "name": "write_kegg_mapper_files",
+          "line": 658
+        },
+        {
+          "name": "write_enrichment_bar_svg",
+          "line": 695
+        },
+        {
+          "name": "write_enrichment_r_plot",
+          "line": 799
+        },
+        {
+          "name": "write_enrichment_r_plot_legacy",
+          "line": 908
+        },
+        {
+          "name": "parse_de_results_log2fc",
+          "line": 1054
+        },
+        {
+          "name": "build_ko_log2fc",
+          "line": 1081
+        },
+        {
+          "name": "strip_pathway_prefix",
+          "line": 1098
+        },
+        {
+          "name": "run_pathview_kegg_plots",
+          "line": 1104
+        },
+        {
+          "name": "r_string",
+          "line": 1217
+        },
+        {
+          "name": "build_orgdb_r_script",
+          "line": 1221
+        },
+        {
+          "name": "run_orgdb_enrichment",
+          "line": 1330
+        },
+        {
+          "name": "rel_artifact",
+          "line": 1371
+        },
+        {
+          "name": "cleanup_previous_outputs",
+          "line": 1379
+        },
+        {
+          "name": "stage_id_from_args",
+          "line": 1395
+        },
+        {
+          "name": "result_prefix",
+          "line": 1405
+        },
+        {
+          "name": "write_reproducibility",
+          "line": 1409
+        },
+        {
+          "name": "build_manifest",
+          "line": 1444
+        },
+        {
+          "name": "write_report",
+          "line": 1518
+        },
+        {
+          "name": "parse_args",
+          "line": 1554
+        },
+        {
+          "name": "main",
+          "line": 1627
+        }
+      ]
+    },
+    {
+      "stage": "singlecell_upstream",
+      "workflow": "singlecell",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_upstream"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "singlecell_analyze",
+      "workflow": "singlecell",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_analyze"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "singlecell_annotate",
+      "workflow": "singlecell",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_annotate"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "singlecell_pseudobulk",
+      "workflow": "singlecell",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_pseudobulk"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "singlecell_de",
+      "workflow": "singlecell",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_de"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "singlecell_enrich",
+      "workflow": "singlecell",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_enrich"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "spatial_segment",
+      "workflow": "spatial",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_segment"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "spatial_export",
+      "workflow": "spatial",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_export"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "spatial_analyze",
+      "workflow": "spatial",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_analyze"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "spatial_enrich",
+      "workflow": "spatial",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_enrich"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "metagenome_profile",
+      "workflow": "metagenome",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_profile"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "metagenome_mag",
+      "workflow": "metagenome",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_mag"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "metagenome_merge",
+      "workflow": "metagenome",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_merge"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "metagenome_summarize",
+      "workflow": "metagenome",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_summarize"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "metagenome_differential",
+      "workflow": "metagenome",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_differential"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "stage": "metagenome_community",
+      "workflow": "metagenome",
+      "module": "cli.run_omics",
+      "main_file": "project_source/bioflow_kernel/cli/run_omics.py",
+      "registered_executable": true,
+      "present": true,
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_community"
+        ]
+      ],
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "imports": [
+        "__future__",
+        "argparse",
+        "csv",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "sys",
+        "uuid"
+      ],
+      "script_references": [
+        "run.py",
+        "scripts/community_stats.R",
+        "scripts/differential_abundance.R",
+        "scripts/enrichment.py",
+        "scripts/export_spatialdata.py",
+        "scripts/pseudobulk_deseq2.R"
+      ],
+      "local_import_sources": [],
+      "functions": [
+        {
+          "name": "read_json",
+          "line": 24
+        },
+        {
+          "name": "write_json",
+          "line": 31
+        },
+        {
+          "name": "resolve_path",
+          "line": 38
+        },
+        {
+          "name": "prepare_config",
+          "line": 63
+        },
+        {
+          "name": "command_for",
+          "line": 93
+        },
+        {
+          "name": "run_command",
+          "line": 124
+        },
+        {
+          "name": "accept",
+          "line": 143
+        },
+        {
+          "name": "main",
+          "line": 183
+        }
+      ]
+    }
+  ],
+  "executionTestPerformed": false
+}

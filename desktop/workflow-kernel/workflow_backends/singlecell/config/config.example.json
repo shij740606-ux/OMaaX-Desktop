@@ -1,0 +1,24 @@
+{
+  "samples": "samples.example.csv",
+  "outdir": "../results/singlecell",
+  "assay": "scRNA",
+  "counts_layer": "counts",
+  "seed": 42,
+  "qc": {
+    "min_genes": 200,
+    "max_genes": null,
+    "min_cells_per_gene": 3,
+    "mitochondrial_pattern": null,
+    "max_pct_mt": null
+  },
+  "doublets": {
+    "enabled": false,
+    "expected_rate": 0.06
+  },
+  "integration": "none",
+  "n_hvg": 2000,
+  "n_pcs": 30,
+  "n_neighbors": 15,
+  "resolution": 0.6,
+  "paired": false
+}

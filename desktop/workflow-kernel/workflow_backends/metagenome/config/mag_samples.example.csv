@@ -1,0 +1,2 @@
+sample,group,short_reads_1,short_reads_2,short_reads_platform,long_reads,long_reads_platform
+C1,cohortA,/data/C1_R1.fastq.gz,/data/C1_R2.fastq.gz,ILLUMINA,,

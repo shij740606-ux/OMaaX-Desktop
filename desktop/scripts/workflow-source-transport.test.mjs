@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createHash} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const bytes=fs.readFileSync(new URL('../resources/workflows/kernel.zip',import.meta.url));
+assert(bytes.length>10*1024*1024,'Fixture must exercise the previous source-size failure');
+const request={bundle:bytes.toString('base64'),sha256:createHash('sha256').update(bytes).digest('hex'),destination:'invalid-path',connection:{}};
+const result=spawnSync(process.execPath,[fileURLToPath(new URL('../resources/ssh/stage-workflows.cjs',import.meta.url))],{input:JSON.stringify(request),encoding:'utf8',maxBuffer:1024*1024});
+assert.equal(result.status,0);assert.equal(JSON.parse(result.stdout).error,'Invalid workflow destination');
+request.sha256='a'.repeat(64);
+const corrupt=spawnSync(process.execPath,[fileURLToPath(new URL('../resources/ssh/stage-workflows.cjs',import.meta.url))],{input:JSON.stringify(request),encoding:'utf8',maxBuffer:1024*1024});
+assert.match(JSON.parse(corrupt.stdout).error,/checksum/);
+console.log('Expanded source bundle passes transport size validation; corrupt hashes and invalid destinations remain rejected.');

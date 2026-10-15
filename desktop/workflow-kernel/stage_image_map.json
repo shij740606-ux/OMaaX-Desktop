@@ -1,0 +1,2534 @@
+{
+  "version": "2.0.0",
+  "description": "阶段→镜像映射表（保留既有环境，新增三类组学和R统计适配器）",
+  "images": {
+    "bioflow-gf": {
+      "python": "3.11.14",
+      "source_env": "test4py311",
+      "family_chain": true,
+      "docker_tag": "bioflow-gf"
+    },
+    "bioflow-gfpy": {
+      "python": "3.12.13",
+      "source_env": "gfpy312",
+      "auxiliary": "unused-reserve(dev 历史残留环境, TL 2026-09-06 裁决)",
+      "docker_tag": "bioflow-gfpy"
+    },
+    "bioflow-rnaseq": {
+      "python": "3.11.15",
+      "source_env": "rnaseq",
+      "docker_tag": "bioflow-rnaseq"
+    },
+    "bioflow-rnaR": {
+      "python": "3.14.3",
+      "source_env": "rnaR",
+      "auxiliary": true,
+      "docker_tag": "bioflow-rnar"
+    },
+    "bioflow-wgs": {
+      "python": "3.8.18",
+      "source_env": "ASAW",
+      "docker_tag": "bioflow-wgs"
+    },
+    "bioflow-interproscan": {
+      "python": "3.11.15",
+      "source_env": "interproscanpy311",
+      "auxiliary": true,
+      "docker_tag": "bioflow-interproscan"
+    },
+    "bioflow-pan": {
+      "python": "3.11.9",
+      "source_env": "panfamily",
+      "auxiliary": true,
+      "docker_tag": "bioflow-pan"
+    },
+    "bioflow-rde": {
+      "python": "3.14.6",
+      "source_env": "r_de_analysis",
+      "auxiliary": true,
+      "docker_tag": "bioflow-rde"
+    },
+    "bioflow-singlecell": {
+      "docker_tag": "bioflow-singlecell",
+      "source": "validated_20261009 adapter"
+    },
+    "bioflow-spatial": {
+      "docker_tag": "bioflow-spatial",
+      "source": "validated_20261009 adapter"
+    },
+    "bioflow-metagenome": {
+      "docker_tag": "bioflow-metagenome",
+      "source": "validated_20261009 adapter"
+    },
+    "bioflow-omics-r": {
+      "docker_tag": "bioflow-omics-r",
+      "source": "validated_20261009 adapter"
+    }
+  },
+  "family_chain": [
+    "genome_prepare",
+    "identify",
+    "identify_refine",
+    "phylogeny",
+    "reference_classification",
+    "subfamily_confirm",
+    "motif",
+    "domain",
+    "structure",
+    "combo",
+    "promoter",
+    "tfbs",
+    "synteny",
+    "interspecies_synteny",
+    "karyotype",
+    "pep",
+    "ortholog",
+    "kaks",
+    "ppi",
+    "gene_family_report",
+    "expression"
+  ],
+  "stages": {
+    "wgs_qc": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_qc",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--wgs-samples",
+          "param:wgs_samples"
+        ]
+      ]
+    },
+    "wgs_index": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_index",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--reference-fasta",
+          "param:reference_fasta"
+        ]
+      ]
+    },
+    "wgs_align": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_align",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--qc-manifest",
+          "prev_manifest:wgs_qc"
+        ],
+        [
+          "--index-manifest",
+          "prev_manifest:wgs_index"
+        ]
+      ]
+    },
+    "wgs_markdup": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_markdup",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--align-manifest",
+          "prev_manifest:wgs_align"
+        ],
+        [
+          "--gatk",
+          "tool:gatk"
+        ],
+        [
+          "--samtools",
+          "tool:samtools"
+        ],
+        [
+          "--max-jobs",
+          "param:max_jobs"
+        ],
+        [
+          "--remove-duplicates",
+          "param:remove_duplicates"
+        ]
+      ]
+    },
+    "wgs_bam_qc": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_bam_qc",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--markdup-manifest",
+          "prev_manifest:wgs_markdup"
+        ],
+        [
+          "--index-manifest",
+          "prev_manifest:wgs_index"
+        ],
+        [
+          "--samtools",
+          "tool:samtools"
+        ],
+        [
+          "--threads",
+          "param:threads"
+        ],
+        [
+          "--max-jobs",
+          "param:max_jobs"
+        ]
+      ]
+    },
+    "wgs_haplotype_calling": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_haplotype_calling",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--markdup-manifest",
+          "prev_manifest:wgs_markdup"
+        ],
+        [
+          "--bam-qc-manifest",
+          "prev_manifest:wgs_bam_qc"
+        ],
+        [
+          "--index-manifest",
+          "prev_manifest:wgs_index"
+        ],
+        [
+          "--gatk",
+          "tool:gatk"
+        ],
+        [
+          "--native-pair-hmm-threads",
+          "param:native_pair_hmm_threads"
+        ],
+        [
+          "--max-jobs",
+          "param:max_jobs"
+        ]
+      ]
+    },
+    "wgs_gvcf_combine": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_gvcf_combine",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--haplotype-manifest",
+          "prev_manifest:wgs_haplotype_calling"
+        ],
+        [
+          "--index-manifest",
+          "prev_manifest:wgs_index"
+        ]
+      ]
+    },
+    "wgs_joint_genotyping": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_joint_genotyping",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--combine-manifest",
+          "prev_manifest:wgs_gvcf_combine"
+        ],
+        [
+          "--index-manifest",
+          "prev_manifest:wgs_index"
+        ]
+      ]
+    },
+    "wgs_variant_select": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_variant_select",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--joint-manifest",
+          "prev_manifest:wgs_joint_genotyping"
+        ]
+      ]
+    },
+    "wgs_variant_filter": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_variant_filter",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--select-manifest",
+          "prev_manifest:wgs_variant_select"
+        ]
+      ]
+    },
+    "wgs_impute": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_impute",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--filter-manifest",
+          "prev_manifest:wgs_variant_filter"
+        ],
+        [
+          "--beagle-jar",
+          "param:beagle_jar"
+        ]
+      ]
+    },
+    "wgs_maf_missing_filter": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_wgs_maf_missing_filter",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--impute-manifest",
+          "prev_manifest:wgs_impute"
+        ]
+      ]
+    },
+    "pop_pca": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_pop_pca",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "pop_phylogeny": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_pop_phylogeny",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "pop_structure": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_pop_structure",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "pop_ld_decay": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_pop_ld_decay",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "pop_snp_density": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_pop_snp_density",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "gwas_fmt": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_tassel",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "gwas_kinship": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_kinship",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ]
+      ]
+    },
+    "gwas_trait": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_trait",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--phenotype",
+          "param:phenotype"
+        ],
+        [
+          "--sample-column",
+          "param:sample_column"
+        ],
+        [
+          "--trait-column",
+          "param:trait_column"
+        ],
+        [
+          "--trait-name",
+          "param:trait_name"
+        ]
+      ]
+    },
+    "gwas_cov": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_covariate",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--q",
+          "param:q"
+        ],
+        [
+          "--fam",
+          "param:fam"
+        ],
+        [
+          "--k",
+          "param:k"
+        ]
+      ]
+    },
+    "gwas_mlm": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_tassel_mlm",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ],
+        [
+          "--kinship",
+          "param:kinship"
+        ],
+        [
+          "--trait",
+          "param:trait"
+        ],
+        [
+          "--covariate",
+          "param:covariate"
+        ],
+        [
+          "--genotype-scope-id",
+          "param:genotype_scope_id"
+        ]
+      ]
+    },
+    "gwas_plot": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_plot",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--mlm-pvalues",
+          "param:mlm_pvalues"
+        ],
+        [
+          "--cmlm-pvalues",
+          "param:cmlm_pvalues"
+        ],
+        [
+          "--genotype-scope-id",
+          "param:genotype_scope_id"
+        ],
+        [
+          "--phenotype-scope-id",
+          "param:phenotype_scope_id"
+        ],
+        [
+          "--covariate-scope-id",
+          "param:covariate_scope_id"
+        ]
+      ]
+    },
+    "gwas_emmax": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_emmax",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ],
+        [
+          "--trait",
+          "param:trait"
+        ],
+        [
+          "--vcf-manifest",
+          "param:vcf_manifest"
+        ],
+        [
+          "--trait-manifest",
+          "param:trait_manifest"
+        ],
+        [
+          "--genotype-scope-id",
+          "param:genotype_scope_id"
+        ]
+      ]
+    },
+    "gwas_emplot": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_emmax_plot",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--emmax-pvalues",
+          "param:emmax_pvalues"
+        ],
+        [
+          "--emmax-manifest",
+          "param:emmax_manifest"
+        ],
+        [
+          "--genotype-scope-id",
+          "param:genotype_scope_id"
+        ],
+        [
+          "--phenotype-scope-id",
+          "param:phenotype_scope_id"
+        ],
+        [
+          "--source-model-scope-id",
+          "param:source_model_scope_id"
+        ]
+      ]
+    },
+    "gwas_glm": {
+      "image": "bioflow-wgs",
+      "module": "cli.run_gwas_tassel_glm",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--vcf",
+          "param:vcf"
+        ],
+        [
+          "--trait",
+          "param:trait"
+        ],
+        [
+          "--covariate",
+          "param:covariate"
+        ],
+        [
+          "--vcf-manifest",
+          "param:vcf_manifest"
+        ],
+        [
+          "--trait-manifest",
+          "param:trait_manifest"
+        ],
+        [
+          "--covariate-manifest",
+          "param:covariate_manifest"
+        ],
+        [
+          "--genotype-scope-id",
+          "param:genotype_scope_id"
+        ],
+        [
+          "--phenotype-scope-id",
+          "param:phenotype_scope_id"
+        ],
+        [
+          "--covariate-scope-id",
+          "param:covariate_scope_id"
+        ]
+      ]
+    },
+    "genome_prepare": {
+      "image": "bioflow-gf",
+      "module": "cli.run_genome_prepare",
+      "executable": true
+    },
+    "identify": {
+      "image": "bioflow-gf",
+      "module": "cli.run_identify",
+      "executable": true,
+      "note": "跨环境: 主 test4py311; InterProScan 域检查子步骤走 bioflow-interproscan 镜像(编排层拆分)"
+    },
+    "identify_refine": {
+      "image": "bioflow-gf",
+      "module": "cli.run_identify_refine",
+      "executable": true
+    },
+    "subfamily_confirm": {
+      "image": "bioflow-gf",
+      "module": "cli.run_subfamily_confirm",
+      "executable": true
+    },
+    "ncbi_fetch_sequences": {
+      "image": "bioflow-gf",
+      "module": "cli.run_ncbi_fetch_sequences",
+      "executable": true
+    },
+    "sequence_extract_by_id": {
+      "image": "bioflow-gf",
+      "module": "cli.run_sequence_extract_by_id",
+      "executable": true
+    },
+    "msa_region_plot": {
+      "image": "bioflow-gf",
+      "module": "cli.run_msa_region_plot",
+      "executable": true
+    },
+    "tree_plot_revise": {
+      "image": "bioflow-gf",
+      "module": "cli.run_tree_plot",
+      "executable": true
+    },
+    "promoter_plot_revise": {
+      "image": "bioflow-gf",
+      "module": "cli.run_promoter_plot_revise",
+      "executable": true
+    },
+    "prepare_organize": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "prepare_normalize_gff": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "prepare_longest_transcript": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "prepare_extract_pep": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "prepare_extract_cds": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "prepare_filter_fasta": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "prepare_simplify_ncbi": {
+      "image": "bioflow-gf",
+      "module": "cli.run_prepare_substep",
+      "executable": true
+    },
+    "phylogeny": {
+      "image": "bioflow-gf",
+      "module": "cli.run_phylogeny",
+      "executable": true,
+      "note": "跨环境: 主 test4py311; iqtree3 探测链已 PATH 化, 镜像内用 test4py311 自带 iqtree, 单镜像执行"
+    },
+    "reference_classification": {
+      "image": "bioflow-gf",
+      "module": "cli.run_reference_classification",
+      "executable": true,
+      "note": "跨环境: 主 test4py311; combo 绘图 Rscript 曾指向 gfpy312(已适配 PATH 查找)"
+    },
+    "synteny": {
+      "image": "bioflow-gf",
+      "module": "cli.run_synteny",
+      "executable": true
+    },
+    "pep": {
+      "image": "bioflow-gf",
+      "module": "cli.run_pep",
+      "executable": true
+    },
+    "interspecies_synteny": {
+      "image": "bioflow-gf",
+      "module": "cli.run_interspecies_synteny",
+      "executable": true
+    },
+    "motif": {
+      "image": "bioflow-gf",
+      "module": "cli.run_motif",
+      "executable": true,
+      "note": "跨环境: 主 test4py311; MEME 实测在 test4py311 bin, 单镜像执行"
+    },
+    "structure": {
+      "image": "bioflow-gf",
+      "module": "cli.run_structure",
+      "executable": true
+    },
+    "domain": {
+      "image": "bioflow-gf",
+      "module": "cli.run_domain",
+      "executable": true
+    },
+    "promoter": {
+      "image": "bioflow-gf",
+      "module": "cli.run_promoter",
+      "executable": true
+    },
+    "tfbs": {
+      "image": "bioflow-gf",
+      "module": "cli.run_tfbs",
+      "executable": true
+    },
+    "ortholog": {
+      "image": "bioflow-gf",
+      "module": "cli.run_ortholog",
+      "executable": true
+    },
+    "karyotype": {
+      "image": "bioflow-gf",
+      "module": "cli.run_karyotype",
+      "executable": true
+    },
+    "ppi": {
+      "image": "bioflow-gf",
+      "module": "cli.run_ppi",
+      "executable": true
+    },
+    "kaks": {
+      "image": "bioflow-gf",
+      "module": "cli.run_kaks_v2",
+      "executable": true
+    },
+    "combo": {
+      "image": "bioflow-gf",
+      "module": "cli.run_combo",
+      "executable": true,
+      "note": "跨环境: 主 test4py311; mafft/iqtree/meme 实测在 test4py311 bin, 单镜像执行"
+    },
+    "annotation": {
+      "image": "bioflow-gf",
+      "module": "cli.run_annotation",
+      "executable": true
+    },
+    "gene_family_report": {
+      "image": "bioflow-gf",
+      "module": "cli.run_gene_family_report",
+      "executable": true
+    },
+    "synteny_plot_revise": {
+      "image": "bioflow-gf",
+      "module": null,
+      "executable": true,
+      "note": "入口脚本缺失(dev 未提供 run_synteny_plot_revise.py)"
+    },
+    "msa": {
+      "image": "bioflow-gf",
+      "module": "cli.run_msa_region_plot",
+      "executable": false
+    },
+    "expression": {
+      "image": "bioflow-rnaR",
+      "module": "cli.run_expression",
+      "executable": true,
+      "note": "跨环境: 主 rnaR(R 绘图); 内部 rnaseq_quant 矩阵触发走 rnaseq 镜像子阶段(编排层拆分)",
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ]
+    },
+    "rnaseq_qc": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_qc",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--config",
+          "samples_yaml"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ]
+    },
+    "rnaseq_align": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_align",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--hisat2-index",
+          "param:hisat2_index"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ]
+    },
+    "rnaseq_quant": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_quant",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--gtf",
+          "param:gtf"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ]
+    },
+    "rnaseq_sample_qc": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_sample_qc",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ]
+      ]
+    },
+    "rnaseq_wgcna": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_wgcna",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ]
+      ]
+    },
+    "rnaseq_de": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_de",
+      "executable": true,
+      "note": "跨环境: DE 表在 rnaseq; DESeq2 R 统计/绘图可拆分 r_de_analysis 镜像子阶段(编排层)",
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--config",
+          "samples_yaml"
+        ],
+        [
+          "--output",
+          "output_final"
+        ]
+      ]
+    },
+    "rnaseq_go_enrich": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_enrich",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--output",
+          "output_final"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ]
+    },
+    "rnaseq_kegg_enrich": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_enrich",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--output",
+          "output_final"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ]
+    },
+    "rnaseq_fgsea": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_fgsea",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ]
+      ]
+    },
+    "rnaseq_candidate_family": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_candidate_family",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ]
+    },
+    "rnaseq_report": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_report",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ]
+      ]
+    },
+    "rnaseq_enrich": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_enrich_v2",
+      "executable": true,
+      "cli_contract": [
+        [
+          "--input",
+          "input_dir"
+        ],
+        [
+          "--output",
+          "output_final"
+        ],
+        [
+          "--prefix",
+          "prefix"
+        ],
+        [
+          "--job-id",
+          "job_id"
+        ]
+      ]
+    },
+    "enrichment": {
+      "image": "bioflow-rnaseq",
+      "module": "cli.run_rnaseq_enrich",
+      "executable": false
+    },
+    "singlecell_upstream": {
+      "image": "bioflow-singlecell",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "singlecell",
+      "execution": "host_nextflow",
+      "description": "单细胞/单核 FASTQ 定量",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "singlecell_upstream.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input, fasta, gtf, expected_outputs"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/singlecell_upstream.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_upstream"
+        ]
+      ]
+    },
+    "singlecell_analyze": {
+      "image": "bioflow-singlecell",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "singlecell",
+      "execution": "docker",
+      "description": "单细胞/单核矩阵分析",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "singlecell_analyze.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "samples, qc"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/singlecell_analyze.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_analyze"
+        ]
+      ]
+    },
+    "singlecell_annotate": {
+      "image": "bioflow-singlecell",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "singlecell",
+      "execution": "docker",
+      "description": "单细胞人工审核注释",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "singlecell_annotate.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input, annotations"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/singlecell_annotate.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_annotate"
+        ]
+      ]
+    },
+    "singlecell_pseudobulk": {
+      "image": "bioflow-singlecell",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "singlecell",
+      "execution": "docker",
+      "description": "按供体聚合 pseudobulk",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "singlecell_pseudobulk.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/singlecell_pseudobulk.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_pseudobulk"
+        ]
+      ]
+    },
+    "singlecell_de": {
+      "image": "bioflow-omics-r",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "singlecell",
+      "execution": "docker",
+      "description": "单细胞 pseudobulk DESeq2",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "singlecell_de.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "counts, metadata, control, treated"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/singlecell_de.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_de"
+        ]
+      ]
+    },
+    "singlecell_enrich": {
+      "image": "bioflow-singlecell",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "singlecell",
+      "execution": "docker",
+      "description": "单细胞差异基因富集",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "singlecell_enrich.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "selected, universe, gmt"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/singlecell_enrich.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:singlecell_enrich"
+        ]
+      ]
+    },
+    "spatial_segment": {
+      "image": "bioflow-spatial",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "spatial",
+      "execution": "host_nextflow",
+      "description": "空间转录组 Sopa 分割",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "spatial_segment.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input, profile, expected_outputs"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/spatial_segment.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_segment"
+        ]
+      ]
+    },
+    "spatial_export": {
+      "image": "bioflow-spatial",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "spatial",
+      "execution": "docker",
+      "description": "SpatialData 审核后导出",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "spatial_export.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input, table, counts_source"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/spatial_export.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_export"
+        ]
+      ]
+    },
+    "spatial_analyze": {
+      "image": "bioflow-spatial",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "spatial",
+      "execution": "docker",
+      "description": "独立空间转录组矩阵分析",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "spatial_analyze.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "samples, qc"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/spatial_analyze.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_analyze"
+        ]
+      ]
+    },
+    "spatial_enrich": {
+      "image": "bioflow-spatial",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "spatial",
+      "execution": "docker",
+      "description": "空间候选基因富集",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "spatial_enrich.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "selected, universe, gmt"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/spatial_enrich.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:spatial_enrich"
+        ]
+      ]
+    },
+    "metagenome_profile": {
+      "image": "bioflow-metagenome",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "metagenome",
+      "execution": "host_nextflow",
+      "description": "宏基因组 taxprofiler 分类",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "metagenome_profile.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input, databases, expected_outputs"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/metagenome_profile.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_profile"
+        ]
+      ]
+    },
+    "metagenome_mag": {
+      "image": "bioflow-metagenome",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "metagenome",
+      "execution": "host_nextflow",
+      "description": "宏基因组 MAG 组装与分箱",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "metagenome_mag.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "input, expected_outputs"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/metagenome_mag.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_mag"
+        ]
+      ]
+    },
+    "metagenome_merge": {
+      "image": "bioflow-metagenome",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "metagenome",
+      "execution": "docker",
+      "description": "合并 Bracken 丰度",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "metagenome_merge.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "samples"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/metagenome_merge.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_merge"
+        ]
+      ]
+    },
+    "metagenome_summarize": {
+      "image": "bioflow-metagenome",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "metagenome",
+      "execution": "docker",
+      "description": "宏基因组群落与多样性",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "metagenome_summarize.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "samples, abundance, profiler, database_version, taxonomic_rank, abundance_type"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/metagenome_summarize.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_summarize"
+        ]
+      ]
+    },
+    "metagenome_differential": {
+      "image": "bioflow-omics-r",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "metagenome",
+      "execution": "docker",
+      "description": "宏基因组 ANCOM-BC2 差异丰度",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "metagenome_differential.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "counts, samples, control"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/metagenome_differential.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_differential"
+        ]
+      ]
+    },
+    "metagenome_community": {
+      "image": "bioflow-omics-r",
+      "module": "cli.run_omics",
+      "executable": true,
+      "workflow": "metagenome",
+      "execution": "docker",
+      "description": "宏基因组 PERMANOVA 与离散度",
+      "note": "独立入口；缺配置时等待补齐。高级分支必须审核数据与设计。",
+      "dependencies": [],
+      "params": [
+        {
+          "name": "config_file",
+          "type": "string",
+          "default": "metagenome_community.json",
+          "source": "user",
+          "help": "阶段配置 JSON。缺字段会提示补齐；相对路径基于配置文件，详细参数见 docs/omics_workflows.md"
+        },
+        {
+          "name": "cpu",
+          "type": "choice",
+          "choices": [
+            "4",
+            "8",
+            "16",
+            "32"
+          ],
+          "default": "4",
+          "source": "runtime",
+          "help": "容器CPU上限（Nextflow资源按上游params配置）"
+        },
+        {
+          "name": "memory",
+          "type": "choice",
+          "choices": [
+            "16g",
+            "32g",
+            "64g"
+          ],
+          "default": "32g",
+          "source": "runtime",
+          "help": "容器内存上限（Nextflow资源按上游params配置）"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "config_file",
+          "type": "json",
+          "required": true,
+          "description": "abundance, samples"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "manifest",
+          "description": "final/metagenome_community.manifest.json"
+        },
+        {
+          "name": "results",
+          "type": "directory",
+          "description": "独立attempt/results，旧结果保留"
+        }
+      ],
+      "cli_contract": [
+        [
+          "--input-dir",
+          "input_dir"
+        ],
+        [
+          "--workspace",
+          "workspace"
+        ],
+        [
+          "--stage",
+          "literal:metagenome_community"
+        ]
+      ]
+    }
+  },
+  "docker_build": {
+    "rsync_excludes": [
+      "__pycache__",
+      "*.bak*",
+      "*.orig"
+    ],
+    "note": "排除 dev 历史备份文件, 保证镜像内无旧版硬编码"
+  }
+}

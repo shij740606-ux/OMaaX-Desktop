@@ -1,0 +1,58 @@
+import hashlib,json,os,shutil,subprocess,sys,zipfile
+from pathlib import Path
+import anndata as ad,numpy as np,pandas as pd
+ROOT=Path('/tests');SOURCE=ROOT/'source';KERNEL=ROOT/'kernel'
+sys.path.insert(0,str(SOURCE/'desktop/resources/ssh'))
+import workflow_adapter as adapter
+import workflow_engine as engine
+with zipfile.ZipFile(SOURCE/'desktop/resources/workflows/kernel.zip') as archive:archive.extractall(KERNEL)
+sys.path.insert(0,str(KERNEL/'omaax_extensions'))
+import upstream_links as links
+catalog=json.loads((SOURCE/'desktop/resources/workflows/catalog.json').read_text())
+fixtures=ROOT/'fixtures';fixtures.mkdir();rng=np.random.default_rng(37)
+sheet=fixtures/'raw.csv';sheet.write_text('sample,fastq_1,group,donor,batch\nS1,a.fq,control,d1,b1\nS1_2,b.fq,control,d2,b2\nS3,c.fq,treated,d3,b1\nS4,d.fq,treated,d4,b2\n')
+ids=['S1','S1_2','S3','S4']
+for sid in ids:
+ data=ad.AnnData(rng.poisson(3,(30,100)).astype(float));data.obs_names=['c'+str(i) for i in range(30)];data.var_names=['g'+str(i) for i in range(100)];data.layers['count']=data.X.copy();data.obsm['spatial']=rng.random((30,2))*100
+ for fid in ('singlecell','spatial'):
+  path=fixtures/fid/('star/mtx_conversions/'+sid+'_filtered_matrix.h5ad' if fid=='singlecell' else sid+'.explorer/adata.h5ad');path.parent.mkdir(parents=True,exist_ok=True);data.write_h5ad(path)
+ target=fixtures/'metagenome/bracken/db'/(sid+'_db.bracken.tsv');target.parent.mkdir(parents=True,exist_ok=True)
+ pd.DataFrame({'name':['taxa'+str(i) for i in range(12)],'taxonomy_id':range(12),'taxonomy_lvl':'S','new_est_reads':rng.integers(5,200,12)}).to_csv(target,sep='\t',index=False)
+quality=fixtures/'mag/checkm2/quality_report.tsv';quality.parent.mkdir(parents=True);quality.write_text('Name\tCompleteness\tContamination\na\t95\t1\nb\t70\t12\n')
+fingerprint=lambda:{p.relative_to(fixtures).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in fixtures.rglob('*') if p.is_file()}
+before=fingerprint();cases=[]
+def run(fid,upstream,chosen,overrides):
+ flow=next(f for f in catalog['workflows'] if f['id']==fid);workspace=ROOT/'jobs'/fid;workspace.mkdir(parents=True);(workspace/'final').mkdir();configdir=workspace/'configs';configdir.mkdir()
+ ordered=engine.select_steps(flow,[upstream,*chosen]);ordered=[s for s in ordered if s['id']!=upstream]
+ cfg={s['id']:{**s['configDefaults'],**overrides.get(s['id'],{})} for s in ordered};cfg[upstream]={'input':str(sheet)}
+ plan={'steps':[upstream,*[s['id'] for s in ordered]],'parameters':{},'configs':cfg,'resources':{'cpu':2}}
+ resultroot=workspace/upstream/'results';shutil.copytree(fixtures/fid,resultroot)
+ adapter.save(workspace/'final'/(upstream+'.manifest.json'),{'status':'success','output_dir':str(resultroot)})
+ for step in ordered:
+  command=adapter.command(step,plan,KERNEL,fixtures,workspace,configdir,str(fixtures))
+  with (workspace/(step['id']+'.log')).open('wb') as log:subprocess.run(command,stdout=log,stderr=subprocess.STDOUT,check=True,cwd=workspace)
+  output=workspace/step['id']/'results'
+  assert all((output/p).is_file() and (output/p).stat().st_size for p in step['contract']['required_outputs']),step['id']
+  adapter.save(workspace/'final'/(step['id']+'.manifest.json'),{'status':'success','output_dir':str(output)})
+ cases.append({'workflow':fid,'upstreamFixture':upstream,'executedSteps':[s['id'] for s in ordered],'state':'complete'})
+for fid,upstream in [('singlecell','singlecell_upstream'),('spatial','spatial_segment')]:
+ flow=next(f for f in catalog['workflows'] if f['id']==fid)
+ chosen=[fid+'_'+s for s in ('prepare','qc','normalize','pca','embedding','cluster','plots','report')]
+ run(fid,upstream,chosen,{fid+'_qc':{'min_genes':2,'min_cells_per_gene':1},fid+'_normalize':{'n_hvg':40},fid+'_pca':{'n_pcs':5},fid+'_embedding':{'n_neighbors':5}})
+ data=ad.read_h5ad(ROOT/'jobs'/fid/(fid+'_prepare')/'results/processed.h5ad')
+ assert data.n_obs==120 and set(data.obs.group)=={'control','treated'} and 'counts' in data.layers
+run('metagenome','metagenome_profile',['metagenome_'+s for s in ('prepare','composition','alpha','beta','heatmap','report')],{})
+# Separate task for the independent MAG branch.
+flow=next(f for f in catalog['workflows'] if f['id']=='metagenome');step=next(s for s in flow['nodes'] if s['id']=='metagenome_mag_quality');out=ROOT/'mag-output';out.mkdir()
+import community
+community.execute('mag_summary',{'quality_table':str(fixtures/'mag'),'min_completeness':50,'max_contamination':10},out)
+assert pd.read_csv(out/'mag_quality.tsv',sep='\t').selected.tolist()==[True,False]
+assert links.bracken(fixtures/'metagenome',sheet,'db','S')[0].shape==(12,4)
+with (fixtures/'metagenome/bracken/db/S1_second.bracken.tsv').open('w') as f:f.write((fixtures/'metagenome/bracken/db/S1_db.bracken.tsv').read_text())
+try:links.bracken(fixtures/'metagenome',sheet)
+except ValueError as error:assert '候选' in str(error)
+else:raise AssertionError('Ambiguous upstream files were silently accepted')
+# Added ambiguous fixture remains test evidence; compare the original inputs only.
+after=fingerprint();assert all(after[name]==checksum for name,checksum in before.items())
+receipt={'cases':cases,'realDownstreamStepExecutions':sum(len(c['executedSteps']) for c in cases)+1,'magBranchPassed':True,'ambiguousOutputsRejected':True,'originalFixtureHashesUnchanged':True,'rawNextflowUpstreamExecuted':False,'note':'Published-layout synthetic fixtures exercise the real adapter and downstream software, not a raw sequencing acceptance run.'}
+(ROOT/'handoff-acceptance.json').write_text(json.dumps(receipt,indent=2));print(json.dumps(receipt))
