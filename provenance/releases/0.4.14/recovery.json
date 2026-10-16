@@ -1,0 +1,22 @@
+{
+  "version": "0.4.14",
+  "installer": "OMaaX_0.4.14_x64-setup.exe",
+  "installerSha256": "1756439159186ff8611294db30b364e65a77efbee1b11bafff40689704d9c429",
+  "installerBytes": 111075944,
+  "releaseSourceChecksVerified": 81,
+  "method": "Installer resources extracted and compared; original frontend/Rust sources recovered from matching local release source. No claim of native binary decompilation.",
+  "sourceInputSha256": "6aead389416aa4acc5cd3abd536a851a9f69c68a4c773c4cfda0959f15dbb4ae",
+  "excluded": [
+    "old Git history",
+    "personal settings and credentials",
+    "analysis data and results",
+    "local deployment and acceptance logs",
+    "installed community tool sources",
+    "dependency caches and build outputs"
+  ],
+  "developmentAdjustments": [
+    "workflow archive paths moved into source-inputs",
+    "standalone development documentation and bootstrap",
+    "editable workflow-kernel source tree and pack script"
+  ]
+}

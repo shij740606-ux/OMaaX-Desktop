@@ -1,0 +1,45 @@
+{
+  "version": "0.4.20",
+  "typeScript": "passed",
+  "frontendBuild": "passed",
+  "nativeCargoCheckOffline": "passed",
+  "nativeUnitTests": {
+    "passed": 26,
+    "failed": 0,
+    "ignored": 1
+  },
+  "componentAndProtocolTests": {
+    "passed": 45,
+    "failed": 0
+  },
+  "browserScenarioGroups": {
+    "passed": 10,
+    "failed": 0,
+    "mode": "production React and real headless Edge with isolated synthetic service APIs"
+  },
+  "secretScan": {
+    "version": "0.4.20",
+    "gitIndexFilesScanned": 4176,
+    "sourceBytes": 68683685,
+    "textFilesIncludingArchiveEntries": 9588,
+    "archiveEntriesScanned": 5507,
+    "potentialSecrets": [],
+    "licenseUnchanged": true,
+    "scanScope": "pattern scan of exact indexed files and nested ZIP text; no guarantee for unknown secret formats"
+  },
+  "warnings": [
+    "Vite reports chunks larger than 500 kB",
+    "Rust reports 23 unused/dead-code warnings"
+  ],
+  "notRun": [
+    "fresh Windows installation",
+    "privileged bootstrap of a new Linux server",
+    "all biological workflows",
+    "multi-hour stability testing"
+  ],
+  "notes": [
+    "Build checks use existing local dependencies and compilation caches",
+    "No personal data, credentials, server inventory, or raw diagnostics included",
+    "No new production executable or installer generated"
+  ]
+}

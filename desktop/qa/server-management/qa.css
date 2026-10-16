@@ -1,0 +1,3 @@
+@import "../../src/renderer/src/styles.css";
+@source "../../src/renderer/src";
+#root {height:100vh;}

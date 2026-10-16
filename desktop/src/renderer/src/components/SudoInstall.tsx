@@ -1,4 +1,6 @@
+import {serverError} from '../serverErrors';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {prepareServer} from '../serverConnections';
 
 type Target = {id:string;label:string;image?:string};
 type Phase = 'input'|'installing'|'checking'|'success'|'failed';
@@ -9,13 +11,13 @@ export function SudoInstallProvider({children}:{children:ReactNode}) {
  const [password,setPassword]=useState(''),[message,setMessage]=useState('');
  const locked=useRef(false),targetRef=useRef<Target|null>(null);
  const busy=phase==='installing'||phase==='checking';
- locked.current=!!target&&phase!=='input';targetRef.current=target;
+ locked.current=!!target&&busy;targetRef.current=target;
  useEffect(()=>{
   const unload=(e:BeforeUnloadEvent)=>{if(locked.current){e.preventDefault();e.returnValue='';}};
   window.addEventListener('beforeunload',unload);
   let disposed=false,unlisten:(()=>void)|undefined;
   if('__TAURI_INTERNALS__' in window) void import('@tauri-apps/api/window').then(async({getCurrentWindow})=>{
-   const stop=await getCurrentWindow().onCloseRequested(event=>{if(locked.current)event.preventDefault();});
+   const stop=await getCurrentWindow().onCloseRequested(event=>{if(locked.current&&!window.confirm('服务器组件仍在安装。关闭软件可能中断本次连接；下次连接时可重新检查并继续配置。确定现在关闭？'))event.preventDefault();});
    if(disposed)stop();else unlisten=stop;
   }).catch(()=>{});
   return()=>{disposed=true;unlisten?.();window.removeEventListener('beforeunload',unload);};
@@ -29,15 +31,14 @@ export function SudoInstallProvider({children}:{children:ReactNode}) {
   try{
    await window.biodsh.personalCompute(selected.id,'install_environment',{password:secret});installed=true;
    setPhase('checking');setMessage('安装完成，正在检查是否可以开始分析…');
-   await window.biodsh.personalCompute(selected.id,'bootstrap',selected.image?{image:selected.image}:{});
-   setPhase('success');setMessage('安装与检查完成，请返回分析任务查看环境状态。');
-   window.dispatchEvent(new CustomEvent('biodsh-install-finished',{detail:{id:selected.id}}));
-  }catch(reason){setPhase('failed');setMessage(`${installed?'系统组件已安装，但后续环境配置未完成。\n':''}${String(reason)}`);}
+   await prepareServer(selected.id,true,selected.image);
+   setPhase('success');setMessage('系统组件安装完成，后续环境检查已交给后台。服务器页面会继续显示准备结果，可安全关闭此窗口。');
+  }catch(reason){setPhase('failed');setMessage(`${installed?'系统组件已安装，但后续环境配置未完成。\n':''}${serverError(reason,'environment')}`);}
  };
  return <InstallContext.Provider value={open}>{children}{target&&<section role="dialog" aria-label="服务器环境安装" className="fixed z-[100] right-4 bottom-4 card p-5 flex flex-col gap-4 overflow-y-auto no-drag" style={{width:'min(600px, calc(100vw - 32px))',maxHeight:'calc(100vh - 32px)',boxShadow:'0 12px 48px rgba(0,0,0,.22)',border:'1px solid var(--border)'}}>
   <div className="t-title2">{phase==='success'?'安装完成':phase==='failed'?'安装未完成':'服务器环境安装'}</div>
   <div className="text-sm break-words">目标：{target.label}</div>
-  <div className="t-caption">切换页面不会丢失此窗口。安装期间不能关闭，完成后请确认结果。</div>
+  <div className="t-caption">切换页面不会丢失进度。安装失败后可以关闭并重试；已有组件会复用，不会重复安装全部工具。</div>
   {phase==='input'?<form className="flex flex-col gap-3" onSubmit={e=>{e.preventDefault();void submit();}}>
    <div className="text-sm">将在服务器上安装分析必需的软件，需要管理员权限。</div>
    <label className="text-sm">服务器账号密码（需有 sudo 权限）<input autoFocus className="field w-full mt-2" type="password" autoComplete="off" required maxLength={4096} value={password} onChange={e=>setPassword(e.target.value)}/></label>

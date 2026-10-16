@@ -1,22 +1,23 @@
 {
-  "version": "0.4.14",
-  "installer": "OMaaX_0.4.14_x64-setup.exe",
-  "installerSha256": "1756439159186ff8611294db30b364e65a77efbee1b11bafff40689704d9c429",
-  "installerBytes": 111075944,
-  "releaseSourceChecksVerified": 81,
-  "method": "Installer resources extracted and compared; original frontend/Rust sources recovered from matching local release source. No claim of native binary decompilation.",
-  "sourceInputSha256": "6aead389416aa4acc5cd3abd536a851a9f69c68a4c773c4cfda0959f15dbb4ae",
+  "version": "0.4.20",
+  "installerSha256": "5342ceb5670fe17a9bd8f6159b59698636a3a08dac0f068c1291a9c829903136",
+  "installerBytes": 111164069,
+  "extractedBinarySha256": "8fa8bb965b864e059012f7bbfdd2c1eacae567d9630bbbd8e30753101db6d093",
+  "licenseSha256": "727fa7985d1843d3946c7bf2009060d17a91cea24a85c8f05b38efac70f90f84",
+  "method": "Extract original installer resources and compare to editable source; matching React/TypeScript and Rust source supplied by local development checkout. Not decompilation.",
   "excluded": [
-    "old Git history",
-    "personal settings and credentials",
-    "analysis data and results",
-    "local deployment and acceptance logs",
-    "installed community tool sources",
-    "dependency caches and build outputs"
+    "installer and executable binaries",
+    "dependency caches",
+    "user settings and credentials",
+    "sessions and analysis data",
+    "local diagnostics and raw logs"
   ],
-  "developmentAdjustments": [
-    "workflow archive paths moved into source-inputs",
-    "standalone development documentation and bootstrap",
-    "editable workflow-kernel source tree and pack script"
+  "installer": "OMaaX_0.4.20_x64-setup.exe",
+  "editableKernelFiles": 2709,
+  "comparedInstallerResources": 89,
+  "historicalImport": "provenance/releases/0.4.14",
+  "developmentOnlyChanges": [
+    "Windows HTTP authentication test fixture reads the whole request before response",
+    "isolated browser QA infrastructure and development documentation"
   ]
 }

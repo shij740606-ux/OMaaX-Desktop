@@ -1,10 +1,12 @@
 # OMaaX Desktop
 
-OMaaX 0.4.14 的独立开发项目。包括桌面界面、Rust/Tauri 主程序、对话插件、服务器执行代码、工具目录和九类一体化分析流程源码。
+OMaaX 0.4.20 的独立开发项目。包括桌面界面、Rust/Tauri 主程序、对话插件、服务器执行代码、工具目录和九类一体化分析流程源码。
 
-本项目从该版本安装包提取运行资源，并使用本机对应版本的原始开发源码补齐 React/TypeScript 和 Rust 文件。**不是把二进制反编译成原始源码。** 发布源清单中的 81 个文件在整理前已逐一校验；原安装包与备份保存在仓库外，不提交 Git 历史。
+本项目从该版本安装包提取运行资源，并使用本机对应版本的原始开发源码补齐 React/TypeScript 和 Rust 文件。**不是把二进制反编译成原始源码。** 0.4.20 安装包的 89 个资源及流程包内 2,709 个可编辑文件已逐一核对；提取出的主程序与安装版一致。安装包、编译缓存和个人文件不提交 Git 历史。来源记录见 [provenance/releases/0.4.20](provenance/releases/0.4.20)。
 
 不包含用户设置、密钥、SSH 凭据、聊天记录、分析数据或原仓库 Git 历史。社区工具保留目录和来源信息，用户选择添加时才下载；不会安装所有分析软件。
+
+此版本包含服务器文件浏览、环境管理、独立连接状态、中文错误说明、传输恢复及数据保护。与安装版相比，额外包含测试基础设施，以及一处原生认证测试夹具修正；生产功能实现保持对应版本。
 
 ## 开发与构建
 
@@ -42,6 +44,7 @@ npm run release:win
 | `desktop/workflow-kernel` | 从安装版 kernel.zip 展开的可编辑流程源码及上游许可证 |
 | `desktop/workflow-extensions` | 单细胞、空间、宏基因组及表观遗传扩展 |
 | `desktop/resources/workflows` | 发布用目录、源码包、校验清单 |
+| `desktop/qa/server-management` | 独立浏览器测试、模拟服务与复测说明 |
 | `source-inputs` | 原五组学源码输入包，供完整再生成使用 |
 | `provenance` | 安装包来源、恢复方法、源文件与资源核对记录 |
 
@@ -67,7 +70,16 @@ node --test scripts/workflow-navigation.test.mjs scripts/workflow-presentation.t
 python -m unittest discover -s resources/ssh -p "*_test.py"
 ```
 
-测试只使用临时模拟文件；真实 SSH 端到端测试需要自行配置测试服务器。具体本次开发副本验证结果见 `provenance/VALIDATION.md`。
+服务器连接、文件、环境、任务、传输与保护的本机回归：
+
+```sh
+cd desktop
+node --test scripts/server-management-ui.test.mjs scripts/server-requests.test.mjs scripts/product-help-ui.test.mjs resources/ssh/client.test.cjs resources/ssh/browse.test.cjs resources/ssh/relay.test.cjs resources/ssh/relay-recovery.test.cjs
+cd src-tauri
+cargo test --lib -- --test-threads=1
+```
+
+测试使用独立配置和临时文件；浏览器测试入口与依赖见 [desktop/qa/server-management/README.md](desktop/qa/server-management/README.md)。真实 SSH 测试需要专用服务器和明确配置，普通测试不会自动连接服务器。开发副本验证及未覆盖范围见 [provenance/VALIDATION.md](provenance/VALIDATION.md)。
 
 ## 许可证
 

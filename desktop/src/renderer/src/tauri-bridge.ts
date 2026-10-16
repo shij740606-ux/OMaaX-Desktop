@@ -4,20 +4,22 @@ import type { PlatformJobCreate, PlatformNodeControlStatus } from '@shared/types
 import { listen } from '@tauri-apps/api/event';
 import type { AppSettings, IpcEvent, Rect } from '@shared/types';
 import {dshLayoutQueue} from './dshLayoutQueue';
+import {serverRequest,invalidateServer} from './serverRequests';
 
 export function installTauriBridge() {
   const reportDshBounds=dshLayoutQueue((rect,visible)=>invoke('dsh_bounds',{rect,visible}),error=>console.error('Chat layout failed',error));
   const api = {
-    personalCompute: (id:string, action:string, body:unknown = {}) => invoke('personal_compute', {id, action, body}),
+    personalCompute: (id:string, action:string, body:unknown = {}) => serverRequest(id,action,body,()=>invoke('personal_compute', {id, action, body})),
     platformStorage: (action:string, body:unknown = {}) => invoke('platform_storage', {action, body}),
     platformProjectCollaboration: (projectId:string, action:string, body:unknown = null) => invoke('platform_project_collaboration', {projectId, action, body}),
     platformSchedulingNodes: () => invoke('platform_scheduling_nodes'),
     platformScheduling: (jobId: string) => invoke('platform_scheduling', {jobId}),
     sshHostBind: (id: string, nodeId: string | null) => invoke('ssh_hosts_bind', {id, nodeId}),
     mode: 'tauri' as const,
-    sshHostMetrics: (id: string) => invoke('ssh_hosts_metrics', { id }),
+    sshHostMetrics: (id: string) => serverRequest(id,'metrics',{},()=>invoke('ssh_hosts_metrics', { id })),
+    sshHostFiles: (id:string,body:import('@shared/types').SshDirectoryRequest={}) => serverRequest(id,'ssh_files',body,()=>invoke('ssh_hosts_files',{id,body})),
     sshHosts: () => invoke('ssh_hosts_list'),
-    sshHostSave: (draft: import('@shared/types').SshHostDraft) => invoke('ssh_hosts_save', { draft }),
+    sshHostSave: (draft: import('@shared/types').SshHostDraft) => {if(draft.id)invalidateServer(draft.id);return invoke('ssh_hosts_save', { draft });},
     sshHostRemove: (id: string) => invoke('ssh_hosts_remove', { id }),
     sshHostSelect: (id: string, selected: boolean) => invoke('ssh_hosts_select', { id, selected }),
     sshHostTrust: (id: string, hostKey: string, fingerprint: string) => invoke('ssh_hosts_trust', { id, hostKey, fingerprint }),

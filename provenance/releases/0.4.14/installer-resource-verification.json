@@ -1,0 +1,31 @@
+{
+  "version": "0.4.14",
+  "matchedReleaseResourceFiles": [
+    "LICENSE",
+    "scripts/download-skill.mjs",
+    "skills/catalog.json",
+    "ssh/client.cjs",
+    "ssh/personal_runner.py",
+    "ssh/project_workspace_test.py",
+    "ssh/server_file_ops.py",
+    "ssh/server_workspace.py",
+    "ssh/stage-workflows.cjs",
+    "ssh/workflow-dependencies.json",
+    "ssh/workflow_adapter.py",
+    "ssh/workflow_engine.py",
+    "ssh/workflow_engine_test.py",
+    "ssh/workflow_environments.py",
+    "ssh/workflow_handoff_test.py",
+    "ssh/workflow_plan_paths_test.py",
+    "ssh/workspace_context.py",
+    "workflows/SOURCE.md",
+    "workflows/catalog.json",
+    "workflows/kernel.zip"
+  ],
+  "licenseUnchanged": true,
+  "secretScan": {
+    "files": 4138,
+    "includingArchiveTextEntries": 9550,
+    "findings": 0
+  }
+}

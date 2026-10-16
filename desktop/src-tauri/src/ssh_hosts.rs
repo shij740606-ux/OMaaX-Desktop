@@ -1,7 +1,7 @@
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{fs, io::{BufRead, Write}, path::{Path, PathBuf}, process::{Command, Stdio}, sync::Mutex};
+use std::{fs, io::{BufRead, Read, Write}, path::{Path, PathBuf}, process::{Command, Stdio}, sync::Mutex};
 
 static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
@@ -59,6 +59,11 @@ fn save_secret(id: &str, secret: &Secret) -> Result<(), String> {
     }
     let record = serde_json::to_string(&parts).map_err(|e| e.to_string())?;
     if secret_entry(id)?.set_password(&record).is_err() { delete_parts(id, &record); return Err("保存 SSH 凭据失败".into()); }
+    let verified=self::secret(id).is_ok_and(|loaded| loaded.password==secret.password && loaded.private_key==secret.private_key && loaded.passphrase==secret.passphrase);
+    if !verified {
+        if old.is_empty(){let _=secret_entry(id)?.delete_credential();}else{let _=secret_entry(id)?.set_password(&old);}
+        delete_parts(id,&record);return Err("凭据保存后无法读取，原有凭据已保留，请检查系统安全存储".into());
+    }
     delete_parts(id, &old); Ok(())
 }
 pub fn list(root: &Path) -> Result<Vec<Host>, String> {
@@ -162,14 +167,24 @@ pub fn install_environment(root: &Path, node: &Path, script: &Path, id: &str, pa
         _=>Err("安装未完成：请检查 sudo 密码、账号安装权限及服务器软件源连接，再重试".into())
     }
 }
-fn run_request(node: &Path, script: &Path, request: Value) -> Result<Value,String> {
+pub(crate) fn run_request(node: &Path, script: &Path, request: Value) -> Result<Value,String> {
     let mut process = Command::new(node); process.arg(script).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     #[cfg(windows)] { use std::os::windows::process::CommandExt; process.creation_flags(0x0800_0000); }
     let mut child = process.spawn().map_err(|_| "SSH 运行时不可用，请重新构建或安装完整桌面程序".to_string())?;
     let mut input = child.stdin.take().ok_or("SSH 输入管道不可用")?;
-    input.write_all(&serde_json::to_vec(&request).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?; drop(input);
-    let output = child.wait_with_output().map_err(|e| e.to_string())?;
-    let value: Value = serde_json::from_slice(&output.stdout).map_err(|_| "SSH 运行时返回无效响应".to_string())?;
+    let bytes=serde_json::to_vec(&request).map_err(|e|e.to_string())?;
+    let writer=std::thread::spawn(move||input.write_all(&bytes));
+    let mut stdout=child.stdout.take().ok_or("SSH 输出管道不可用")?;
+    let reader=std::thread::spawn(move||{let mut bytes=Vec::new();stdout.by_ref().take(8*1048576).read_to_end(&mut bytes).map(|_|bytes)});
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(request["timeoutSeconds"].as_u64().unwrap_or(30).clamp(5,if request["kind"]=="transfer"{43200}else{900})+15);
+    loop {
+        if child.try_wait().map_err(|e|e.to_string())?.is_some(){break;}
+        if std::time::Instant::now()>=deadline{let _=child.kill();let _=child.wait();let _=writer.join();let _=reader.join();return Err("SSH 操作超时，已释放本地连接。远端任务可能已提交，请刷新核对，勿重复提交".into());}
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
+    writer.join().map_err(|_|"SSH 输入线程中断")?.map_err(|e|e.to_string())?;
+    let output=reader.join().map_err(|_|"SSH 输出线程中断")?.map_err(|e|e.to_string())?;
+    let value: Value = serde_json::from_slice(&output).map_err(|_| "SSH 运行时返回无效响应".to_string())?;
     if let Some(error) = value.get("error").and_then(Value::as_str) { return Err(error.into()); }
     Ok(value)
 }
@@ -184,6 +199,15 @@ pub fn metrics(root: &Path, node: &Path, script: &Path, id: &str, agent: bool) -
     let result = call(root, node, script, id, "execute", &command, 20, false)?;
     if result["exitCode"].as_i64() != Some(0) { return Err("资源查询失败，请检查服务器 Python 3 环境".into()); }
     serde_json::from_str(result["stdout"].as_str().unwrap_or("")).map_err(|_| "服务器返回的资源数据无效".into())
+}
+
+pub fn files(root:&Path,node:&Path,script:&Path,id:&str,body:Value)->Result<Value,String>{
+    let object=body.as_object().ok_or("目录查询参数不正确")?;
+    if object.keys().any(|k| !["path","offset","limit","showHidden"].contains(&k.as_str())){return Err("目录查询参数不正确".into());}
+    let mut request=connection(root,id)?;
+    for (key,value) in object {request[key]=value.clone();}
+    request["operation"]=json!("files");request["timeoutSeconds"]=json!(30);
+    run_request(node,script,request)
 }
 
 pub fn run_mcp() {
@@ -203,6 +227,7 @@ pub fn run_mcp() {
                 {"name":"workflow_plan","description":"Prepare any of the fixed pipelines. First collect the user-provided server, absolute data folder (or optional registered source and relative folder), selected stages and parameter choices. Parameters must follow workflow_catalog. This only creates a plan; user confirms execution in Fixed Workflows. No arbitrary command, image, script, environment or Nextflow config is allowed. Do not impose extra biological audit gates or independent-replicate minimums. The source software handles its own numerical requirements.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"enum":["gene_family","rnaseq","singlecell","spatial","metagenome","atacseq","chipseq","cutandrun","methylseq"]},"source":{"type":"string"},"input":{"type":"string","description":"Absolute path on the server (recommended), or relative data folder within source; dot means the chosen source folder."},"steps":{"type":"array","items":{"type":"string"}},"prefix":{"type":"string"},"parameters":{"type":"object","description":"Objects keyed by selected stage ID; only the CLI-declared typed fields."},"preferences":{"type":"object","properties":{"library_strandness":{"enum":["","non_stranded","forward","reverse"]}},"additionalProperties":false},"configs":{"type":"object","description":"Objects keyed by selected omics stage ID; use catalog defaults and user choices, paths may be absolute account-readable paths, relative to chosen input or @stage:artifact."},"cpu":{"type":"integer"},"memoryMb":{"type":"integer"},"timeoutSeconds":{"type":"integer"}},"required":["serverId","workflow","input"],"additionalProperties":false}},
                 {"name":"workflow_plans","description":"List saved fixed-workflow plans and actual execution states on a selected server. User confirmation is required; exit zero is not sufficient for successful results.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"],"additionalProperties":false}},
                 {"name":"workflow_result","description":"Read the actual executed steps, user parameters and result files of a fixed pipeline. Optionally provide file from the returned file list to read up to 64 KiB of actual text results for interpretation. No arbitrary paths.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"id":{"type":"string"},"file":{"type":"string"}},"required":["serverId","id"],"additionalProperties":false}},
+                {"name":"server_delete","description":"Delete only files explicitly requested by the user at account-permitted absolute paths. Moves to recoverable trash. Wildcards in the final filename, recursive directory deletion, and totals over 10 GB return a pending preview: clearly warn the user with paths, count and size and direct them to Server Management to confirm. Never claim a pending request was executed; model cannot approve. No shell deletion or credential/control files.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"recursive":{"type":"boolean"}},"required":["serverId","path"],"additionalProperties":false}},
                 {"name":"server_write","description":"Write a new text or structured config file at any absolute server path writable by the SSH account. Directory creation is automatic. Existing files are not overwritten: a pending request is returned for explicit desktop user approval, with backup before replacement. No deletion or arbitrary host commands. Project/session filing is automatic.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"content":{}},"required":["serverId","path","content"],"additionalProperties":false}},
                 {"name":"server_copy","description":"Copy an account-readable file, including binary analysis results or generated indexes, to any writable absolute server path. Does not delete or modify source. Existing destination files require explicit desktop user approval and backup. Project/session provenance is automatic.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"source":{"type":"string"},"path":{"type":"string"}},"required":["serverId","source","path"],"additionalProperties":false}},
                 {"name":"server_files","description":"Read account-permitted server paths supplied by the user, without modifying originals. List directories, read text up to 1 MB, or stat. Data and reference files may be anywhere readable by this SSH account. Credential and private control files are excluded.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"operation":{"enum":["list","read","stat"]},"offset":{"type":"integer"}},"required":["serverId","path"],"additionalProperties":false}},
@@ -223,7 +248,7 @@ pub fn run_mcp() {
                 let params = &request["params"];
                 let value = match params["name"].as_str().unwrap_or("") {
                     "workflow_catalog" => crate::personal_compute::tool_catalog(&params["arguments"]),
-                    "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "workflow_inspect" | "workflow_plan" | "workflow_plans" | "workflow_result" => {
+                    "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "workflow_inspect" | "workflow_plan" | "workflow_plans" | "workflow_result" => {
                         let mut args=params["arguments"].clone();
                         let server=args["serverId"].as_str().unwrap_or("").to_string();
                         let session=args["_sessionId"].as_str().map(String::from);
@@ -238,13 +263,6 @@ pub fn run_mcp() {
                         let result=crate::personal_compute::request(&root,&node,&script,&server,params["name"].as_str().unwrap(),args,true);
                         if result.is_ok(){if let Some(sid)=session {let _=crate::personal_compute::remember_server(&root.join("dsh-home"),&sid,&server);}}
                         result
-                    },
-                    "submit_task" => {
-                        let args=&params["arguments"];
-                        match serde_json::from_value::<Vec<String>>(args["hosts"].clone()) {
-                            Ok(ids)=>crate::personal_compute::schedule(&root,&node,&script,&ids,args["spec"].clone(),true),
-                            Err(_)=>Err("候选服务器无效".into())
-                        }
                     },
                     "compute_status" | "task_list" | "task_logs" | "cancel_task" => {
                         let action=match params["name"].as_str().unwrap_or(""){"compute_status"=>"status","task_list"=>"jobs","task_logs"=>"logs",_=>"cancel"};
@@ -272,6 +290,24 @@ mod tests {
         assert!(validate_command(&"x".repeat(500000)).is_ok());
         assert!(validate_command(&"x".repeat(6 * 1024 * 1024 + 1)).is_err());
         assert!(validate_command("bad\0payload").is_err());
+    }
+    #[test]
+    fn file_browser_rejects_commands_before_reading_credentials(){
+        let error=files(Path::new("missing"),Path::new("missing"),Path::new("missing"),"none",json!({"command":"rm -rf anything"})).unwrap_err();
+        assert!(error.contains("目录查询参数不正确"));
+    }
+    #[cfg(windows)]
+    #[test]
+    fn new_profile_credentials_trust_selection_and_edit_survive_roundtrips(){
+        let root=std::env::temp_dir().join(format!("omaax-onboarding-{}",uuid::Uuid::new_v4()));
+        let mut rows=save(&root,Draft{id:None,name:"fresh server".into(),host:"127.0.0.1".into(),port:22,username:"test".into(),auth:"password".into(),password:Some("test-private-password".into()),private_key:None,passphrase:None}).unwrap();
+        let id=rows.remove(0).id;
+        assert!(select(&root,&id,true).is_err());assert_eq!(secret(&id).unwrap().password,"test-private-password");
+        trust(&root,&id,&"a".repeat(40),"SHA256:test").unwrap();select(&root,&id,true).unwrap();
+        save(&root,Draft{id:Some(id.clone()),name:"renamed".into(),host:"127.0.0.1".into(),port:22,username:"test".into(),auth:"password".into(),password:None,private_key:None,passphrase:None}).unwrap();
+        assert!(list(&root).unwrap()[0].selected);assert_eq!(secret(&id).unwrap().password,"test-private-password");
+        assert!(!fs::read_to_string(root.join("ssh/hosts.json")).unwrap().contains("test-private-password"));
+        remove(&root,&id).unwrap();assert!(secret(&id).is_err());fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn agent_cannot_connect_to_an_unselected_host() {

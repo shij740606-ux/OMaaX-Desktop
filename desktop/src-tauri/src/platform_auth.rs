@@ -726,7 +726,18 @@ mod device_tests {
             let (mut stream, _) = listener.accept().unwrap();
             stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
             let mut buffer = [0; 4096];
-            let _ = stream.read(&mut buffer).unwrap();
+            // Consume the complete POST before closing, otherwise Windows can reset the response.
+            let mut request=Vec::new();
+            loop {
+                let count=stream.read(&mut buffer).unwrap();
+                assert!(count>0 && request.len()+count<=65536,"Incomplete test HTTP request");
+                request.extend_from_slice(&buffer[..count]);
+                if let Some(end)=request.windows(4).position(|v|v==b"\r\n\r\n") {
+                    let header=String::from_utf8_lossy(&request[..end]);
+                    let length=header.lines().filter_map(|line|line.split_once(':')).find(|(name,_)|name.eq_ignore_ascii_case("content-length")).map(|(_,value)|value.trim().parse::<usize>().unwrap()).unwrap_or(0);
+                    if request.len()>=end+4+length {break;}
+                }
+            }
             write!(stream, "HTTP/1.1 {code} Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
         });
         let mut session = StoredSession { base_url: format!("http://{address}"), api_path: "/api/v1".into(), access_token: "old-access".into(), refresh_token: String::new(), device_token: "keep-device-secret".into(), device_id: "test".into() };
@@ -746,6 +757,6 @@ mod device_tests {
     #[test]
     fn revoked_device_requires_authorization() {
         let (error, _) = failed_exchange(401);
-        assert!(error.contains("登录已过期"));
+        assert!(error.contains("登录已过期"),"{error}");
     }
 }

@@ -1,0 +1,14 @@
+{
+  "skill": "webapp-testing",
+  "source": "https://github.com/anthropics/skills/tree/main/skills/webapp-testing",
+  "skillSha256": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
+  "playwrightPython": "1.62.0",
+  "pythonDependencies": "validation-local/qa-runtime/python",
+  "browser": "existing Microsoft Edge; headless; independent ephemeral profile",
+  "localCommand": "powershell -File desktop/qa/server-management/run.ps1 -Soak",
+  "liveCommand": "powershell -File desktop/qa/server-management/run.ps1 -Soak -LiveServers",
+  "liveScope": "saved 175, 176 and spark; unique ~/omaax/diagnostics folders and small files only",
+  "results": "validation-local/server-full-qa",
+  "pipSetup": "python -m pip install --no-compile --target validation-local/qa-runtime/python playwright==1.62.0",
+  "productionToolsInstalled": false
+}

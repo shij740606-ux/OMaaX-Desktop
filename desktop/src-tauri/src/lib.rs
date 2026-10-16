@@ -369,7 +369,9 @@ async fn ssh_hosts_test(app: AppHandle, state: State<'_, AppState>, id: String, 
 async fn personal_compute(app: AppHandle, state: State<'_, AppState>, id: String, action: String, body: serde_json::Value) -> Result<serde_json::Value,String> {
     let root=state.paths.root.clone(); let node=paths::node_binary(&app); let script=paths::resource(&app,"ssh").join("client.cjs");
     tauri::async_runtime::spawn_blocking(move || {
-        if action=="schedule" {
+        if action=="transfers" {personal_compute::transfers(&root)}
+        else if action=="transfer_resume" {personal_compute::resume_transfer(&root,&node,&script,body["id"].as_str().unwrap_or(""))}
+        else if action=="schedule" {
             let ids:Vec<String>=serde_json::from_value(body["hosts"].clone()).map_err(|_|"候选服务器无效")?;
             personal_compute::schedule(&root,&node,&script,&ids,body["spec"].clone(),false)
         } else if action=="install_environment" { ssh_hosts::install_environment(&root,&node,&script,&id,body["password"].as_str().unwrap_or("")) } else if action=="transfer" { personal_compute::transfer(&root,&node,&script,&id,body["target"].as_str(),body["source"].clone()) }
@@ -380,6 +382,12 @@ async fn personal_compute(app: AppHandle, state: State<'_, AppState>, id: String
 async fn ssh_hosts_metrics(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<serde_json::Value, String> {
     let root = state.paths.root.clone(); let node = paths::node_binary(&app); let script = paths::resource(&app, "ssh").join("client.cjs");
     tauri::async_runtime::spawn_blocking(move || ssh_hosts::metrics(&root, &node, &script, &id, false)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn ssh_hosts_files(app:AppHandle,state:State<'_,AppState>,id:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+    let root=state.paths.root.clone();let node=paths::node_binary(&app);let script=paths::resource(&app,"ssh").join("client.cjs");
+    tauri::async_runtime::spawn_blocking(move||ssh_hosts::files(&root,&node,&script,&id,body)).await.map_err(|e|e.to_string())?
 }
 #[tauri::command]
 fn knowledge_set_credential(key: String) -> Result<knowledge::CredentialStatus, String> { knowledge::set_credential(&key) }
@@ -960,7 +968,7 @@ async fn assistant_ask(state: State<'_, AppState>, model: String, question: Stri
     let (endpoint, key, model) = {
         let st = state.settings.lock().unwrap();
         if st.mode == "offline" {
-            if st.offline_base_url.trim().is_empty() { return Err("离线模式还没配置模型接口，去「更多 → 运行模式」填一下".into()); }
+            if st.offline_base_url.trim().is_empty() { return Err("还没有配置本地／内网模型，请在设置的「模型连接」中填写接口地址".into()); }
             (format!("{}/chat/completions", st.offline_base_url.trim().trim_end_matches('/')), if st.offline_api_key.is_empty() { "local".into() } else { st.offline_api_key.clone() }, if st.offline_model.trim().is_empty() { model } else { st.offline_model.trim().to_string() })
         } else {
             let Some(key) = settings::read_credential_value(&state.paths) else { return Err("还没填 API Key，去「更多 → 模型 API Key」填一下".into()) };
@@ -1153,7 +1161,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_info, settings_get, settings_set, credential_get, credential_set, personal_compute, platform_session, platform_login, platform_project_collaboration, platform_storage, platform_logout, platform_nodes, platform_node_metrics, platform_update_node, platform_jobs, platform_job_kinds, platform_create_job, platform_scheduling_nodes, platform_scheduling, ssh_hosts_bind, platform_cancel_job, platform_job_events, platform_job_artifacts, platform_download_job_artifact,
             knowledge_credential, knowledge_set_credential, knowledge_datasets, knowledge_create_dataset, knowledge_documents, knowledge_add_files, knowledge_folders, knowledge_add_folder, knowledge_remove_folder, knowledge_sync_folders, knowledge_search,
-            ssh_hosts_list, ssh_hosts_save, ssh_hosts_remove, ssh_hosts_select, ssh_hosts_trust, ssh_hosts_test, ssh_hosts_metrics,
+            ssh_hosts_list, ssh_hosts_save, ssh_hosts_remove, ssh_hosts_select, ssh_hosts_trust, ssh_hosts_test, ssh_hosts_metrics, ssh_hosts_files,
             env_status, env_install, dsh_status, dsh_start, dsh_restart, dsh_stop, dsh_reload, dsh_bounds,
             skills_catalog, skills_statuses, skills_readme, skills_install, skills_uninstall,
             open_path, open_external, pick_folder, window_control, client_log, deepseek_balance, git_status, git_init, git_commit, dsh_rpc, dsh_open_session, dsh_new_session, check_updates, assistant_ask, session_export, workspace_files, read_workspace_image, ratings_get, ratings_set, session_delete, env_install_extra, migrate_scan, migrate_import, refdata_list, refdata_install, refdata_remove, demos_seed, dsh_set_context, embed_query, db_catalog, light_update_check, light_update_apply

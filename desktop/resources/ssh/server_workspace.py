@@ -3,9 +3,9 @@ import csv,hashlib,io,json,os,re,shutil,stat,subprocess,time,uuid
 from pathlib import Path
 
 def workspace(r):
-    base=r.root()/'workspace'
-    if base.is_symlink():raise ValueError('工作文件夹不能是链接')
-    base.mkdir(mode=0o700,exist_ok=True)
+    base=r.workspace_root()
+    if any(p.is_symlink() for p in [base,*base.parents]):raise ValueError('工作文件夹不能是链接')
+    base.mkdir(mode=0o700,parents=True,exist_ok=True)
     if os.name=='posix' and base.stat().st_uid!=os.getuid():raise ValueError('工作文件夹不属于当前 SSH 账号')
     for name in ('configs','references','files','results','projects','.trash'):
         p=base/name
@@ -21,8 +21,9 @@ def read_path(r,value):
     private=[Path.home()/'.ssh',Path.home()/'.aws',Path.home()/'.kube',Path.home()/'.docker',Path('/proc'),Path('/sys'),Path('/dev')]
     if any(p==d or d in p.parents for d in private):raise ValueError('不能读取凭据或系统特殊文件')
     if p.name in ('.env','.netrc','.git-credentials','id_rsa','id_ed25519'):raise ValueError('不能读取凭据文件')
-    control=r.ROOT.resolve()
-    if (p==control or control in p.parents) and not (p==control/'workspace' or control/'workspace' in p.parents):raise ValueError('应用控制记录请通过任务和审计功能查看')
+    control=r.ROOT.resolve();work=workspace(r)
+    if (p==control or control in p.parents) and not (p==work or work in p.parents or control/'workspace' in p.parents):raise ValueError('应用控制记录请通过任务和审计功能查看')
+    if p==getattr(r,'DEFAULT_ROOT',control).parent or getattr(r,'DEFAULT_ROOT',control).parent in p.parents:raise ValueError('应用控制记录请通过任务和审计功能查看')
     if not (p.is_file() or p.is_dir()) or not os.access(p,os.R_OK|(os.X_OK if p.is_dir() else 0)):raise ValueError('当前 SSH 账号没有读取此路径的权限')
     return p
 
@@ -63,7 +64,7 @@ def files(r,body):
         try:
             target=read_path(r,str(child));info=target.stat();rows.append({'name':child.name,'path':str(child),'directory':target.is_dir(),'size':info.st_size,'linked':child.is_symlink()})
         except (ValueError,OSError):continue
-        child_path=child.resolve();root=r.ROOT/'workspace'
+        child_path=child.resolve();root=workspace(r)
         if root in child_path.parents:
             rel=child_path.relative_to(root).as_posix()
             record=r.database().execute('SELECT j.spec,j.created FROM job_locations l JOIN jobs j ON j.id=l.job_id WHERE l.path=?',(rel,)).fetchone()
@@ -119,14 +120,21 @@ def manage(r,body):
         return {'files':rows[:500]}
     if operation=='info':
         context=body.get('context');base=workspace_context.base(r,context) if context else workspace(r)
-        return {'path':str(base),'workspaceRoot':str(workspace(r)),'folders':['configs','references','files','tasks'] if context else ['projects','configs','references','files','results'],'context':context,'originalDataReadOnly':True}
+        old=r.root()/'workspace'
+        return {'path':str(base),'workspaceRoot':str(workspace(r)),'legacyRoot':str(old) if old!=workspace(r) and old.is_dir() else None,'folders':['configs','references','files','tasks'] if context else ['projects','configs','references','files','results'],'context':context,'originalDataReadOnly':True}
     if operation=='trash':
         rows=[]
         for p in (workspace(r)/'.trash').iterdir():
             record=p/'record.json'
             if p.is_symlink() or record.is_symlink() or not record.is_file():continue
-            data=json.loads(record.read_text());rows.append({'trashId':p.name,**data})
+            data=json.loads(record.read_text())
+            if data.get('ready',True) and ((p/'content').exists() or (p/'content').is_symlink()):rows.append({'trashId':p.name,**data})
         return {'files':sorted(rows,key=lambda row:-row['deleted'])[:500]}
+    if value=='legacy' or value.startswith('legacy/'):
+        old=r.root()/'workspace'
+        if operation not in ('list','read','stat') or old==workspace(r):raise ValueError('旧版目录仅提供查看，不移动原有数据')
+        p=r.contained(old,value[7:] if value.startswith('legacy/') else '.')
+        return files(r,{'path':str(p),'operation':operation,'offset':body.get('offset',0)})
     p=managed(r,value,existing=operation not in ('mkdir',),delete_link=operation in ('delete','move','rename'),context=body.get('context'))
     if operation in ('list','read','stat'):return files(r,{'path':str(p),'operation':operation,'offset':body.get('offset',0)})
     if p.relative_to(workspace(r)).parts[0] not in ('configs','references','files','results','projects'):raise ValueError('回收站只能通过恢复功能操作')
@@ -156,20 +164,34 @@ def manage(r,body):
     if operation!='delete':raise ValueError('未支持的工作文件操作')
     if workspace_context.reserved(p.relative_to(workspace(r))):raise ValueError('不能删除工作分区，请选择其中的文件或文件夹')
     if busy_path(r,p):raise ValueError('正在使用的任务目录或输入不能删除，请等待任务结束')
-    # Rename the owned entry; never follow links to delete or modify their targets.
-    token=str(uuid.uuid4());trash=workspace(r)/'.trash'/token;trash.mkdir(mode=0o700)
-    relative=p.relative_to(workspace(r)).as_posix();(trash/'record.json').write_text(json.dumps({'path':relative,'deleted':time.time()}));p.rename(trash/'content')
-    r.audit(r.database(),'workspace.deleted',{'path':relative,'trashId':token})
-    return {'deleted':relative,'trashId':token,'recoverable':True}
+    import server_delete
+    return server_delete.submit(r,{'path':str(p),'recursive':p.is_dir(),'context':body.get('context')})
 
 def restore(r,body):
     token=r.identifier(body.get('trashId'));trash=workspace(r)/'.trash'/token
     if trash.is_symlink() or (trash/'record.json').is_symlink() or not (trash/'record.json').is_file():raise ValueError('回收记录不存在')
-    record=json.loads((trash/'record.json').read_text());dest=managed(r,record['path'],existing=False)
+    record=json.loads((trash/'record.json').read_text())
+    if not record.get('ready',True):raise ValueError('回收副本尚未校验完成，不能恢复')
+    if record.get('absolute'):
+        import server_delete
+        dest=server_delete.destination(r,record['path'],existing=False)
+    else:dest=managed(r,record['path'],existing=False)
     if dest.exists() or dest.is_symlink():raise ValueError('原位置已有文件，不能覆盖')
     content=trash/'content'
     if not content.exists() and not content.is_symlink():raise ValueError('回收文件不正确')
-    dest.parent.mkdir(parents=True,exist_ok=True);content.rename(dest);r.audit(r.database(),'workspace.restored',{'path':record['path'],'trashId':token})
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    try:content.rename(dest)
+    except OSError as error:
+        import errno,server_delete
+        if error.errno!=errno.EXDEV:raise
+        if content.is_symlink():dest.symlink_to(os.readlink(content),target_is_directory=content.is_dir())
+        elif content.is_dir():shutil.copytree(content,dest,symlinks=True)
+        else:
+            with content.open('rb') as incoming,dest.open('xb') as output:shutil.copyfileobj(incoming,output,1048576)
+        if server_delete.content_hash(content)!=server_delete.content_hash(dest):raise ValueError('恢复副本校验失败，回收站原件仍保留')
+        if content.is_dir() and not content.is_symlink():shutil.rmtree(content)
+        else:content.unlink()
+    r.audit(r.database(),'workspace.restored',{'path':record['path'],'trashId':token})
     return {'path':str(dest),'restored':True}
 
 def script(r,body):

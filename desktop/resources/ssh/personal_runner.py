@@ -19,7 +19,12 @@ import types
 _machine = Path('/etc/machine-id')
 _identity = (_machine.read_text().strip() if _machine.exists() else '') + ':' + platform.node()
 # Shared NFS home directories must not merge two servers' queues and execution locks.
-ROOT = Path.home() / '.local/share/biodsh-personal' / hashlib.sha256(_identity.encode()).hexdigest()[:16]
+SERVER_KEY = hashlib.sha256(_identity.encode()).hexdigest()[:16]
+APP_HOME = Path.home() / 'omaax'
+LEGACY_ROOT = Path.home() / '.local/share/biodsh-personal' / SERVER_KEY
+DEFAULT_ROOT = APP_HOME / '.servers' / SERVER_KEY
+# Keep existing queues in place, including supervisors started by older versions.
+ROOT = LEGACY_ROOT if (LEGACY_ROOT/'state.sqlite').is_file() else DEFAULT_ROOT
 VERSION = 1
 
 
@@ -38,11 +43,34 @@ def root():
     for part in [ROOT, *ROOT.parents]:
         if part.is_symlink():
             raise ValueError('Control directory must not contain symlinks')
+    if ROOT==DEFAULT_ROOT:
+        APP_HOME.mkdir(mode=0o700,exist_ok=True)
+        if APP_HOME.stat().st_uid!=os.getuid():raise ValueError('OMaaX 文件夹不属于当前账号')
     ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
     if ROOT.stat().st_uid != os.getuid():
         raise ValueError('Control directory owner mismatch')
     os.chmod(ROOT, 0o700)
+    if ROOT == DEFAULT_ROOT:
+        # These overrides affect only OMaaX child processes, never the user's global container setup.
+        for name in ('cache','tmp','container-storage','container-run'):
+            p=ROOT/name
+            if p.is_symlink():raise ValueError('应用运行目录不能是链接')
+            p.mkdir(mode=0o700,exist_ok=True)
+        storage=ROOT/'storage.conf'
+        if storage.is_symlink():raise ValueError('容器配置不能是链接')
+        import fcntl
+        with (ROOT/'storage.lock').open('a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX)
+            if not storage.exists():
+                with storage.open('x') as f:f.write('[storage]\ndriver = "overlay"\ngraphroot = '+json.dumps(str(ROOT/'container-storage'))+'\nrunroot = '+json.dumps(str(ROOT/'container-run'))+'\n')
+        os.environ['CONTAINERS_STORAGE_CONF']=str(storage)
+        os.environ['XDG_CACHE_HOME']=str(ROOT/'cache')
+        os.environ['TMPDIR']=str(ROOT/'tmp')
     return ROOT
+
+
+def workspace_root():
+    return APP_HOME/'workspace' if ROOT in (DEFAULT_ROOT, LEGACY_ROOT) else root()/'workspace'
 
 
 def database():
@@ -55,6 +83,7 @@ def database():
         CREATE TABLE IF NOT EXISTS workspace_contexts(project_id TEXT,session_id TEXT,metadata TEXT,path TEXT,updated REAL,PRIMARY KEY(project_id,session_id));
         CREATE TABLE IF NOT EXISTS job_locations(job_id TEXT PRIMARY KEY,path TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS workspace_external_files(path TEXT PRIMARY KEY,context TEXT,created REAL);
+        CREATE TABLE IF NOT EXISTS transfer_imports(id TEXT PRIMARY KEY,path TEXT NOT NULL);
     ''')
     return db
 
@@ -94,7 +123,7 @@ def source_path(value, imported=False):
         raise ValueError('Select an absolute, non-symlink data directory')
     p = p.resolve(strict=True)
     managed_import = (imported and p.parent == ROOT/'imports' and re.fullmatch(r'[a-f0-9-]{36}', p.name)) or p == ROOT/'shared'
-    managed_workspace = p == ROOT/'workspace' or ROOT/'workspace' in p.parents
+    managed_workspace = p == workspace_root() or workspace_root() in p.parents
     denied = [*([] if managed_import or managed_workspace else [ROOT]), Path('/proc'), Path('/sys'), Path('/dev'), Path.home()/'.ssh', Path.home()/'.aws', Path.home()/'.kube']
     if not p.is_dir() or any(p == d or (d != Path('/') and d != Path.home() and (d in p.parents or p in d.parents)) for d in denied):
         raise ValueError('System, home root, credentials and control directories cannot be shared')
@@ -183,7 +212,9 @@ def jobdir(job,spec=None):
     else:
         import server_workspace
         row=database().execute('SELECT path FROM job_locations WHERE job_id=?',(identifier(job),)).fetchone()
-        if row:path=server_workspace.managed(types.SimpleNamespace(**globals()),row['path'],existing=False)
+        if row:
+            saved=Path(row['path']);old=root()/'workspace'/saved
+            path=old if not saved.is_absolute() and old.exists() else server_workspace.managed(types.SimpleNamespace(**globals()),row['path'],existing=False)
         else:
             old=server_workspace.workspace(types.SimpleNamespace(**globals()))/'results'/identifier(job)
             if old.exists():path=old
@@ -320,6 +351,12 @@ def launch(job):
 
 def dispatch(req):
     db = database(); cfg = config(db); action = req['action']; body = req.get('body') or {}
+    if action.startswith('server_delete'):
+        import server_delete
+        return server_delete.dispatch(types.SimpleNamespace(**globals()),action,body,req.get('actor','user'))
+    if action in ('initialize','setup_start','setup_status','server_environments'):
+        import server_setup
+        return server_setup.dispatch(types.SimpleNamespace(**globals()),action,body)
     if action.startswith('workspace_') or action=='server_files':
         import server_workspace
         return server_workspace.dispatch(types.SimpleNamespace(**globals()),action,body)
@@ -330,16 +367,22 @@ def dispatch(req):
         import workflow_engine
         return workflow_engine.dispatch(types.SimpleNamespace(**globals()), action, body, req.get('actor','user'))
     if action == 'bootstrap':
+        import server_setup
+        progress=lambda message:server_setup.progress(types.SimpleNamespace(**globals()),message)
+        progress('正在创建 OMaaX 专属目录')
+        import server_workspace
+        server_workspace.workspace(types.SimpleNamespace(**globals()))
         if os.getuid() == 0:
             raise ValueError('请使用普通 SSH 用户；不以 root 启用分析执行')
-        shared = root()/'shared'
+        shared = workspace_root()/'files/shared'
         if shared.is_symlink(): raise ValueError('共享目录不能是符号链接')
-        shared.mkdir(mode=0o700, exist_ok=True)
+        shared.mkdir(mode=0o700, parents=True, exist_ok=True)
         sources = cfg.get('sources', {})
         sources.setdefault('shared', str(shared))
         db.execute('INSERT OR REPLACE INTO config VALUES(?,?)', ('sources', json.dumps(sources)))
         audit(db, 'bootstrap.shared_ready', {'path':str(shared),'uid':os.getuid()})
         import shutil
+        progress('正在检查并按需安装基础运行组件')
         if not shutil.which('podman'):
             if shutil.which('apt-get') and shutil.which('sudo') and subprocess.run(['sudo','-n','true'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
                 audit(db, 'bootstrap.install_packages', {'packages':['podman','uidmap','slirp4netns','fuse-overlayfs']})
@@ -347,11 +390,16 @@ def dispatch(req):
                 command(['sudo','-n','apt-get','install','-y','podman','uidmap','slirp4netns','fuse-overlayfs'], timeout=240)
             else:
                 raise ValueError('专用共享目录已准备；自动安装 Podman 需要系统安装权限，请管理员安装 podman、uidmap、slirp4netns、fuse-overlayfs 后重新检查')
-        protection()
+        checked_protection=protection()
+        progress('正在检查基础镜像；仅下载缺少的运行环境')
         images = cfg.get('images', [])
-        probe_image = images[0] if images else None
-        if not images or body.get('image'):
-            image = body.get('image') or 'docker.io/library/python:3.12-slim'
+        probe_image = server_setup.probe_image(types.SimpleNamespace(**globals()),images)
+        missing_image=not images
+        if probe_image:
+            try:command(['podman','image','exists',probe_image])
+            except (ValueError,subprocess.TimeoutExpired):missing_image=True
+        if missing_image or body.get('image'):
+            image = body.get('image') or probe_image or 'docker.io/library/python:3.12-slim'
             if not isinstance(image,str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_./:@-]{0,400}',image):
                 raise ValueError('镜像地址无效')
             try:
@@ -366,21 +414,24 @@ def dispatch(req):
             db.execute('INSERT OR REPLACE INTO config VALUES(?,?)', ('images',json.dumps(images)))
             audit(db,'bootstrap.image_ready',{'images':images})
         # A real sandbox smoke test catches missing delegated cgroups and rootless prerequisites.
-        command(['podman','run','--rm','--pull=never','--network=none','--read-only','--cap-drop=ALL',
-                 '--security-opt=no-new-privileges','--userns=keep-id','--cpus=1','--memory=128m','--memory-swap=128m',
-                 probe_image,'python','-c','print("biodsh-isolation-ready")'],timeout=60)
-        audit(db,'bootstrap.ready',{'uid':os.getuid()})
+        server_setup.verify_environment(types.SimpleNamespace(**globals()),probe_image)
+        audit(db,'bootstrap.ready',{'uid':os.getuid(),'verifiedImage':probe_image})
+        db.execute('INSERT OR REPLACE INTO config VALUES(?,?)',('protectionCache',json.dumps({'at':time.time(),'value':checked_protection})));db.commit()
         return dispatch({'action':'status'})
     if action == 'status':
-        try:
-            state = protection(); error = ''
-        except Exception as e:
-            state = None; error = str(e)
+        cached=cfg.get('protectionCache',{})
+        if cached.get('value') and 0<=time.time()-cached.get('at',0)<21600 and not body.get('recheck'):
+            state=cached['value'];error=''
+        elif not cfg.get('images') and not body.get('recheck'):
+            state=None;error='基础环境尚未就绪，可在后台按需配置；SSH 连接不受影响'
+        else:
+            try:state = protection(); error = ''
+            except Exception as e:state = None; error = str(e)
         import workflow_engine
         workflow_images=workflow_engine.available_images(types.SimpleNamespace(**globals()))
         workflow_images.update({key:value['image'] for key,value in cfg.get('workflowEnvironments',{}).items() if value.get('image')})
-        return {'workflowImages':workflow_images, 'version': VERSION, 'uid': os.getuid(), 'root': str(root()), 'protection': state, 'error': error,
-                'sources': cfg.get('sources', {}), 'images': cfg.get('images', [])}
+        return {'workflowImages':workflow_images, 'version': VERSION, 'uid': os.getuid(), 'root': str(root()), 'workspace':str(workspace_root()), 'protection': state, 'error': error,
+                'sources': cfg.get('sources', {}), 'images': cfg.get('images', []), 'environmentCheckedAt':cached.get('at')}
     if action == 'configure':
         sources = body.get('sources', {}); images = body.get('images', [])
         if not isinstance(sources, dict) or len(sources)>100 or not isinstance(images, list) or len(images)>100:
@@ -405,7 +456,7 @@ def dispatch(req):
         (directory/'output').mkdir(mode=0o700)
         now = time.time()
         db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?)', (job, json.dumps(spec), 'queued', now, now, ''))
-        db.execute('INSERT INTO job_locations VALUES(?,?)',(job,directory.relative_to(root()/'workspace').as_posix()))
+        db.execute('INSERT INTO job_locations VALUES(?,?)',(job,directory.relative_to(workspace_root()).as_posix()))
         (directory/'task.json').write_text(json.dumps({'id':job,'context':spec.get('context'),'title':spec.get('title','分析任务'),'resources':{key:spec[key] for key in ('cpu','memoryMb','timeoutSeconds')}}),encoding='utf-8')
         audit(db, 'job.queued', {'id': job, 'uid': os.getuid(), 'protection':'rootless-readonly'})
         launch(job); return {'id': job}
@@ -451,21 +502,30 @@ def dispatch(req):
             if item.is_dir(): continue
             if not item.is_file(): raise ValueError('Special files are not transferable')
             name = str(item.relative_to(base)) if paths is not None else (str(item.relative_to(path)) if path.is_dir() else item.name)
-            files.append({'path':str(item), 'name':name, 'size':item.stat().st_size})
+            info=item.stat();files.append({'path':str(item), 'name':name, 'size':info.st_size, 'mtime':int(info.st_mtime)})
             if len(files)>500: raise ValueError('Select a smaller directory (maximum 500 files per transfer)')
         audit(db, 'data.export', {'source':str(path), 'files':len(files)})
         return files
     if action == 'import_prepare':
         transfer = identifier(body['id'])
+        existing=db.execute('SELECT path FROM transfer_imports WHERE id=?',(transfer,)).fetchone()
+        if existing:
+            directory=Path(existing['path'])
+            if not directory.is_dir() or any(p.is_symlink() for p in [directory,*directory.parents]):raise ValueError('接收目录发生变化，未继续传输')
+            return {'path':str(directory)}
         size=body.get('bytes',0)
         if type(size) is not int or size<0 or size>disk_available():
             raise ValueError('目标可用空间不足（保留至少 1 GiB / 1%），未开始传输')
-        directory = root()/'imports'/transfer
+        import workspace_context
+        directory = workspace_context.base(types.SimpleNamespace(**globals()),body.get('context'))/'files/imports'/transfer
         directory.mkdir(parents=True, mode=0o700, exist_ok=False)
+        db.execute('INSERT INTO transfer_imports VALUES(?,?)',(transfer,str(directory)));db.commit()
         audit(db, 'data.import_pending', {'id':transfer})
         return {'path':str(directory)}
     if action == 'import_finish':
-        transfer = identifier(body['id']); directory = (root()/'imports'/transfer).resolve(strict=True)
+        transfer = identifier(body['id']);saved=db.execute('SELECT path FROM transfer_imports WHERE id=?',(transfer,)).fetchone()
+        directory = Path(saved['path']) if saved else root()/'imports'/transfer
+        directory=contained(directory,'.')
         files = body['files']
         for entry in files:
             p = contained(directory, entry['name'])
@@ -484,7 +544,10 @@ def dispatch(req):
 
 
 if __name__ == '__main__':
-    if len(sys.argv)>1 and sys.argv[1] == '--prepare':
+    if len(sys.argv)>1 and sys.argv[1] == '--setup':
+        import server_setup
+        server_setup.run(types.SimpleNamespace(**globals()),sys.argv[2])
+    elif len(sys.argv)>1 and sys.argv[1] == '--prepare':
         import workflow_environments
         workflow_environments.run(types.SimpleNamespace(**globals()),sys.argv[2])
     elif len(sys.argv)>1 and sys.argv[1] == '--run':

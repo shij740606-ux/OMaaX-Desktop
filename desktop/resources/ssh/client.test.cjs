@@ -14,6 +14,8 @@ const server = new Server({ hostKeys: [key] }, connection => {
     context.reject();
   });
   connection.on('ready', () => connection.on('session', accept => accept().on('exec', (accept, reject, info) => {
+    if(info.command==='disconnect'){accept();connection.destroy();return;}
+    if(info.command==='timeout'){accept();return;}
     if (info.command === '/bin/bash -s') {
       const stream=accept();let text='';stream.on('data',chunk=>text+=chunk);
       stream.on('end',()=>{stream.write(JSON.stringify({bytes:Buffer.byteLength(text),text}));stream.exit(0);stream.end();});
@@ -57,6 +59,8 @@ server.listen(0, '127.0.0.1', async () => {
     assert.equal((await request({operation:'install_environment',hostKey:probe.hostKey,sudoPassword:'wrong'})).exitCode,1);
     assert.ok((await request({operation:'install_environment',hostKey:probe.hostKey,sudoPassword:'bad\npassword'})).error);
     assert.ok((await request({operation:'install_environment',hostKey:'wrong',sudoPassword:'private-sudo'})).error);
+    assert.ok((await request({operation:'execute',command:'disconnect',hostKey:probe.hostKey})).error);
+    assert.match((await request({operation:'execute',command:'timeout',hostKey:probe.hostKey})).error,/超时/);
     console.log('SSH probe, host-key rejection, authentication, execution and sudo installation stdin/redaction/failure checks passed');
   } catch (error) { console.error(error); process.exitCode = 1; }
   finally { server.close(); }

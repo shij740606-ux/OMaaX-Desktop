@@ -6,6 +6,7 @@ import InstallButton from '../components/InstallButton';
 import Markdown from '../components/Markdown';
 import type { CatalogSkill } from '@shared/types';
 import { useT } from '../i18n';
+import HelpTip, { useHelp } from '../components/HelpTip';
 
 const PAGE = 48;
 const DOMAIN_ORDER = ['单细胞与空间', '转录组与表达', '基因组与变异', '群体遗传', '遗传育种与性状定位', '比较基因组与进化', '植物基因组组装与注释', '植物表型与性状分析', '表观与调控', '蛋白与结构', '药物与化学', '临床与医学', '微生物与免疫', '代谢与其他组学', '数据与工具'];
@@ -20,6 +21,7 @@ let ratingsCache: Record<string, Rating> = {};
 export default function StoreView() {
   const { catalog, statuses, env, setTab } = useApp();
   const { t, lang } = useT();
+  const help = useHelp('tools');
   const [q, setQ] = useState('');
   const [tier, setTier] = useState<Tier>(() => { try { const t = localStorage.getItem('biodsh.storeTier'); localStorage.removeItem('biodsh.storeTier'); return (t as Tier) || 'official'; } catch { return 'official'; } });
   const [domain, setDomain] = useState('all');
@@ -62,7 +64,7 @@ export default function StoreView() {
 
   return (
     <div className="h-full flex flex-col omaax-page omaax-tools">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>工具中心</h1><p>按研究方向找到工具，在对话中直接使用。</p><div className="omaax-tool-search"><Search size={18}/><input aria-label="搜索工具" value={q} onChange={e=>setQ(e.target.value)} placeholder={`搜索 ${catalog.length} 个工具`}/></div></header>
+      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>工具中心 <HelpTip topic="tools"/></h1><p>{help.summary}</p><div className="omaax-tool-search"><Search size={18}/><input aria-label="搜索工具" value={q} onChange={e=>setQ(e.target.value)} placeholder={`搜索 ${catalog.length} 个工具`}/></div></header>
       <nav className="omaax-filter" aria-label="工具来源"><button className={tier==='official'?'selected':''} onClick={()=>setTier('official')}>精选工具</button><button className={tier==='community'?'selected':''} onClick={()=>setTier('community')}>社区工具 · {communityCount}</button><button className={tier==='installed'?'selected':''} onClick={()=>setTier('installed')}>已添加</button></nav>
       <div className="flex-1 min-h-0 flex">
         {/* 左侧分类栏 */}
@@ -79,10 +81,10 @@ export default function StoreView() {
             {!env.ready && tier !== 'installed' && (
               <div className="rounded-2xl px-5 py-3.5 flex items-center gap-4" style={{ background: 'var(--accent-soft)' }}>
                 <div className="flex-1">
-                  <div className="t-headline">{t('先准备一次计算环境')}</div>
-                  <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('技能要靠 Python 分析软件包才能运行。只需安装一次，大约几分钟。')}</div>
+                  <div className="t-headline">{t('需要在本机分析？')}</div>
+                  <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('可按需准备本机环境。只浏览或添加工具说明，不需要先安装环境；服务器分析单独配置。')}</div>
                 </div>
-                <button className="btn btn-primary" onClick={() => setTab('env')}>{t('去安装')}</button>
+                <button className="btn btn-tint" onClick={() => setTab('env')}>{t('查看本机环境')}</button>
               </div>
             )}
 
@@ -122,7 +124,7 @@ export default function StoreView() {
             {/* 页脚：评分说明 + 计数/评测状态，统一沉到最底部 */}
             <div className="hairline-t pt-3 mt-1 flex items-center flex-wrap gap-x-3 gap-y-2">
               <button className="btn btn-ghost !h-[26px] !px-2" onClick={() => setScoreInfo(true)} title={t('评分说明')}><Award size={13} /> {t('评分说明')}</button>
-              <span className="t-caption">{t('{n} 个', { n: list.length })}{tier === 'community' ? ` · ${t('来自开源社区，未经 来源评测')}` : tier === 'official' ? ` · ${t('离线、可复现、已评测')}` : ''}</span>
+              <span className="t-caption">{t('{n} 个', { n: list.length })} · {t('适用范围与验证记录见工具详情')}</span>
               <span className="t-caption ml-auto" style={{ color: 'var(--text-3)' }}>{t('按需添加工具，再到对话中使用。社区工具在添加时下载，运行环境按需配置。')}</span>
             </div>
           </div>
@@ -160,53 +162,22 @@ function DragRow({ children }: { children: React.ReactNode }) {
 function ScoreInfoModal({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   useEffect(() => { const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
-  const dims: [string, string, string][] = [
-    ['正确性', '45%', '在公认 benchmark 或内部自动评测上的表现'],
-    ['鲁棒性', '15%', '换数据集 / 随机种子，结果稳不稳'],
-    ['可复现', '15%', '锁定依赖、重跑结果一致'],
-    ['离线', '15%', '能否不联网、不依赖付费接口运行'],
-    ['效率', '10%', '运行时间 / 内存开销'],
-  ];
-  const benches: [string, string][] = [
-    ['单细胞', 'scIB · ARI / NMI · Azimuth'],
-    ['基因调控 / 虚拟敲除', 'BEELINE (AUPRC/EPR) · scPerturb · CellOracle'],
-    ['分子对接 / 虚拟筛选', 'DUD-E · LIT-PCBA · CASF-2016 (EF/AUROC/pose)'],
-    ['生信 Agent', 'BixBench · LAB-Bench · ScienceAgentBench'],
-    ['分子动力学', 'RMSD / RMSF 稳定性 · B-factor 相关性'],
-  ];
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="sheet" style={{ maxWidth: 560 }}>
         <div className="px-6 pt-6 pb-4 flex items-start gap-3 hairline-b">
           <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}><Award size={18} /></span>
-          <div className="flex-1"><div className="t-title1">{t('技能评分是怎么来的')}</div><div className="t-caption mt-1">{t('一个 0–100 的综合分，让你一眼看出哪个技能更可靠')}</div></div>
+          <div className="flex-1"><div className="t-title1">{t('工具验证与使用反馈')}</div><div className="t-caption mt-1">{t('先看适用范围，再看证据，不把分数当作保证。')}</div></div>
           <button className="btn btn-ghost !h-6 !px-2" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col gap-5">
-          <div>
-            <div className="t-headline mb-2">{t('五个维度加权')}</div>
-            <div className="flex flex-col gap-1.5">
-              {dims.map(([n, w, d]) => (
-                <div key={n} className="flex items-baseline gap-2 t-body" style={{ fontSize: 13.5 }}>
-                  <span style={{ width: 52 }} className="shrink-0 font-medium">{t(n)}</span>
-                  <span className="badge badge-blue shrink-0">{w}</span>
-                  <span style={{ color: 'var(--text-2)' }}>{t(d)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="t-headline mb-2">{t('用到 / 计划接入的公认 benchmark')}</div>
-            <div className="flex flex-col gap-1.5">
-              {benches.map(([k, v]) => (
-                <div key={k} className="t-body" style={{ fontSize: 13.5 }}><span className="font-medium">{t(k)}</span><span style={{ color: 'var(--text-2)' }}> — {v}</span></div>
-              ))}
-            </div>
-          </div>
-          <div className="rounded-xl p-4 t-body" style={{ background: 'var(--surface-2)', fontSize: 13, lineHeight: '20px', color: 'var(--text-2)' }}>
-            {t('诚实说明：目前官方技能的分数来自 来源项目的历史评测记录，上面的公认 benchmark 正在逐步接入以给出可对外的分数。没跑过评测的技能一律标「未评测」，我们不臆造分数。')}
-          </div>
+          <div className="omaax-guide"><strong>{t('验证记录怎么看')}</strong><p>{t('分数只是工具附带的参考信息，不代表 OMaaX 已对每个工具重新测试。请结合验证数据、运行要求和自己的数据判断。')}</p></div>
+          <dl className="omaax-evidence-list">
+            <div><dt>{t('来源与许可')}</dt><dd>{t('详情保留工具的原始仓库、作者信息和许可证，便于追溯。')}</dd></div>
+            <div><dt>{t('测试与复现')}</dt><dd>{t('有记录时显示测试数量、使用的数据集及复现信息；没有记录会标为未评测或未验证。')}</dd></div>
+            <div><dt>{t('个人使用反馈')}</dt><dd>{t('点赞和点踩表示你的使用感受，不会替代分析结果验证。')}</dd></div>
+          </dl>
         </div>
       </div>
     </>
@@ -242,7 +213,7 @@ function Badges({ skill }: { skill: CatalogSkill }) {
       <>
         {skill.subcategory && <span className="badge badge-blue">{skill.subcategory}</span>}
         {skill.level && <span className="badge">{skill.level}</span>}
-        {skill.has_scripts ? <span className="badge">{t('含脚本')}</span> : <span className="badge">{t('说明书型')}</span>}
+        {skill.has_scripts ? <span className="badge">{t('含脚本')}</span> : <span className="badge">{t('操作指南')}</span>}
       </>
     );
   }
@@ -328,7 +299,7 @@ function DetailSheet({ skill, onClose, rating, onRate }: { skill: CatalogSkill; 
                   <Info label={t('使用门槛')} value={skill.level || '—'} />
                   <Info label={t('来源仓库')} value={skill.origin?.repo ?? '—'} sub={skill.origin?.path} />
                   <Info label={t('许可证')} value={skill.origin?.license ?? '—'} />
-                  <Info label={t('类型')} value={skill.has_scripts ? t('附带脚本，安装后由智能体调用') : t('说明书型，教智能体怎么做')} />
+                  <Info label={t('类型')} value={skill.has_scripts ? t('包含脚本，准备环境后由助手调用') : t('提供操作指南，依赖软件另行准备')} />
                   {skill.sourceGuide && <Info label={t('配置需求')} value={skill.sourceGuide.requirements} sub={t('添加指南后，分析软件按需配置')} />}
                   <Info label={t('来源评测')} value={t('未评测，运行前请自行判断')} />
                 </div>
@@ -336,11 +307,11 @@ function DetailSheet({ skill, onClose, rating, onRate }: { skill: CatalogSkill; 
                 <div className="grid grid-cols-2 gap-3">
                   <Info label={t('综合评分')} value={typeof skill.score === 'number' ? `${skill.score} / 100` : t('未评测')} sub={typeof skill.score === 'number' ? (skill.score_source ?? t('五维加权：正确性/鲁棒性/可复现/离线/效率')) : t('尚无公认 benchmark 分数')} />
                   {skill.benchmarks && skill.benchmarks.length > 0 && <Info label={t('计划接入 benchmark')} value={skill.benchmarks.join(' · ')} />}
-                  <Info label={t('运行方式')} value={t('本机离线运行，数据不出电脑')} />
+                  <Info label={t('运行方式')} value={t('按工具要求选择本机或服务器环境')} />
                   <Info label={t('可复现性')} value={skill.evidence?.reproducible ? t('同输入重跑结果逐字节一致') : t('未验证')} />
                   <Info label={t('评测')} value={skill.evidence?.tests ? t('独立评分器 {tests} 通过', { tests: skill.evidence.tests }) : t('暂无')} />
                   <Info label={t('验证数据集')} value={skill.evidence?.dataset ?? '—'} />
-                  <Info label={t('需要')} value={t('Python 计算环境（scanpy）')} />
+                  <Info label={t('需要')} value={t('见工具文档；本机与服务器分别准备')} />
                   <Info label={t('标签')} value={skill.tags.join(' · ') || '—'} />
                 </div>
               )}
@@ -349,8 +320,8 @@ function DetailSheet({ skill, onClose, rating, onRate }: { skill: CatalogSkill; 
               <div>
                 <div className="t-headline mb-2">{t('怎么用')}</div>
                 <ol className="t-body list-decimal pl-5 flex flex-col gap-1" style={{ color: 'var(--text-2)' }}>
-                  <li>{t('先点击「添加」获取此工具，再按需要配置「计算环境」。')}</li>
-                  <li>{t('回到「对话」，把数据文件放进工作区文件夹。')}</li>
+                  <li>{t('先添加工具，再按它的要求准备运行环境和输入文件。')}</li>
+                  <li>{t('回到对话，提供数据位置，并说明在本机还是服务器分析。')}</li>
                   <li>{t('用白话告诉智能体你要做什么。智能体会自己选用这个技能并运行。')}</li>
                 </ol>
               </div>

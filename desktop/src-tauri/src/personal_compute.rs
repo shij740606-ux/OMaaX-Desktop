@@ -6,6 +6,8 @@ use std::{path::Path, io::Write, process::{Command, Stdio}};
 const SERVER_WORKSPACE: &str = include_str!("../../resources/ssh/server_workspace.py");
 const WORKSPACE_CONTEXT: &str = include_str!("../../resources/ssh/workspace_context.py");
 const SERVER_FILE_OPS: &str = include_str!("../../resources/ssh/server_file_ops.py");
+const SERVER_DELETE: &str = include_str!("../../resources/ssh/server_delete.py");
+const SERVER_SETUP: &str = include_str!("../../resources/ssh/server_setup.py");
 const RUNNER: &str = include_str!("../../resources/ssh/personal_runner.py");
 const WORKFLOW_ENGINE: &str = include_str!("../../resources/ssh/workflow_engine.py");
 const WORKFLOW_CATALOG: &str = include_str!("../../resources/workflows/catalog.json");
@@ -17,8 +19,28 @@ const WORKFLOW_BUNDLE: &[u8] = include_bytes!("../../resources/workflows/kernel.
 fn runner_source() -> String {
     let engine_hash=format!("{:x}",sha2::Sha256::digest(format!("{WORKFLOW_ENGINE}\n{RUNNER}\n{WORKFLOW_ADAPTER}\n{WORKFLOW_ENVIRONMENTS}\n{WORKFLOW_DEPENDENCIES}\n{SERVER_WORKSPACE}\n{WORKSPACE_CONTEXT}\n{SERVER_FILE_OPS}").as_bytes()));
     let mut prefix=String::from("import sys,types,base64,json\n");
-    for (name,source) in [("workspace_context",WORKSPACE_CONTEXT),("server_file_ops",SERVER_FILE_OPS)] {prefix.push_str(&format!("m=types.ModuleType('{name}')\nexec(compile(base64.b64decode('{}'),'<{name}>','exec'),m.__dict__)\nsys.modules['{name}']=m\n",STANDARD.encode(source)));}
-    format!("{prefix}import sys,types,base64,json\nt=types.ModuleType('server_workspace')\nexec(compile(base64.b64decode('{}'),'<server_workspace>','exec'),t.__dict__)\nsys.modules['server_workspace']=t\ne=types.ModuleType('workflow_environments')\nexec(compile(base64.b64decode('{}'),'<workflow_environments>','exec'),e.__dict__)\ne.DEPENDENCIES=json.loads(base64.b64decode('{}'))\nsys.modules['workflow_environments']=e\nw=types.ModuleType('workflow_engine')\nexec(compile(base64.b64decode('{}'),'<workflow_engine>','exec'),w.__dict__)\nw.CATALOG=json.loads(base64.b64decode('{}'))\nw.ADAPTER_SOURCE=base64.b64decode('{}').decode()\nw.ENGINE_HASH='{}'\nsys.modules['workflow_engine']=w\n{}",STANDARD.encode(SERVER_WORKSPACE),STANDARD.encode(WORKFLOW_ENVIRONMENTS),STANDARD.encode(WORKFLOW_DEPENDENCIES),STANDARD.encode(WORKFLOW_ENGINE),STANDARD.encode(WORKFLOW_CATALOG),STANDARD.encode(WORKFLOW_ADAPTER),engine_hash,RUNNER)
+    for (name,source) in [("workspace_context",WORKSPACE_CONTEXT),("server_file_ops",SERVER_FILE_OPS),("server_setup",SERVER_SETUP)] {prefix.push_str(&format!("m=types.ModuleType('{name}')\nexec(compile(base64.b64decode('{}'),'<{name}>','exec'),m.__dict__)\nsys.modules['{name}']=m\n",STANDARD.encode(source)));}
+    // Deletion imports storage, so load it after server_workspace has been registered.
+    let delete_module=format!("d=types.ModuleType('server_delete')\nexec(compile(base64.b64decode('{}'),'<server_delete>','exec'),d.__dict__)\nsys.modules['server_delete']=d\n",STANDARD.encode(SERVER_DELETE));
+    format!("{prefix}import sys,types,base64,json\nt=types.ModuleType('server_workspace')\nexec(compile(base64.b64decode('{}'),'<server_workspace>','exec'),t.__dict__)\nsys.modules['server_workspace']=t\n{delete_module}e=types.ModuleType('workflow_environments')\nexec(compile(base64.b64decode('{}'),'<workflow_environments>','exec'),e.__dict__)\ne.DEPENDENCIES=json.loads(base64.b64decode('{}'))\nsys.modules['workflow_environments']=e\nw=types.ModuleType('workflow_engine')\nexec(compile(base64.b64decode('{}'),'<workflow_engine>','exec'),w.__dict__)\nw.CATALOG=json.loads(base64.b64decode('{}'))\nw.ADAPTER_SOURCE=base64.b64decode('{}').decode()\nw.ENGINE_HASH='{}'\nsys.modules['workflow_engine']=w\n{}",STANDARD.encode(SERVER_WORKSPACE),STANDARD.encode(WORKFLOW_ENVIRONMENTS),STANDARD.encode(WORKFLOW_DEPENDENCIES),STANDARD.encode(WORKFLOW_ENGINE),STANDARD.encode(WORKFLOW_CATALOG),STANDARD.encode(WORKFLOW_ADAPTER),engine_hash,RUNNER)
+}
+
+struct FrozenRunner { hash:String, encoded:String }
+static FROZEN:std::sync::OnceLock<Result<FrozenRunner,String>>=std::sync::OnceLock::new();
+fn frozen_runner(node:&Path)->Result<&'static FrozenRunner,String>{
+    FROZEN.get_or_init(||{
+        let source=runner_source();let hash=format!("{:x}",sha2::Sha256::digest(source.as_bytes()));
+        let mut cmd=Command::new(node);cmd.arg("-e").arg("let b='';process.stdin.on('data',c=>b+=c);process.stdin.on('end',()=>process.stdout.write(require('node:zlib').gzipSync(Buffer.from(b)).toString('base64')))").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+        #[cfg(windows)] {use std::os::windows::process::CommandExt;cmd.creation_flags(0x0800_0000);}
+        let mut child=cmd.spawn().map_err(|e|e.to_string())?;let mut input=child.stdin.take().ok_or("压缩管道不可用")?;
+        input.write_all(source.as_bytes()).map_err(|e|e.to_string())?;drop(input);
+        let output=child.wait_with_output().map_err(|e|e.to_string())?;
+        if !output.status.success(){return Err("执行组件压缩失败".into());}
+        Ok(FrozenRunner{hash,encoded:String::from_utf8(output.stdout).map_err(|e|e.to_string())?})
+    }).as_ref().map_err(Clone::clone)
+}
+fn runner_command(hash:&str,payload:&str)->String{
+    format!("if ! command -v python3 >/dev/null 2>&1; then echo OMAAX_RUNNER_MISSING >&2; exit 78; fi\npython3 - <<'OMAAX_REQUEST'\nimport base64,hashlib,json,pathlib,platform,runpy,sys\nm=pathlib.Path('/etc/machine-id')\ni=(m.read_text().strip() if m.exists() else '')+':'+platform.node()\nk=hashlib.sha256(i.encode()).hexdigest()[:16]\nold=pathlib.Path.home()/'.local/share/biodsh-personal'/k\nr=old if (old/'state.sqlite').is_file() else pathlib.Path.home()/'omaax'/'.servers'/k\np=r/'runner-{hash}.py'\nif any(x.is_symlink() for x in [p,*p.parents]):raise ValueError('Invalid runner path')\nif not p.is_file():\n print('OMAAX_RUNNER_MISSING',file=sys.stderr);sys.exit(78)\nif hashlib.sha256(p.read_bytes()).hexdigest()!='{hash}':raise ValueError('执行组件校验失败，请重新配置服务器')\ng=runpy.run_path(str(p),run_name='biodsh_runner')\ntry: print(json.dumps({{'result':g['dispatch'](json.loads(base64.b64decode('{payload}')))}}))\nexcept Exception as e: print(json.dumps({{'error':str(e)}}))\nOMAAX_REQUEST")
 }
 
 pub fn tool_catalog(body:&Value)->Result<Value,String> {
@@ -114,8 +136,8 @@ pub fn bind_workflow(home:&Path, payload:&Value) -> Result<Value,String> {
 
 fn permitted(action:&str,agent:bool)->bool {
     match action {
-        "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" => true,
-        "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_environment" | "workflow_bundle_status" | "workflow_prepare" => !agent,
+        "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" => true,
+        "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_environment" | "workflow_bundle_status" | "workflow_prepare" => !agent,
         _ => false,
     }
 }
@@ -151,18 +173,16 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
     }
     let payload = STANDARD.encode(serde_json::to_vec(&json!({"action":action,"body":body,"actor":if agent{"agent"}else{"user"}})).map_err(|e| e.to_string())?);
     // Only bundled code and base64 data enter the shell; no agent-provided shell text.
-    let source=runner_source();
-    // Compress the frozen scientific source to stay within the SSH transport request limit.
-    let mut compressor=Command::new(node); compressor.arg("-e").arg("let b='';process.stdin.on('data',c=>b+=c);process.stdin.on('end',()=>process.stdout.write(require('node:zlib').gzipSync(Buffer.from(b)).toString('base64')))").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
-    #[cfg(windows)] { use std::os::windows::process::CommandExt; compressor.creation_flags(0x0800_0000); }
-    let mut process=compressor.spawn().map_err(|e|e.to_string())?;
-    let mut input=process.stdin.take().ok_or("压缩管道不可用")?;input.write_all(source.as_bytes()).map_err(|e|e.to_string())?;drop(input);
-    let compressed=process.wait_with_output().map_err(|e|e.to_string())?;
-    if !compressed.status.success(){return Err("执行组件压缩失败".into());}
-    let encoded=String::from_utf8(compressed.stdout).map_err(|e|e.to_string())?;
-    let command = format!("python3 - <<'BIODSH_PERSONAL'\nimport base64,gzip,hashlib,io,os,pathlib,sys\ns=gzip.decompress(base64.b64decode('{}'))\ng={{'__name__':'biodsh_runner'}}\nexec(compile(s,'<biodsh>','exec'),g)\nr=g['root']()\np=r/('runner-'+hashlib.sha256(s).hexdigest()+'.py')\nif not p.exists():\n f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)\n with os.fdopen(f,'wb') as w:w.write(s)\nif p.is_symlink():raise ValueError('Invalid runner path')\ng['__file__']=str(p)\ntry:\n print(g['json'].dumps({{'result':g['dispatch'](g['json'].loads(base64.b64decode('{}')))}}))\nexcept Exception as e:\n print(g['json'].dumps({{'error':str(e)}}))\nBIODSH_PERSONAL", encoded, payload);
-    let command=if action=="bootstrap" {format!("if ! command -v python3 >/dev/null 2>&1; then sudo -n apt-get install -y python3 >&2 || exit 1; fi\n{command}")}else{command};
-    let value = crate::ssh_hosts::call(root,node,script,host,"execute",&command,if action=="bootstrap" {900} else {120},false)?;
+    let frozen=frozen_runner(node)?;
+    let cached=runner_command(&frozen.hash,&payload);
+    let mut value=crate::ssh_hosts::call(root,node,script,host,"execute",&cached,if action=="bootstrap"{900}else{120},false)?;
+    if value["exitCode"]==78 && value["stderr"].as_str().unwrap_or("").contains("OMAAX_RUNNER_MISSING") {
+        // Cache misses happen before dispatch, so this retry cannot duplicate a mutation.
+        let install=format!("if ! command -v python3 >/dev/null 2>&1; then sudo -n apt-get install -y python3 >&2 || exit 1; fi\npython3 - <<'OMAAX_INSTALL'\nimport base64,gzip,os\ns=gzip.decompress(base64.b64decode('{}'))\ng={{'__name__':'biodsh_runner'}}\nexec(compile(s,'<omaax>','exec'),g)\nr=g['root']()\np=r/'runner-{}.py'\nif p.is_symlink():raise ValueError('Invalid runner path')\nt=r/('runner-{}.tmp-'+str(os.getpid()))\nwith t.open('xb') as f:f.write(s)\nt.chmod(0o600)\nt.replace(p)\nOMAAX_INSTALL",frozen.encoded,frozen.hash,frozen.hash);
+        let installed=crate::ssh_hosts::call(root,node,script,host,"execute",&install,120,false)?;
+        if installed["exitCode"]!=0{return Err(format!("服务器基础组件准备未完成：{}",installed["stderr"].as_str().unwrap_or("请检查 Python 3 或系统安装权限")));}
+        value=crate::ssh_hosts::call(root,node,script,host,"execute",&cached,if action=="bootstrap"{900}else{120},false)?;
+    }
     if value["exitCode"].as_i64() != Some(0) { return Err(format!("用户级执行组件失败：{}",value["stderr"].as_str().unwrap_or("请检查 Python 3 环境"))); }
     let result: Value = serde_json::from_str(value["stdout"].as_str().unwrap_or("")).map_err(|_| "执行组件响应无效")?;
     if let Some(error) = result["error"].as_str() {
@@ -180,6 +200,36 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn interrupted_preparation_reuses_its_target_transfer_and_conversation() {
+        let root=std::env::current_dir().unwrap().join("target/server-dispatch-tests").join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let transfer=uuid::Uuid::new_v4().to_string();
+        transfer_record(&root,&transfer,&json!({"id":transfer,"state":"complete","result":{"source":"import_existing","path":"saved"}})).unwrap();
+        let path=root.join("dispatch.json");
+        let mut saved=json!({"host":"176","original":{"id":"test","sourceHost":"175","sources":["data"],"context":{"sessionId":"dialogue-a"}},"transfers":{"data":transfer}});
+        let prepared=prepare_dispatch(&root,Path::new("missing"),Path::new("missing"),&path,&mut saved).unwrap();
+        assert_eq!(prepared["sources"],json!(["import_existing"]));assert_eq!(prepared["mounts"]["data"],"import_existing");assert_eq!(prepared["context"]["sessionId"],"dialogue-a");
+        assert_eq!(saved["host"],"176");assert_eq!(prepare_dispatch(&root,Path::new("missing"),Path::new("missing"),&path,&mut saved).unwrap(),prepared);
+        let guard=operation_guard("test-dispatch-exclusive").unwrap();assert!(operation_guard("test-dispatch-exclusive").is_err());drop(guard);assert!(operation_guard("test-dispatch-exclusive").is_ok());
+    }
+    #[test]
+    fn runner_requests_use_a_small_versioned_loader() {
+        let command=runner_command(&"a".repeat(64),"e30=");
+        assert!(command.len()<4096);assert!(command.contains("OMAAX_RUNNER_MISSING"));
+        assert!(command.contains("hashlib.sha256(p.read_bytes())"));
+        assert!(!command.contains("gzip.decompress"));
+        for action in ["server_delete_confirm","server_delete_reject","setup_start","server_environments"]{assert!(!permitted(action,true));assert!(permitted(action,false));}
+        assert!(permitted("server_delete",true));
+    }
+    #[test]
+    fn bundled_server_modules_load_together() {
+        let Ok(python)=std::env::var("OMAAX_TEST_PYTHON")else{return;};
+        let mut child=Command::new(python).arg("-").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let source=format!("{}\nassert sys.modules['server_delete'].LIMIT == 10000000000\nassert callable(sys.modules['server_setup'].dispatch)\nprint('bundled server modules loaded')\n",runner_source());
+        let mut input=child.stdin.take().unwrap();input.write_all(source.as_bytes()).unwrap();drop(input);
+        let output=child.wait_with_output().unwrap();assert!(output.status.success(),"{}",String::from_utf8_lossy(&output.stderr));
+    }
     #[test]
     fn model_environment_handoff_keeps_exact_selection_and_conversation(){
         let root=std::env::current_dir().unwrap().join("target/workflow-inbox-tests").join(uuid::Uuid::new_v4().to_string());
@@ -266,7 +316,7 @@ mod tests {
     }
 }
 
-pub fn schedule(root: &Path, node: &Path, script: &Path, ids: &[String], mut spec: Value, agent: bool) -> Result<Value,String> {
+pub fn schedule(root: &Path, node: &Path, script: &Path, ids: &[String], spec: Value, agent: bool) -> Result<Value,String> {
     if agent { return Err("智能体不能直接提交任意命令；请使用一体化分析流程生成计划，在桌面确认后运行".into()); }
     if ids.is_empty() || ids.len()>32 { return Err("请选择 1–32 台候选服务器".into()); }
     if spec["gpu"].as_u64().unwrap_or(0)>0 {return Err("尚未启用 GPU 隔离执行；不会降级为不受保护的任务".into());}
@@ -274,11 +324,13 @@ pub fn schedule(root: &Path, node: &Path, script: &Path, ids: &[String], mut spe
     if job.is_empty() || job.len()>80 || !job.chars().all(|c|c.is_ascii_alphanumeric()||c=='-'||c=='_'){return Err("任务编号无效".into());}
     let dir=root.join("ssh-dispatch");std::fs::create_dir_all(&dir).map_err(|e|e.to_string())?;
     let record=dir.join(format!("{job}.json"));
+    let _dispatch=operation_guard(&format!("dispatch:{}",record.display()))?;
     if record.exists(){
-        let saved:Value=serde_json::from_slice(&std::fs::read(&record).map_err(|e|e.to_string())?).map_err(|_|"调度记录不完整，请核对远程任务，勿重复提交")?;
+        let mut saved:Value=serde_json::from_slice(&std::fs::read(&record).map_err(|e|e.to_string())?).map_err(|_|"调度记录不完整，请核对远程任务，勿重复提交")?;
         if saved["original"]!=spec {return Err("此任务编号已用于其他提交".into());}
-        let id=saved["host"].as_str().ok_or("数据准备尚未完成，请核对任务和传输记录")?;
-        let result=request(root,node,script,id,"submit",saved["spec"].clone(),agent)?;
+        let prepared=prepare_dispatch(root,node,script,&record,&mut saved)?;
+        let id=saved["host"].as_str().ok_or("旧记录缺少目标服务器，请核对后使用新任务编号")?;
+        let result=request(root,node,script,id,"submit",prepared,agent)?;
         return Ok(json!({"host":id,"job":result,"excluded":[]}));
     }
     let original=spec.clone();
@@ -309,43 +361,113 @@ pub fn schedule(root: &Path, node: &Path, script: &Path, ids: &[String], mut spe
     choices.sort_by(|a,b| b.0.total_cmp(&a.0));
     let (_,id) = choices.first().ok_or_else(|| format!("无可用候选服务器：{rejected:?}"))?;
     let mut pending=std::fs::OpenOptions::new().write(true).create_new(true).open(&record).map_err(|_|"此任务正在准备，请勿并发提交")?;
-    pending.write_all(serde_json::to_string(&json!({"original":original})).unwrap().as_bytes()).map_err(|e|e.to_string())?;drop(pending);
-    if !sources.is_empty() && source_host!=**id {
-        let mut mapped=serde_json::Map::new();let mut imported=Vec::new();
-        for source in &sources {
-            let result=transfer(root,node,script,&source_host,Some(id),json!({"source":source,"path":"."}))?;
-            let name=result["source"].as_str().ok_or("传输后未登记数据")?.to_string();
-            mapped.insert(source.clone(),json!(name));imported.push(name);
-        }
-        spec["sources"]=json!(imported);spec["mounts"]=json!(mapped);
-    }
-    let temp=record.with_extension("tmp");
-    std::fs::write(&temp,serde_json::to_vec(&json!({"original":original,"host":id,"spec":spec})).unwrap()).map_err(|e|e.to_string())?;
-    std::fs::rename(temp,&record).map_err(|e|e.to_string())?;
+    let mut saved=json!({"original":original,"host":id,"transfers":{}});
+    pending.write_all(serde_json::to_string(&saved).unwrap().as_bytes()).map_err(|e|e.to_string())?;drop(pending);
+    let prepared=prepare_dispatch(root,node,script,&record,&mut saved)?;
     // Never fail over after submission: a timeout may mean the original task is already running.
-    let result = request(root,node,script,id,"submit",spec.clone(),agent).map_err(|e|format!("提交到 {id} 的任务 {} 未获确认，请在该服务器刷新核对，禁止自动重复提交：{e}",spec["id"]))?;
+    let result = request(root,node,script,id,"submit",prepared,agent).map_err(|e|format!("提交到 {id} 的任务 {} 未获确认，请在该服务器刷新核对，禁止自动重复提交：{e}",spec["id"]))?;
     Ok(json!({"host":id,"job":result,"excluded":rejected}))
 }
 
-pub fn transfer(root: &Path,node: &Path,script: &Path,source: &str,target: Option<&str>,body:Value) -> Result<Value,String> {
-    let files = request(root,node,script,source,"export",body,false)?;
-    let bytes=files.as_array().ok_or("文件清单无效")?.iter().try_fold(0u64,|total,file|total.checked_add(file["size"].as_u64().unwrap_or(u64::MAX))).ok_or("传输大小无效")?;
-    let id = uuid::Uuid::new_v4().to_string();
-    let (destination, local) = if let Some(target) = target {
-        let result=request(root,node,script,target,"import_prepare",json!({"id":id,"bytes":bytes}),false)?;
-        (result["path"].as_str().ok_or("目标目录无效")?.to_string(),false)
-    } else {
-        let path=root.join("server-results").join(&id); std::fs::create_dir_all(&path).map_err(|e|e.to_string())?;
-        (path.to_string_lossy().into_owned(),true)
-    };
-    let payload=json!({"source":crate::ssh_hosts::connection(root,source)?,"target":target.map(|id|crate::ssh_hosts::connection(root,id)).transpose()?,"destination":destination,"files":files,"local":local});
-    let mut cmd=Command::new(node); cmd.arg(script.with_file_name("relay.cjs")).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
-    #[cfg(windows)] { use std::os::windows::process::CommandExt; cmd.creation_flags(0x0800_0000); }
-    let mut child=cmd.spawn().map_err(|e|e.to_string())?;
-    let mut input=child.stdin.take().ok_or("传输管道不可用")?; input.write_all(&serde_json::to_vec(&payload).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?; drop(input);
-    let output=child.wait_with_output().map_err(|e|e.to_string())?;
-    let result:Value=serde_json::from_slice(&output.stdout).map_err(|_|"传输响应无效")?;
-    if let Some(error)=result["error"].as_str(){return Err(format!("{error}；部分文件保留于 {destination}，原文件未改动"));}
-    if let Some(target)=target { request(root,node,script,target,"import_finish",json!({"id":id,"files":result["files"]}),false) }
-    else { Ok(json!({"path":destination,"files":result["files"].as_array().map(Vec::len)})) }
+static OPERATIONS:std::sync::Mutex<Vec<String>>=std::sync::Mutex::new(Vec::new());
+struct OperationGuard(String);
+impl Drop for OperationGuard{fn drop(&mut self){if let Ok(mut ids)=OPERATIONS.lock(){ids.retain(|id|id!=&self.0);}}}
+fn operation_guard(key:&str)->Result<OperationGuard,String>{
+    let mut ids=OPERATIONS.lock().map_err(|e|e.to_string())?;
+    if ids.iter().any(|v|v==key){return Err("同一操作正在进行，请勿重复启动".into());}
+    ids.push(key.into());Ok(OperationGuard(key.into()))
+}
+fn save_dispatch(path:&Path,value:&Value)->Result<(),String>{
+    let temp=path.with_extension(format!("{}.tmp",uuid::Uuid::new_v4()));
+    std::fs::write(&temp,serde_json::to_vec(value).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+    std::fs::rename(temp,path).map_err(|e|e.to_string())
+}
+fn prepare_dispatch(root:&Path,node:&Path,script:&Path,path:&Path,saved:&mut Value)->Result<Value,String>{
+    if !saved["spec"].is_null(){return Ok(saved["spec"].clone());}
+    let host=saved["host"].as_str().ok_or("旧的准备记录缺少目标服务器，请先核对任务，勿直接重复提交")?.to_string();
+    let mut spec=saved["original"].clone();
+    let source_host=spec["sourceHost"].as_str().unwrap_or("").to_string();
+    let sources:Vec<String>=serde_json::from_value(spec["sources"].clone()).map_err(|_|"输入数据列表无效")?;
+    if source_host!=host&&!sources.is_empty(){
+        let mut mapped=serde_json::Map::new();let mut imported=Vec::new();
+        for source in sources{
+            let id=if let Some(id)=saved["transfers"][&source].as_str(){id.to_string()}else{
+                let id=create_transfer(root,node,script,&source_host,Some(&host),json!({"source":source,"path":".","context":spec["context"]}))?;
+                saved["transfers"][&source]=json!(id);save_dispatch(path,saved)?;id
+            };
+            let result=resume_transfer(root,node,script,&id)?;
+            let name=result["source"].as_str().ok_or("传输后未登记数据")?.to_string();
+            mapped.insert(source,json!(name));imported.push(name);
+        }
+        spec["sources"]=json!(imported);spec["mounts"]=json!(mapped);
+    }
+    saved["spec"]=spec.clone();save_dispatch(path,saved)?;Ok(spec)
+}
+fn transfer_record(root:&Path,id:&str,value:&Value)->Result<(),String>{
+    let dir=root.join("transfers");std::fs::create_dir_all(&dir).map_err(|e|e.to_string())?;
+    let temp=dir.join(format!("{id}-{}.tmp",uuid::Uuid::new_v4()));
+    std::fs::write(&temp,serde_json::to_vec(value).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+    std::fs::rename(temp,dir.join(format!("{id}.json"))).map_err(|e|e.to_string())
+}
+pub fn transfers(root:&Path)->Result<Value,String>{
+    let dir=root.join("transfers");if !dir.exists(){return Ok(json!([]));}
+    let mut rows=Vec::new();
+    for file in std::fs::read_dir(&dir).map_err(|e|e.to_string())?.flatten(){
+        if file.path().extension().and_then(|v|v.to_str())!=Some("json")||file.file_name().to_string_lossy().ends_with(".progress.json"){continue;}
+        let Ok(mut row)=std::fs::read(file.path()).ok().and_then(|b|serde_json::from_slice::<Value>(&b).ok()).ok_or(())else{continue};
+        let id=row["id"].as_str().unwrap_or("").to_string();
+        let progress=dir.join(format!("{id}.progress.json"));
+        if let Some(value)=std::fs::read(progress).ok().and_then(|b|serde_json::from_slice::<Value>(&b).ok()){row["progress"]=value;}
+        if row["state"]=="running"&&!OPERATIONS.lock().map_err(|e|e.to_string())?.contains(&id){row["state"]=json!("interrupted");}
+        row.as_object_mut().map(|o|{o.remove("files");o.remove("body");});rows.push(row);
+    }
+    rows.sort_by(|a,b|b["created"].as_f64().unwrap_or(0.).total_cmp(&a["created"].as_f64().unwrap_or(0.)));rows.truncate(100);Ok(json!(rows))
+}
+pub fn transfer(root:&Path,node:&Path,script:&Path,source:&str,target:Option<&str>,body:Value)->Result<Value,String>{
+    let id=create_transfer(root,node,script,source,target,body)?;resume_transfer(root,node,script,&id)
+}
+fn create_transfer(root:&Path,node:&Path,script:&Path,source:&str,target:Option<&str>,body:Value)->Result<String,String>{
+    let mut files=request(root,node,script,source,"export",body.clone(),false)?;
+    files.as_array_mut().ok_or("文件清单无效")?.sort_by_key(|f|f["name"].as_str().unwrap_or("").to_string());
+    let bytes=files.as_array().unwrap().iter().try_fold(0u64,|total,file|total.checked_add(file["size"].as_u64().unwrap_or(u64::MAX))).ok_or("传输大小无效")?;
+    let id=uuid::Uuid::new_v4().to_string();
+    let record=json!({"id":id,"source":source,"target":target,"body":body,"files":files,"bytes":bytes,"state":"preparing","created":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_secs_f64()});
+    transfer_record(root,&id,&record)?;Ok(id)
+}
+pub fn resume_transfer(root:&Path,node:&Path,script:&Path,id:&str)->Result<Value,String>{
+    if uuid::Uuid::parse_str(id).is_err(){return Err("传输编号不正确".into());}
+    let _guard=operation_guard(id)?;let dir=root.join("transfers");
+    let mut record:Value=serde_json::from_slice(&std::fs::read(dir.join(format!("{id}.json"))).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+    if record["state"]=="complete"{return Ok(record["result"].clone());}
+    let progress=dir.join(format!("{id}.progress.json"));
+    if record["state"]=="running" {
+        let recent=std::fs::read(&progress).ok().and_then(|b|serde_json::from_slice::<Value>(&b).ok());
+        let now=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_secs_f64();
+        if recent.as_ref().is_some_and(|p|p["state"]=="running"&&now-p["updated"].as_f64().unwrap_or(0.)<90.){return Err("上一传输连接可能仍在工作，请稍后刷新；不会同时重试同一传输".into());}
+    }
+    let work=(||->Result<Value,String>{
+        let source=record["source"].as_str().ok_or("来源服务器无效")?;
+        let target=record["target"].as_str();
+        let mut current=request(root,node,script,source,"export",record["body"].clone(),false)?;
+        current.as_array_mut().ok_or("文件清单无效")?.sort_by_key(|f|f["name"].as_str().unwrap_or("").to_string());
+        if current!=record["files"]{return Err("来源文件清单或内容时间已变化，请发起新的传输；原文件未改动".into());}
+        if record["destination"].is_null(){
+            let destination=if let Some(host)=target{
+                let prepared=request(root,node,script,host,"import_prepare",json!({"id":id,"bytes":record["bytes"],"context":record["body"]["context"]}),false)?;
+                prepared["path"].as_str().ok_or("接收目录无效")?.to_string()
+            }else{let path=root.join("server-results").join(id);std::fs::create_dir_all(&path).map_err(|e|e.to_string())?;path.to_string_lossy().into_owned()};
+            record["destination"]=json!(destination);
+        }
+        let source=record["source"].as_str().unwrap();let target=record["target"].as_str();
+        let payload=json!({"kind":"transfer","timeoutSeconds":43200,"resume":true,"progressFile":progress,"source":crate::ssh_hosts::connection(root,source)?,"target":target.map(|host|crate::ssh_hosts::connection(root,host)).transpose()?,"destination":record["destination"],"files":record["files"],"local":target.is_none()});
+        record["state"]=json!("running");transfer_record(root,id,&record)?;
+        let result=crate::ssh_hosts::run_request(node,&script.with_file_name("relay.cjs"),payload)?;
+        record["state"]=json!("verifying");transfer_record(root,id,&record)?;
+        if let Some(host)=record["target"].as_str(){request(root,node,script,host,"import_finish",json!({"id":id,"files":result["files"]}),false)}
+        else{Ok(json!({"path":record["destination"],"files":result["files"].as_array().map(Vec::len)}))}
+    })();
+    match work{
+        Ok(mut result)=>{result["transferId"]=json!(id);record["state"]=json!("complete");record["result"]=result.clone();record["error"]=json!(null);transfer_record(root,id,&record)?;Ok(result)},
+        Err(error)=>{record["state"]=json!("failed");record["error"]=json!(error);transfer_record(root,id,&record)?;Err(format!("传输 {id} 未完成：{error}。已保留进度，可在数据传输记录中重试；原文件未改动"))}
+    }
 }

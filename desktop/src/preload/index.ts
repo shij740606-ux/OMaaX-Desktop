@@ -9,6 +9,7 @@ const api = {
   platformScheduling: (_jobId: string): Promise<import('../shared/types').SchedulingDecision> => Promise.reject(new Error('需要 Tauri 桌面版')),
   sshHostBind: (_id: string, _nodeId: string | null): Promise<import('../shared/types').SshHost[]> => Promise.reject(new Error('需要 Tauri 桌面版')),
   sshHostMetrics: (_id: string): Promise<import('../shared/types').SshMetrics> => Promise.reject(new Error('服务器管理需要使用 Tauri 桌面版')),
+  sshHostFiles: (_id:string,_body:import('../shared/types').SshDirectoryRequest={}):Promise<import('../shared/types').SshDirectoryPage> => Promise.reject(new Error('服务器文件浏览需要使用 Tauri 桌面版')),
   sshHosts: (): Promise<import('../shared/types').SshHost[]> => Promise.reject(new Error('服务器管理需要使用 Tauri 桌面版')),
   sshHostSave: (_draft: import('../shared/types').SshHostDraft): Promise<import('../shared/types').SshHost[]> => Promise.reject(new Error('服务器管理需要使用 Tauri 桌面版')),
   sshHostRemove: (_id: string): Promise<import('../shared/types').SshHost[]> => Promise.reject(new Error('服务器管理需要使用 Tauri 桌面版')),

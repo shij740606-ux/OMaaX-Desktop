@@ -19,7 +19,7 @@ class RunnerTests(unittest.TestCase):
         (self.data/'original.txt').write_text('never change me')
         self.patches = [patch.object(r,'ROOT',self.control), patch.object(r,'root',lambda:self.control),
                         patch.object(r.os,'getuid',lambda:1000,create=True), patch.object(r,'launch'),
-                        patch.object(r,'protection',return_value={'rootless':True}), patch.object(r,'command',return_value='[]')]
+            patch.object(r,'protection',return_value={'rootless':True}), patch.object(r,'command',side_effect=lambda args,**kw:'omaax-isolation-ready\n' if args[:2]==['podman','run'] else '[]')]
         self.active = [p.start() for p in self.patches]
         r.dispatch({'action':'configure','body':{'sources':{'reads':str(self.data)},'images':[IMAGE]}})
         self.job={'id':'test-job','image':IMAGE,'argv':['python','-c','print(1)'],'sources':['reads'],'cpu':1,'memoryMb':128,'timeoutSeconds':30}
@@ -107,7 +107,7 @@ class RunnerTests(unittest.TestCase):
         cfg=r.config(r.database()); adapted=self.job|{'sources':[result['source']],'mounts':{'reads':result['source']}}
         r.validate_job(adapted,cfg)
         if os.name == 'posix': self.assertIn(str(directory)+':/input/reads:ro',r.container_args(adapted,cfg))
-        with self.assertRaises(FileExistsError):r.dispatch({'action':'import_prepare','body':{'id':transfer}})
+        self.assertEqual(r.dispatch({'action':'import_prepare','body':{'id':transfer}})['path'],str(directory))
 
     def test_import_keeps_sources_registered_during_transfer_validation(self):
         import hashlib
@@ -131,14 +131,25 @@ class RunnerTests(unittest.TestCase):
         with patch('shutil.which',return_value='/bin/podman'):
             r.dispatch({'action':'bootstrap'})
         self.assertEqual(r.config(r.database())['sources']['reads'],str(self.data))
-        self.assertTrue((self.control/'shared').is_dir())
+        self.assertTrue((r.workspace_root()/'files/shared').is_dir())
+
+    def test_bootstrap_reinstalls_only_a_missing_approved_image(self):
+        calls=[]
+        def command(args,**kwargs):
+            calls.append(args)
+            if args[:3]==['podman','image','exists']:raise ValueError('image missing')
+            if args[:3]==['podman','image','inspect']:return json.dumps([{'RepoDigests':[IMAGE]}])
+            return 'omaax-isolation-ready\n' if args[:2]==['podman','run'] else '[]'
+        with patch('shutil.which',return_value='/bin/podman'),patch.object(r,'command',side_effect=command):r.dispatch({'action':'bootstrap'})
+        self.assertEqual([args for args in calls if args[:2]==['podman','pull']],[['podman','pull',IMAGE]])
+        self.assertEqual(r.config(r.database())['sources']['reads'],str(self.data))
 
     def test_bootstrap_checks_new_image_and_preserves_previous_approval(self):
         new_image='registry.example/python@sha256:'+'b'*64
         calls=[]
         def command(args, **kwargs):
             calls.append(args)
-            return json.dumps([{'RepoDigests':[new_image]}]) if args[:3]==['podman','image','inspect'] else ''
+            return json.dumps([{'RepoDigests':[new_image]}]) if args[:3]==['podman','image','inspect'] else 'omaax-isolation-ready\n' if args[:2]==['podman','run'] else '[]'
         with patch('shutil.which',return_value='/bin/podman'), patch.object(r,'command',side_effect=command):
             r.dispatch({'action':'bootstrap','body':{'image':'registry.example/python:3.12'}})
         self.assertEqual(r.config(r.database())['images'],[IMAGE,new_image])

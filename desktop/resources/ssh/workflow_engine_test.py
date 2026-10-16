@@ -38,6 +38,13 @@ class ContractTests(unittest.TestCase):
   with patch.object(w,'software_probe',return_value={'tools':{'Rscript':True},'r':{},'modules':{}}):
    with self.assertRaisesRegex(ValueError,'尚不能运行'):w.dispatch(r,'workflow_plan',body)
   self.assertEqual(r.database().execute('SELECT COUNT(*) FROM workflow_plans').fetchone()[0],0)
+ def test_readiness_can_check_exactly_selected_steps_without_expanding_dependencies(self):
+  self.configure('rnaseq')
+  with patch.object(w,'software_probe',return_value={'tools':{'fastp':True},'modules':{'pandas':True,'yaml':True},'r':{}}) as probe:
+   result=w.dispatch(r,'workflow_readiness',{'workflow':'rnaseq','steps':['rnaseq_qc']})
+   self.assertEqual(list(result['steps']),['rnaseq_qc']);self.assertEqual(result['steps']['rnaseq_qc']['state'],'ready')
+   self.assertNotIn('DESeq2',probe.call_args.args[2].get('r',[]))
+  with self.assertRaises(ValueError):w.dispatch(r,'workflow_readiness',{'workflow':'rnaseq','steps':['not-a-step']})
  def test_startup_failure_returns_reason_without_a_result_manifest(self):
   record=self.make('rnaseq');job=record['plan']['id'];w.dispatch(r,'workflow_confirm',{'id':job,'digest':record['digest']})
   db=r.database();db.execute("UPDATE jobs SET state='failed',detail='执行版本变化，请重新生成计划' WHERE id=?",(job,));db.commit()

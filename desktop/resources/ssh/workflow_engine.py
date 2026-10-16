@@ -418,11 +418,12 @@ def dispatch(r,action,body,actor='user'):
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}',body.get('prefix','omaax')):raise ValueError('结果名称只能使用字母、数字、点、下划线或短横线')
         return {'valid':True,'fileCount':len(files),'steps':[s['id'] for s in steps]}
     if action=='workflow_readiness':
-        no_extra(body,{'workflow','parameters','configs'});safe_values(body.get('parameters',{}));safe_values(body.get('configs',{}));flow=flow_for(body.get('workflow'));env=cfg.get('workflowEnvironments',{}).get(flow['id'],{})
+        no_extra(body,{'workflow','steps','parameters','configs'});safe_values(body.get('parameters',{}));safe_values(body.get('configs',{}));flow=flow_for(body.get('workflow'));env=cfg.get('workflowEnvironments',{}).get(flow['id'],{})
+        steps=select_steps(flow,body['steps']) if 'steps' in body else flow['nodes']+flow['extraNodes']
         probes={};checks={}
         import workflow_environments as environments
-        wanted=environments.combined([environments.requirements(step,body.get('parameters',{}).get(step['id'],{}),body.get('configs',{}).get(step['id'],{})) for step in flow['nodes']+flow['extraNodes']])
-        for step in flow['nodes']+flow['extraNodes']:
+        wanted=environments.combined([environments.requirements(step,body.get('parameters',{}).get(step['id'],{}),body.get('configs',{}).get(step['id'],{})) for step in steps])
+        for step in steps:
             image=env.get('stageImages',{}).get(step['id']) or env.get('image')
             if image and image not in probes:
                 if not r.immutable_image(image) or image not in cfg.get('images',[]):probes[image]={'error':'环境登记已失效，请重新选择环境。'}

@@ -1,0 +1,11 @@
+import {serverError} from '../serverErrors';
+import {useEffect,useState} from 'react';
+type Request={id:string;digest:string;paths:string[];snapshot:{bytes:number;entries:number};warnings:string[];context?:{projectName:string;sessionName:string}};
+export default function ServerDeleteRequests({server}:{server:string}){
+ const [rows,setRows]=useState<Request[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const call=<T,>(action:string,body:unknown={})=>window.biodsh.personalCompute(server,action,body) as Promise<T>;
+ useEffect(()=>{let active=true,running=false;const load=async()=>{if(running)return;running=true;try{const value=await call<Request[]>('server_delete_requests');if(active){setRows(value);setError('');}}catch(e){if(active)setError(serverError(e,'files'));}finally{running=false;}};void load();const timer=setInterval(()=>void load(),10000);return()=>{active=false;clearInterval(timer);};},[server]);
+ const act=async(row:Request,confirm:boolean)=>{setBusy(true);setError('');try{await call(confirm?'server_delete_confirm':'server_delete_reject',{id:row.id,digest:row.digest});setRows(await call<Request[]>('server_delete_requests'));window.dispatchEvent(new CustomEvent('omaax-files-changed',{detail:{server}}));}catch(e){setError(serverError(e,'files'));}finally{setBusy(false);}};
+ if(!rows.length&&!error)return null;
+ return <section className="card p-5 flex flex-col gap-3" aria-label="删除提醒"><h2>删除提醒</h2><p>以下操作尚未执行。请核对具体文件、递归范围和大小；确认后移入回收站，不会直接永久清除。</p>{error&&<p role="alert">{error}</p>}{rows.map(row=><article key={row.id} className="py-3 hairline-b"><strong>{row.context?.projectName} · {row.context?.sessionName}</strong><p role="alert" style={{color:'var(--orange)'}}>{row.warnings.join('；')}</p><p>{row.snapshot.entries} 个文件或目录 · {(row.snapshot.bytes/1e9).toFixed(3)} GB</p><details open><summary>实际处理范围 · {row.paths.length} 项</summary><ul>{row.paths.map(p=><li key={p} className="selectable break-all">{p}</li>)}</ul></details><div className="flex gap-2 mt-3"><button className="btn btn-tint" disabled={busy} onClick={()=>void act(row,true)}>已知悉范围，确认移入回收站</button><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(row,false)}>取消删除</button></div></article>)}</section>;
+}

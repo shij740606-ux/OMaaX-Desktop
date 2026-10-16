@@ -3,6 +3,7 @@ import { PackIcon } from '../icons';
 import { CheckCircle2, Package as PackageIcon } from 'lucide-react';
 import { useApp } from '../store';
 import { useT } from '../i18n';
+import HelpTip, { useHelp } from '../components/HelpTip';
 
 const STEPS: { id: string; label: string }[] = [
   { id: 'python', label: '下载 Python 3.12' },
@@ -15,23 +16,25 @@ const ORDER = ['idle', 'python', 'venv', 'packages', 'verify', 'ready'];
 export default function EnvView() {
   const { env, installEnv, info, refresh } = useApp();
   const { t } = useT();
+  const help = useHelp('env');
   const installing = ['python', 'venv', 'packages', 'verify'].includes(env.step);
   const idx = ORDER.indexOf(env.step);
   return (
     <div className="h-full flex flex-col omaax-page omaax-environment">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / COMPUTE</span><h1>计算环境</h1><p>准备本机分析所需的软件，按需要添加组件。</p><button className="btn btn-tint" aria-label="刷新环境状态" onClick={()=>refresh()}><RefreshCw size={14}/>检查状态</button></header>
+      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / COMPUTE</span><h1>计算环境 <HelpTip topic="env"/></h1><p>{help.summary}</p><button className="btn btn-tint" aria-label="刷新环境状态" onClick={()=>refresh()}><RefreshCw size={14}/>检查状态</button></header>
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="omaax-env-grid">
+          <aside className="omaax-guide omaax-env-guide"><strong>{t('按运行位置准备环境')}</strong><p>{t('在本机分析：安装本页组件。在服务器分析：选择 SSH 服务器后按流程准备。两边的环境不会自动共用。')}</p></aside>
           <div className="card p-6 flex flex-wrap items-center gap-5 rise omaax-env-status">
             <div className="w-[56px] h-[56px] rounded-2xl flex items-center justify-center text-[28px]" style={{ background: env.ready ? 'rgba(52,199,89,.14)' : 'var(--surface-2)' }}>{env.ready ? <CheckCircle2 size={28} strokeWidth={1.6} style={{ color: 'var(--green,#34c759)' }} /> : <PackageIcon size={28} strokeWidth={1.6} style={{ color: 'var(--text-3)' }} />}</div>
             <div className="flex-1 min-w-0">
               <div className="t-title2">{env.ready ? t('计算环境已就绪') : installing ? t('正在准备计算环境…') : env.step === 'error' ? t('安装没有成功') : t('还没有安装计算环境')}</div>
               <div className="t-body mt-1" style={{ color: env.step === 'error' ? 'var(--red)' : 'var(--text-2)' }}>
-                {env.ready ? `Python ${env.pythonVersion} · scanpy ${env.packages?.scanpy}` : installing ? env.message : env.step === 'error' ? env.message : t('技能需要一套 Python 分析软件包（scanpy、anndata 等）。安装一次即可，全部放在 应用数据目录，不影响电脑上别的软件。')}
+                {env.ready ? `Python ${env.pythonVersion} · scanpy ${env.packages?.scanpy}` : installing ? env.message : env.step === 'error' ? env.message : t('本机基础环境包含 Python、scanpy 等常用软件。需要在这台电脑分析时再安装，不会安装全部工具。')}
               </div>
               {installing && <div className="mt-3 h-[6px] rounded-full overflow-hidden" style={{ background: 'var(--fill)' }}><div className="h-full rounded-full transition-all" style={{ width: `${Math.round(env.progress * 100)}%`, background: 'var(--accent)' }} /></div>}
             </div>
-            {!env.ready && !installing && <button className="btn btn-primary btn-lg" onClick={() => installEnv()}><Download size={14} /> {env.step === 'error' ? t('重试') : t('安装')}</button>}
+            {!env.ready && !installing && <button className="btn btn-primary btn-lg" onClick={() => installEnv()}><Download size={14} /> {env.step === 'error' ? t('重试') : t('准备本机环境')}</button>}
             {env.ready && <button className="btn btn-fill" onClick={() => installEnv()}>{t('修复 / 重新安装')}</button>}
           </div>
 
@@ -66,8 +69,7 @@ export default function EnvView() {
 
           {env.ready && (
             <div className="card p-5 rise omaax-env-extras">
-              <div className="t-headline mb-1">{t('添加分析功能')}</div>
-              <div className="t-caption mb-3">{t('按分析需要选择，安装后即可在对话中使用。')}</div>
+              <div className="omaax-section-heading"><div><h2>{t('按研究需要添加组件')}</h2><p>{t('仅安装你选择的软件包；添加工具说明与安装软件是两件事。')}</p></div><HelpTip topic="env" align="right"/></div>
               <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
                 {[
                   { name: '单细胞进阶', desc: '细胞类型自动注释、双细胞去除、批次整合、通路活性', pkgs: ['celltypist', 'scrublet', 'harmonypy', 'decoupler'] },

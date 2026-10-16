@@ -47,7 +47,7 @@ class ProjectWorkspaceTests(unittest.TestCase):
   self.assertEqual(r.jobdir(job),storage.workspace(r)/destination)
   self.assertEqual(self.call('export',{'job':job,'paths':['result.txt']})[0]['size'],6)
   self.assertEqual((r.jobdir(job)/'log.txt').read_text(),'task log')
-  deleted=storage.manage(r,{'operation':'delete','path':destination});storage.restore(r,{'trashId':deleted['trashId']})
+  pending=storage.manage(r,{'operation':'delete','path':destination});self.assertTrue(pending['requiresApproval']);row=self.call('server_delete_requests',{},'user')[0];deleted=self.call('server_delete_confirm',{'id':row['id'],'digest':row['digest']},'user');storage.restore(r,{'trashId':deleted['trashId']})
   self.assertEqual((r.jobdir(job)/'output/result.txt').read_text(),'result')
  def test_structural_roots_traversal_and_outside_deletion_are_rejected(self):
   base=context.base(r,C1);rel=base.relative_to(storage.workspace(r)).as_posix()

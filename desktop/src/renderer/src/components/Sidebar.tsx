@@ -250,7 +250,7 @@ export default function Sidebar() {
       <div className="px-3 pb-3 pt-2 hairline-t flex flex-col gap-1.5 relative">
         <button className="flex items-center gap-2 px-2 h-[30px] rounded-lg text-left hover:brightness-95" style={{ background: 'var(--fill)' }} onClick={() => setUsageOpen((v) => !v)} title={t('点击查看用量明细')}>
           <Wallet size={14} style={{ color: 'var(--accent)' }} />
-          <span className="t-body flex-1">{offline ? t('纯离线模式') : balance?.total != null ? t('余额 {amount}', { amount: `${balance.currency === 'CNY' ? '¥' : '$'}${Number(balance.total).toFixed(2)}` }) : balance?.error ?? t('查询余额…')}</span>
+          <span className="t-body flex-1">{offline ? t('本地／内网模型') : balance?.total != null ? t('余额 {amount}', { amount: `${balance.currency === 'CNY' ? '¥' : '$'}${Number(balance.total).toFixed(2)}` }) : balance?.error ?? t('查询余额…')}</span>
           <span className="t-caption">{offline ? t('本地/内网') : 'DeepSeek'}</span>
         </button>
         {usageOpen && <UsagePanel balance={balance} usage={usage} onClose={() => setUsageOpen(false)} />}

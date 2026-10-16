@@ -245,6 +245,8 @@ export interface SshHostDraft {
   auth: 'password' | 'key'; password?: string; privateKey?: string; passphrase?: string;
 }
 export interface SshProbe { fingerprint: string; hostKey: string; connected?: boolean }
+export interface SshDirectoryRequest {path?:string;offset?:number;limit?:number;showHidden?:boolean}
+export interface SshDirectoryPage {path:string;home:string;parent:string|null;files:{name:string;path:string;directory:boolean;link:boolean;size:number;modified:number;permissions:string}[];nextOffset:number|null}
 
 export interface McpServer {
   name: string;
