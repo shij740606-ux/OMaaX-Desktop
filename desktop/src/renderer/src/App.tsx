@@ -4,6 +4,7 @@ import { AppProvider, useApp } from './store';
 import Sidebar, { WindowControls } from './components/Sidebar';
 import ChatView from './views/ChatView';
 import StoreView from './views/StoreView';
+import AccountView from './views/AccountView';
 import DataView from './views/DataView';
 import DatabaseView from './views/DatabaseView';
 import EnvView from './views/EnvView';
@@ -45,6 +46,7 @@ function Shell() {
         {tab === 'tasks' && <ServerManagementView initial="tasks" />}
         {tab === 'servers' && <ServerManagementView initial="resources" />}
         {tab === 'store' && <StoreView />}
+        {tab === 'account' && <AccountView />}
         {tab === 'env' && <EnvView />}
         {tab === 'settings' && <SettingsView />}
       </main>

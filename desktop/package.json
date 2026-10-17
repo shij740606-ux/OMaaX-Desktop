@@ -10,6 +10,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "tauri dev",
+    "dev:web": "vite --config vite.web.config.ts",
     "build": "tauri build --no-bundle",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "fetch:uv": "node scripts/fetch-uv.mjs",
