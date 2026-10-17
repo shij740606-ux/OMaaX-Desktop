@@ -19,9 +19,6 @@
 | --- | --- |
 | `desktop/src/renderer/src/views/AccountView.tsx` | 页面组件（UI 全部复用现有设计系统 `card`/`btn`/`badge`/`t-*`） |
 | `desktop/src/renderer/src/views/accountMock.ts` | 类型定义 + mock 数据 + `loadAccountOverview()`，**接后端时唯一需要替换的数据入口** |
-| `desktop/src/renderer/account-preview.html` | 浏览器独立预览入口（不加载 App/store，不依赖 `window.biodsh`） |
-| `desktop/src/renderer/src/account-preview.tsx` | 预览入口脚本（仅渲染 `<AccountView />` + styles.css，跟随系统深浅色） |
-| `desktop/vite.web.config.ts` | 独立 Vite 配置（`npm run dev:web` 用；dev 下 `/` 会重定向到预览页，避免误加载真实 `index.html`） |
 
 ### 修改
 | 文件 | 说明 |
@@ -30,8 +27,6 @@
 | `desktop/src/renderer/src/App.tsx` | `tab === 'account'` 时渲染 `AccountView` |
 | `desktop/src/renderer/src/components/Sidebar.tsx` | 新增侧边栏入口「账户与用量」（CreditCard 图标） |
 | `desktop/src/renderer/src/i18n.en.ts` | 新增英文词条（源码中文为 key） |
-| `desktop/package.json` | 新增 `dev:web` 脚本 |
-| `.gitignore` | 忽略 `desktop/dist-web/` |
 
 ## 3. 数据模型（`accountMock.ts`）
 
@@ -117,9 +112,7 @@ interface AccountOverview {
 ```bash
 cd desktop
 npm run typecheck            # 类型检查
-npm run dev:web              # 浏览器预览 AccountView（无需 Tauri/Rust；自动打开 http://localhost:5180/）
 npm run build                # Tauri 生产构建（需 Rust 工具链）
 ```
 
-- `dev:web` 下访问 `/` 或 `/account-preview.html` 均进入隔离预览页；该配置不会影响 `npm run dev`（Tauri 开发，端口 5173）与 Electron 构建。
-- 页面 UI 需同时检查浅色/深色（预览页跟随系统主题；桌面端跟随「设置 → 外观」）。
+- 页面 UI 需同时检查浅色/深色（跟随「设置 → 外观」）。

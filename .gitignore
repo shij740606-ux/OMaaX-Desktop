@@ -15,7 +15,6 @@ desktop/resources/community-skills/
 desktop/resources/embed/models/
 desktop/resources/ssh/.stage-lock
 desktop/dist-tauri/
-desktop/dist-web/
 desktop/out/
 desktop/dist/
 desktop/release/
