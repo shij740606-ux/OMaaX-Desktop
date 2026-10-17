@@ -1,7 +1,7 @@
 import {useAuth,hasUnit} from '../AuthGate';
 import omaaxIcon from '../assets/omaax-icon.svg';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, Wallet, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server } from 'lucide-react';
+import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, Wallet, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, CreditCard } from 'lucide-react';
 import { useApp, type Tab } from '../store';
 import { Database, Globe } from 'lucide-react';
 import ContextMenu, { type MenuState } from './ContextMenu';
@@ -209,7 +209,8 @@ export default function Sidebar() {
 {id:'db', content: nav('db', t('数据资源'), Globe)},
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
-{id:'store', content: nav('store', t('工具中心'), Store)}].filter(item=>item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store'], orders.nav || [], id => id))}>{item.content}</div>)}
+{id:'store', content: nav('store', t('工具中心'), Store)},
+{id:'account', content: nav('account', t('账户与用量'), CreditCard)}].filter(item=>item.id==='account'||(item.id==='new'?chat:bioflow)), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store','account'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 mt-3">
