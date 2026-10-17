@@ -401,7 +401,7 @@ def validate_sample_documents(flow,steps,values,documents,folder,configs=None):
 
 def dispatch(r,action,body,actor='user'):
     db=r.database();tables(db);cfg=r.config(db)
-    if actor=='agent' and action in ('workflow_confirm','workflow_environment','workflow_bundle_status','workflow_prepare'):raise ValueError('模型只能提出计划，不能自行确认或改变运行环境')
+    if actor=='agent' and action in ('workflow_confirm','workflow_bundle_status'):raise ValueError('模型只能提出计划，不能自行确认运行')
     if action in ('workflow_prepare','workflow_prepare_status'):
         import workflow_environments as environments
         if action=='workflow_prepare':return environments.start(r,body)
@@ -512,10 +512,10 @@ def dispatch(r,action,body,actor='user'):
         no_extra(body,{'id','file','offset'});offset=body.get('offset',0)
         if type(offset) is not int or offset<0:raise ValueError('结果列表位置无效')
         job=r.identifier(body.get('id'));row=db.execute('SELECT p.plan,j.state,j.detail FROM workflow_plans p JOIN jobs j ON p.id=j.id WHERE j.id=?',(job,)).fetchone()
-        if not row or row['state'] not in ('complete','partial','failed','cancelled'):raise ValueError('任务尚未结束，请先查看进度或日志')
+        if not row or row['state'] not in ('complete','partial','failed','cancelled','invalid_result','interrupted'):raise ValueError('任务尚未结束，请先查看进度或日志')
         directory=r.jobdir(job)/'output'
         if (directory/'workflow-result.json').is_file():m=json.loads(r.contained(directory,'workflow-result.json').read_text())
-        elif row['state'] in ('failed','cancelled'):m={'error':row['detail'] or '任务未开始分析，详情请查看日志','steps':progress(r,job,row['state'])}
+        elif row['state'] in ('failed','cancelled','invalid_result','interrupted'):m={'error':row['detail'] or '任务未开始分析，详情请查看日志','steps':progress(r,job,row['state'])}
         else:raise ValueError('结果记录缺失，请查看任务日志；不会将缺失的结果视为已完成')
         p=json.loads(row['plan']);verified=[]
         for f in m.get('files',[]):
@@ -529,8 +529,13 @@ def dispatch(r,action,body,actor='user'):
             selected=next((f for f in verified if f['path']==body['file']),None)
             if not selected:raise ValueError('只能读取本任务发布的结果文件')
             path=r.contained(directory,selected['path'])
-            if path.suffix.lower() not in ('.txt','.tsv','.csv','.md','.json','.html','.log'):raise ValueError('这是二进制文件，请查看对应的文本报告或下载结果')
-            with path.open('rb') as handle:content=handle.read(65536)
-            result.update(content=content.decode('utf-8','replace'),contentFile=selected['path'],truncated=selected['size']>65536)
+            mime={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.pdf':'application/pdf'}.get(path.suffix.lower())
+            if mime:
+                if path.stat().st_size>8*1048576:raise ValueError('文件超过 8 MiB，请下载查看')
+                result.update(contentBase64=base64.b64encode(path.read_bytes()).decode(),mime=mime,contentFile=selected['path'])
+            else:
+                if path.suffix.lower() not in ('.txt','.tsv','.csv','.md','.json','.html','.log'):raise ValueError('此格式请下载查看')
+                with path.open('rb') as handle:content=handle.read(65536)
+                result.update(content=content.decode('utf-8','replace'),contentFile=selected['path'],truncated=selected['size']>65536)
         return result
     raise ValueError('不支持的一体化分析流程操作')

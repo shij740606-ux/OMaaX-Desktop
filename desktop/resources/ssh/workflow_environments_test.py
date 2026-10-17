@@ -21,6 +21,24 @@ class EnvironmentTests(unittest.TestCase):
   for p in reversed(self.patches):p.stop()
  def step(self,flow,sid):return next(s for s in w.flow_for(flow)['nodes']+w.flow_for(flow)['extraNodes'] if s['id']==sid)
  def probe(self,spec):return {kind:{name:True for name in names} for kind,names in spec.items()}
+ def test_model_can_prepare_and_repair_but_not_confirm_execution(self):
+  body={'workflow':'rnaseq','steps':['rnaseq_qc'],'recipes':{'rnaseq_qc':{'packages':['fastp=0.23.4'],'script':'echo repair'}}}
+  with patch.object(e,'launch'):
+   task=w.dispatch(r,'workflow_prepare',body,actor='agent')
+   self.assertEqual(task['request']['recipes'],body['recipes'])
+   e.update(r.database(),task['id'],'failed','download failed')
+   body['recipes']['rnaseq_qc']['packages']=['fastp']
+   retried=w.dispatch(r,'workflow_prepare',body,actor='agent')
+   self.assertNotEqual(task['id'],retried['id'])
+  with self.assertRaises(ValueError):w.dispatch(r,'workflow_confirm',{},actor='agent')
+ def test_model_recipe_is_confined_to_build_context_and_validated(self):
+  step=self.step('rnaseq','rnaseq_qc');directory=self.base/'recipe';directory.mkdir()
+  recipe={'packages':['python=3.10','fastp'],'channels':['conda-forge','bioconda'],'script':'echo fixed > /tmp/check\nrm -rf /tmp/disposable'}
+  e.validate_recipes({'rnaseq_qc':recipe},[step]);text=e.build_context(w,r,directory,step,e.requirements(step),recipe)
+  self.assertIn('RUN /bin/bash -eu /opt/omaax/model-install.sh',text);self.assertIn('python=3.10',text);self.assertNotIn('python=3.12',text)
+  self.assertNotIn(recipe['script'],text);self.assertEqual((directory/'model-install.sh').read_text(),recipe['script'])
+  for bad in [{'other':recipe},{'rnaseq_qc':{'packages':['--mount=/home']}},{'rnaseq_qc':{'script':'a\x00b'}},{'rnaseq_qc':{'volumes':['/home']}}]:
+   with self.assertRaises(ValueError):e.validate_recipes(bad,[step])
  def test_all_65_steps_have_dependencies_and_workflow_scope(self):
   for flow in w.CATALOG['workflows']:
    for step in flow['nodes']+flow['extraNodes']:

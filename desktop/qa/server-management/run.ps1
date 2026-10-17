@@ -18,6 +18,9 @@ try{
  try{$env:OMAAX_TEST_PYTHON=$taskPython;& $cargo test --lib -- --test-threads=1;if($LASTEXITCODE -ne 0){throw '原生回归未通过。'}}finally{Pop-Location}
  & $taskPython -X utf8 -B $skill --server 'node desktop/node_modules/vite/bin/vite.js --config desktop/qa/server-management/vite.config.ts' --port 41739 -- $taskPython -X utf8 -B desktop/qa/server-management/browser_test.py
  if($LASTEXITCODE -ne 0){throw '浏览器交互回归未通过。'}
+ if(Get-NetTCPConnection -LocalPort 41740 -State Listen -ErrorAction SilentlyContinue){throw '新功能测试端口 41740 已被占用。'}
+ & $taskPython -X utf8 -B $skill --server 'node desktop/node_modules/vite/bin/vite.js --config desktop/vite.tauri.config.ts --host 127.0.0.1 --port 41740' --port 41740 -- $taskPython -X utf8 -B desktop/qa/server-management/model_workflow_test.py
+ if($LASTEXITCODE -ne 0){throw '模型流程与结果展示验收未通过。'}
  if($Soak){
   & $taskPython -X utf8 -B $skill --server 'node desktop/node_modules/vite/bin/vite.js --config desktop/qa/server-management/vite.config.ts' --port 41739 -- $taskPython -X utf8 -B desktop/qa/server-management/soak_test.py
   if($LASTEXITCODE -ne 0){throw '持续稳定性测试未通过。'}

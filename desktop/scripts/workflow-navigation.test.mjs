@@ -19,7 +19,7 @@ const clear=id=>timers.delete(id);
 function load(file){
  if(modules.has(file))return modules.get(file).exports;
  const module={exports:{}};modules.set(file,module);
- const source=fs.readFileSync(file,'utf8');
+ const source=fs.readFileSync(file,'utf8').replaceAll('import.meta.env.DEV','false');
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
  const require=name=>{
   if(name==='react')return React;
@@ -81,7 +81,7 @@ const text=node=>node.children.map(c=>typeof c==='string'?c:text(c)).join('');
 const button=(s,label)=>s.view.findAllByType('button').find(b=>text(b)===label);
 async function click(b){assert.ok(b,'button exists');await act(async()=>{b.props.onClick();await settle();});}
 const selected=s=>s.view.findAllByType('input').filter(i=>i.props.type==='checkbox'&&i.props.checked).map(i=>i.props['aria-label']);
-const namedInput=(s,label)=>s.view.findAllByType('label').find(l=>l.children[0]===label).findByType('input');
+const namedInput=(s,label)=>s.view.findAllByType('label').find(l=>text(l).startsWith(label)).findByType('input');
 async function change(input,value){await act(async()=>{input.props.onChange({target:{value}});await settle();});}
 async function choose(s,id='rnaseq'){
  const flow=catalog.workflows.find(f=>f.id===id);
@@ -106,11 +106,11 @@ test('500 conversation round trips retain steps, parameters, input, result name 
  const padj=s.view.findAllByType('input').find(i=>i.props['aria-label']==='校正后的显著性上限');
  assert.ok(padj,'translated significance parameter');await change(padj,'0.01');
  await change(namedInput(s,'本次数据路径'),'/isolated/my-data');await change(namedInput(s,'结果名称'),'my_result');
- await change(namedInput(s,'使用多少核 CPU'),'12');
+ await change(namedInput(s,'CPU 核数'),'12');
  const before=selected(s),checks=s.count('workflow_readiness');
  for(let i=0;i<500;i++){await s.show(false);await advance(6000);await s.show(true);}
  assert.deepEqual(selected(s),before);assert.equal(namedInput(s,'本次数据路径').props.value,'/isolated/my-data');
- assert.equal(namedInput(s,'结果名称').props.value,'my_result');assert.equal(namedInput(s,'使用多少核 CPU').props.value,12);
+ assert.equal(namedInput(s,'结果名称').props.value,'my_result');assert.equal(namedInput(s,'CPU 核数').props.value,12);
  assert.equal(Number(s.view.findAllByType('input').find(i=>i.props['aria-label']==='校正后的显著性上限').props.value),0.01);
  assert.equal(s.count('workflow_readiness'),checks);assert.equal(s.count('workflow_prepare'),0);
  await s.stop();
@@ -197,14 +197,11 @@ test('a stale plan notification from another conversation cannot change the sele
  assert.notEqual(localStorage.getItem('omaax.workflow.inbox-seen'),'old-plan');await s.stop();
 });
 
-test('missing configuration provides an inline model handoff and never starts environment installation',async()=>{
- const s=setup((h,a)=>a==='workflow_validate'?Promise.reject(Error('检查测序质量需要填写：样本与分析配置文件')):undefined);
- s.api.dshRpc=async(method)=>method==='workspace.list'?{items:[{workspaceId:'test',sessionIds:['test-session']}]}:{};
- const transitions=[];s.state.setTab=tab=>transitions.push(tab);
- await s.mount();await choose(s);await click(button(s,'生成执行计划'));
- assert.ok(s.view.findAllByProps({role:'alert'}).some(a=>text(a).includes('样本与分析配置文件')));
- assert.equal(s.count('workflow_prepare'),0);assert.equal(s.count('workflow_confirm'),0);
- await click(button(s,'在对话中补齐配置'));assert.deepEqual(transitions,['chat']);await s.stop();
+test('missing data is collected by model without installing from the page',async()=>{
+ const s=setup();let selected;
+ s.api.dshRpc=async(method,args)=>{if(method==='workflow.select')selected=args.selection;return method==='workspace.list'?{items:[{workspaceId:'test',sessionIds:['test-session']}]}:{projectId:'test',sessionId:'isolated-session'};};
+ await s.mount();await choose(s);await click(button(s,'交给模型配置与分析'));
+ assert.ok(selected.steps.length);assert.equal(s.count('workflow_prepare'),0);assert.equal(s.count('workflow_confirm'),0);await s.stop();
 });
 
 test('execution records belong to the current conversation',async()=>{
@@ -230,9 +227,9 @@ test('model software choices reach the environment button without installing uns
  inbox={host:'a',id:'model-draft',workflow:'singlecell',context:{sessionId:'test-session'},state:'needs_environment',selection:{input:'/isolated/raw-singlecell',prefix:'model-selected',steps:['singlecell_upstream','singlecell_report'],configs:{singlecell_upstream:{aligner:'star',protocol:'10XV2',skip_cellbender:true,skip_qcatch:true}},cpu:4,memoryMb:8192,timeoutSeconds:3600}};
  await s.show(true);assert.equal(s.count('workflow_prepare'),0);
  assert.equal(namedInput(s,'本次数据路径').props.value,'/isolated/raw-singlecell');assert.equal(namedInput(s,'结果名称').props.value,'model-selected');
- assert.equal(namedInput(s,'使用多少核 CPU').props.value,4);assert.equal(namedInput(s,'内存上限（GiB）').props.value,8);
- await click(button(s,'检查并配置所选步骤'));
- const request=s.calls.find(c=>c.action==='workflow_prepare').body;
+ assert.equal(namedInput(s,'CPU 核数').props.value,4);assert.equal(namedInput(s,'内存上限（GiB）').props.value,8);
+ let request;s.api.dshRpc=async(method,args)=>{if(method==='workflow.select')request=args.selection;return method==='workspace.list'?{items:[{workspaceId:'test',sessionIds:['test-session']}]}:{projectId:'test',sessionId:'isolated-session'};};
+ await click(button(s,'交给模型配置与分析'));assert.equal(s.count('workflow_prepare'),0);
  assert.deepEqual(request.steps,['singlecell_upstream','singlecell_report']);assert.equal(request.configs.singlecell_upstream.aligner,'star');assert.equal(request.configs.singlecell_upstream.skip_cellbender,true);
  assert.equal(Object.keys(request.configs).length,2);
  await change(namedInput(s,'结果名称'),'my-later-edit');await s.show(false);await s.show(true);assert.equal(namedInput(s,'结果名称').props.value,'my-later-edit');await s.stop();
@@ -246,20 +243,12 @@ test('reopening the application restores the last model selection even if its no
  assert.equal(namedInput(s,'结果名称').props.value,'saved-draft');assert.equal(namedInput(s,'本次数据路径').props.value,'/isolated/raw');await s.stop();
 });
 
-test('an environment task completes and generates exactly one plan while the page is hidden',async()=>{
- let task={state:'idle',detail:'尚未配置'};let saved=[];
- const s=setup((h,a,b)=>{
-  if(a==='workflow_validate')return Promise.resolve({valid:true});
-  if(a==='workflow_prepare'){task={id:'env-1',state:'running',detail:'安装中',request:{steps:b.steps,parameters:b.parameters,configs:b.configs}};return Promise.resolve(task);}
-  if(a==='workflow_prepare_status')return Promise.resolve(task);
-  if(a==='workflow_plans')return Promise.resolve(saved);
-  if(a==='workflow_plan'){const p={plan:{...b,id:'new-plan',name:'RNA-seq',version:catalog.version,inputs:{},resources:{cpu:b.cpu,memoryMb:b.memoryMb,timeoutSeconds:b.timeoutSeconds}},digest:'digest',state:'awaiting_confirmation',confirmed:false};saved=[p];return Promise.resolve(p);}
- });
- s.api.dshRpc=async()=>({projectId:'test',projectName:'测试',sessionId:'test-session',sessionName:'测试'});
- await s.mount();await choose(s);await click(button(s,'生成执行计划'));assert.equal(s.count('workflow_prepare'),1);
- await s.show(false);task={...task,state:'complete',detail:'环境准备完成'};await advance(12000);
- assert.equal(s.count('workflow_plan'),1);assert.equal(s.count('workflow_confirm'),0);
- await s.show(true);assert.ok(button(s,'查看并确认'));assert.equal(s.count('workflow_prepare'),1);await s.stop();
+test('environment preparation is handed to the model and never starts from page polling',async()=>{
+ const s=setup();const prompts=[];
+ s.api.dshRpc=async(method,args)=>{prompts.push({method,args});return method==='workspace.list'?{items:[{workspaceId:'test',sessionIds:['test-session']}]}:{projectId:'test',sessionId:'isolated-session'};};
+ await s.mount();await choose(s);await click(button(s,'交给模型配置与分析'));
+ assert.ok(prompts.some(p=>p.method==='workflow.select'));assert.ok(prompts.some(p=>p.method==='session.prompt'));
+ await s.show(false);await advance(12000);assert.equal(s.count('workflow_prepare'),0);assert.equal(s.count('workflow_plan'),0);await s.stop();
 });
 
 test('App always retains the workflow panel instead of conditionally mounting it',()=>{

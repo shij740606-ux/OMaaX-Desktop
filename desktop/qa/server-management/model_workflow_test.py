@@ -1,0 +1,52 @@
+"""Full React shell, synthetic bridge, no model billing or real SSH connections."""
+import json,os,sys
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[3]
+sys.path.insert(0,str(ROOT/'validation-local/qa-runtime/python'))
+from playwright.sync_api import sync_playwright,expect
+OUT=ROOT/'validation-local/model-workflow-browser';OUT.mkdir(exist_ok=True)
+with sync_playwright() as p:
+ browser=p.chromium.launch(executable_path=os.environ.get('OMAAX_QA_BROWSER',r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'),headless=True)
+ context=browser.new_context(viewport={'width':1440,'height':1000});page=context.new_page();errors=[];external=[];checks=[]
+ page.on('pageerror',lambda e:errors.append(str(e)))
+ page.on('request',lambda r:external.append(r.url) if 'should-not-load' in r.url else None)
+ try:
+  page.goto('http://127.0.0.1:41740/workflow-preview.html?model=1');page.wait_for_load_state('networkidle')
+  (OUT/'initial-dom.html').write_text(page.content(),encoding='utf-8')
+  expect(page.get_by_role('button',name='知识库',exact=True)).to_have_count(0);checks.append('knowledge entry absent in actual shell')
+  page.get_by_role('article').filter(has=page.get_by_role('heading',name='RNA-seq 分析',exact=True)).get_by_role('button').click()
+  expect(page.get_by_text('由对话模型配置分析环境',exact=True)).to_be_visible()
+  expect(page.get_by_role('button',name='检查并配置所选步骤',exact=True)).to_have_count(0)
+  page.get_by_role('button',name='交给模型配置与分析',exact=True).click()
+  page.wait_for_function("window.__qa.calls.some(c=>c.action==='session.prompt')")
+  calls=page.evaluate('window.__qa.calls');assert not any(c['action']=='workflow_prepare' for c in calls)
+  assert any(c['action']=='workflow.select' and c['body']['selection']['steps'] for c in calls);checks.append('model handoff preserves selection, no frontend installation')
+  page.get_by_role('button',name='分析',exact=True).click();expect(page.get_by_role('heading',name='长流程分析结果')).to_be_visible()
+  section=page.get_by_label('服务器流程结果',exact=True)
+  complete=section.get_by_role('article').filter(has_text='已完成任务');complete.get_by_role('button',name='查看结果').click()
+  expect(section.get_by_text('已显示 3 / 4 个文件')).to_be_visible();checks.append('server results visible in analysis')
+  section.locator('div.flex').filter(has=page.get_by_text('report.html',exact=True)).get_by_role('button',name='预览').click()
+  expect(page.frame_locator('iframe[title="报告预览"]').get_by_role('heading',name='结果报告')).to_be_visible()
+  assert page.evaluate('window.__reportExecuted') is None;assert not external;checks.append('HTML report renders with scripts and network blocked')
+  section.locator('div.flex').filter(has=page.get_by_text('table.tsv',exact=True)).get_by_role('button',name='预览').click()
+  expect(section.locator('pre')).to_contain_text('gene\tvalue');checks.append('table text preview')
+  section.locator('div.flex').filter(has=page.get_by_text('plot.png',exact=True)).get_by_role('button',name='预览').click()
+  expect(section.get_by_role('img',name='plot.png')).to_be_visible();checks.append('image preview')
+  section.get_by_role('button',name='加载更多结果').click();expect(section.get_by_text('已显示 4 / 4 个文件')).to_be_visible()
+  section.locator('div.flex').filter(has=page.get_by_text('last.txt',exact=True)).get_by_role('button',name='下载').click()
+  expect(section.get_by_role('status')).to_contain_text('已保存到');checks.append('pagination and download request')
+  section.get_by_role('article').filter(has_text='失败任务').get_by_role('button',name='查看结果').click()
+  expect(section.get_by_role('alert')).to_contain_text('示例错误');checks.append('failed results remain inspectable')
+  page.screenshot(path=str(OUT/'analysis-results.png'),full_page=True)
+  page.evaluate('window.__qa.delay=600');section.get_by_role('article').filter(has_text='已完成任务').get_by_role('button',name='查看结果').click()
+  section.get_by_label('结果服务器').select_option('preview-b');expect(section.get_by_text('当前服务器暂无流程记录。')).to_be_visible()
+  page.wait_for_timeout(900);expect(section.get_by_label('结果预览')).to_have_count(0);expect(section.get_by_text('已显示 3 / 4 个文件')).to_have_count(0);checks.append('late result cannot bleed into another server')
+  page.evaluate('window.__qa.delay=0;window.__qa.failure=true');section.get_by_label('结果服务器').select_option('preview-175');expect(section.get_by_role('alert')).to_contain_text('模拟连接失败')
+  page.evaluate('window.__qa.failure=false');expect(section.get_by_role('article').filter(has_text='已完成任务')).to_be_visible(timeout=10000);checks.append('polling recovers from failure')
+  for width in [1280,900,768]:
+   page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+  checks.append('three viewport widths');assert not errors,errors
+ finally:
+  (OUT/'result.json').write_text(json.dumps({'checks':checks,'pageErrors':errors,'externalRequests':external,'mode':'real React and Edge; synthetic bridge, no actual model or SSH'},ensure_ascii=False,indent=2),encoding='utf-8')
+  page.screenshot(path=str(OUT/'final.png'),full_page=True);browser.close()
+print(json.dumps({'passed':len(checks),'errors':errors}))

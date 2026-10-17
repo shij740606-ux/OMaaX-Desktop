@@ -1,0 +1,31 @@
+{
+  "version": "0.4.21",
+  "installer": "OMaaX_0.4.21_x64-setup.exe",
+  "bytes": 111145689,
+  "sha256": "a7a43dc86c56673677ae11c57746e2c5d406420b126f4d2eb7cf0c486a22e6e1",
+  "executableSha256": "1912d151d0583d4debf3426b9959632e16af9090c4cae70e2b81e59c6a137e4e",
+  "resourceChecks": [
+    {
+      "file": "ssh/workflow_environments.py",
+      "sha256": "c5857599d911ce132eaffd5e7a3feee1a70ab65d2e88f004d663c0f59bc9459a",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_engine.py",
+      "sha256": "01b4d088128f47dd74c3d0f41b3bbcd12f8f9a9ebc3c19174f6be3cbb6ac693e",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/workflow-guard/index.js",
+      "sha256": "4fd2743ce4a858b19da3bd37065aa8e984ad241ba28367e6f3216df610626c2f",
+      "matchesSource": true
+    }
+  ],
+  "packagedMcp": {
+    "toolCount": 25,
+    "modelEnvironmentTools": true,
+    "deleteConfirmationDenied": true,
+    "realServersContacted": false
+  },
+  "installedApplicationReplaced": false
+}

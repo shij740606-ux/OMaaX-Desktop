@@ -9,7 +9,6 @@ import DatabaseView from './views/DatabaseView';
 import EnvView from './views/EnvView';
 import SettingsView from './views/SettingsView';
 import Onboarding from './views/Onboarding';
-import KnowledgeView from './views/KnowledgeView';
 import ServerManagementView from './views/ServerManagementView';
 import WorkflowPanel from './views/WorkflowPanel';
 import AskPopover from './components/AskPopover';
@@ -40,7 +39,6 @@ function Shell() {
         {tab === 'data' && <DataView />}
         <WorkflowPanel active={tab === 'workflows'}/>
         {tab === 'db' && <DatabaseView />}
-        {tab === 'knowledge' && <KnowledgeView />}
         {tab === 'hosts' && <ServerManagementView />}
         {tab === 'tasks' && <ServerManagementView initial="tasks" />}
         {tab === 'servers' && <ServerManagementView initial="resources" />}

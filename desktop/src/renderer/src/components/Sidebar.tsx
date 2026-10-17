@@ -1,6 +1,6 @@
 import omaaxIcon from '../assets/omaax-icon.svg';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, Wallet, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, Library } from 'lucide-react';
+import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, Wallet, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server } from 'lucide-react';
 import { useApp, type Tab } from '../store';
 import { Database, Globe } from 'lucide-react';
 import ContextMenu, { type MenuState } from './ContextMenu';
@@ -204,10 +204,9 @@ export default function Sidebar() {
 {id:'data', content: nav('data', t('分析'), Database)},
 {id:'workflows', content: nav('workflows', t('一体化分析流程'), GitBranch)},
 {id:'db', content: nav('db', t('数据资源'), Globe)},
-{id:'knowledge', content: nav('knowledge', t('知识库'), Library)},
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
-{id:'store', content: nav('store', t('工具中心'), Store)}], orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','knowledge','hosts','env','store'], orders.nav || [], id => id))}>{item.content}</div>)}
+{id:'store', content: nav('store', t('工具中心'), Store)}], orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 mt-3">

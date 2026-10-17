@@ -1,3 +1,4 @@
+import {useApp} from '../store';
 import {serverError} from '../serverErrors';
 import {useEffect,useRef,useState} from 'react';
 import catalog from '../../../../resources/workflows/catalog.json';
@@ -15,12 +16,13 @@ const message=(reason:unknown)=>serverError(reason,'environment');
 const size=(bytes:number|null)=>bytes===null?'大小未知':bytes>=1073741824?(bytes/1073741824).toFixed(2)+' GiB':(bytes/1048576).toFixed(1)+' MiB';
 
 export default function ServerEnvironments({server,label,refreshToken=0}:{server:string;label:string;refreshToken?:number}){
+ const {setTab}=useApp();
  const connections=useServerConnections(),revision=connectionRevision(server),key=server+'@'+revision;
  const [inventory,setInventory]=useState<Inventory|null>(()=>cache.get(key)||null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [workflow,setWorkflow]=useState(()=>sessionStorage.getItem('omaax.environment.workflow.'+server)||flows[0].id);
  const flow=flows.find(f=>f.id===workflow)||flows[0],steps=orderedSteps(flow);
  const selectionKey='omaax.environment.steps.'+server+'.'+flow.id;
- const [selected,setSelected]=useState<string[]>([]),[checks,setChecks]=useState<Record<string,StepReadiness>>({}),[busy,setBusy]=useState(false),[image,setImage]=useState('');
+ const [selected,setSelected]=useState<string[]>([]),[checks,setChecks]=useState<Record<string,StepReadiness>>({}),[busy,setBusy]=useState(false);
  const [bootstrapImage,setBootstrapImage]=useState('');
  const [task,setTask]=useState<Task>({state:'idle',detail:'勾选需要的步骤后再检查或配置，不会自动安装其他工具。'});
  const current=useRef('');current.current=key+'|'+flow.id;const request=useRef(0);
@@ -32,7 +34,7 @@ export default function ServerEnvironments({server,label,refreshToken=0}:{server
   finally{if(token===request.current)setLoading(false);}
  };
  useEffect(()=>{const saved=cache.get(key);setInventory(saved||null);if(refreshToken||!saved||Date.now()/1000-saved.checkedAt>30)void load();return()=>{request.current++;};},[key,refreshToken]);
- useEffect(()=>{sessionStorage.setItem('omaax.environment.workflow.'+server,flow.id);let saved:unknown=[];try{saved=JSON.parse(sessionStorage.getItem(selectionKey)||'[]');}catch{}setSelected(Array.isArray(saved)?saved.filter((id):id is string=>typeof id==='string'&&steps.some(s=>s.id===id&&s.entryPresent)):[]);setChecks({});setNotice('');setError('');setImage('');},[selectionKey]);
+ useEffect(()=>{sessionStorage.setItem('omaax.environment.workflow.'+server,flow.id);let saved:unknown=[];try{saved=JSON.parse(sessionStorage.getItem(selectionKey)||'[]');}catch{}setSelected(Array.isArray(saved)?saved.filter((id):id is string=>typeof id==='string'&&steps.some(s=>s.id===id&&s.entryPresent)):[]);setChecks({});setNotice('');setError('');},[selectionKey]);
  const choose=(next:string[])=>{setSelected(next);sessionStorage.setItem(selectionKey,JSON.stringify(next));setNotice('');};
  const inProgress=['queued','running'].includes(task.state),setup=connections[server]?.setup||inventory?.setup;
  useEffect(()=>{
@@ -53,12 +55,12 @@ export default function ServerEnvironments({server,label,refreshToken=0}:{server
    {!loading&&inventory&&!inventory.images.length&&<p className="t-caption">尚未发现 OMaaX 分析环境，可在下面按步骤配置。</p>}
    <div className="max-h-80 overflow-y-auto flex flex-col gap-3">{inventory?.images.map((item,index)=><article className="hairline-b pb-3 min-w-0" key={item.id}><div className="flex flex-wrap items-center gap-3"><strong>{summary(item)||'分析环境 '+(index+1)}</strong><span className="t-caption">{item.installed?'已安装':'服务器环境缺失'} · {size(item.size)}{item.activeJobs?' · '+item.activeJobs+' 个任务正在使用':''}</span></div><details className="t-caption mt-2"><summary>环境详情</summary><div className="break-all selectable mt-2">{item.id}</div><div className="break-all">{item.tags.join('、')}</div><p>{item.approved?'已登记可供分析使用':'尚未关联分析流程'}</p></details></article>)}</div>
   </section>
-  <section className="card p-5 flex flex-col gap-4"><div><h2 className="t-headline">按需配置分析软件</h2><p className="t-caption mt-1">先选流程，再勾选所需步骤。这里只按流程默认参数检查；不同软件路线可在“一体化分析流程”中调整。</p></div>
+  <section className="card p-5 flex flex-col gap-4"><div><h2 className="t-headline">按需配置分析软件</h2><p className="t-caption mt-1">这里查看软件检查结果和配置日志。安装、依赖调整与报错修复交给流程对话中的模型。</p></div>
    <label>分析流程<select aria-label="管理环境的分析流程" className="field mt-1" value={flow.id} disabled={busy} onChange={e=>setWorkflow(e.target.value)}>{flows.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
    <fieldset disabled={busy||inProgress} className="workflow-step-selection max-h-96 overflow-y-auto"><legend className="t-caption mb-2">需要配置的步骤（已选 {selected.length} 项）</legend>{steps.map(step=><label key={step.id}><input type="checkbox" aria-label={step.name} checked={selected.includes(step.id)} disabled={!step.entryPresent} onChange={e=>choose(e.target.checked?[...selected,step.id]:selected.filter(id=>id!==step.id))}/><span>{step.name}<small className="block t-caption">{!step.entryPresent?'源码缺失':checks[step.id]?readinessLabels[checks[step.id].state]:'尚未检查'}</small>{selected.includes(step.id)&&checks[step.id]?.detail&&<small className="block t-caption break-words">{checks[step.id].detail}</small>}</span></label>)}</fieldset>
-   <div className="flex flex-wrap gap-2"><button className="btn btn-tint" disabled={busy||inProgress||!selected.length} onClick={()=>void run(check)}>检查所需软件</button><button className="btn btn-primary" disabled={busy||inProgress||!selected.length} onClick={()=>void run(async()=>{const expected=current.current;const result=await call<Task>('workflow_prepare',{workflow:flow.id,steps:selected,parameters:{},configs:{}});if(current.current===expected){setTask(result);setNotice('仅配置所选步骤，可以切换页面；服务器会继续准备并保留日志。');}})}>{inProgress?'正在配置…':'配置所选步骤'}</button></div>
+   <div className="flex flex-wrap gap-2"><button className="btn btn-tint" disabled={busy||inProgress||!selected.length} onClick={()=>void run(check)}>检查所需软件</button><button className="btn btn-primary" disabled={busy||!selected.length} onClick={()=>{localStorage.setItem('omaax.workflow.view',flow.id);localStorage.setItem('omaax.workflow.host',server);sessionStorage.setItem('omaax.environment.handoff',JSON.stringify({workflow:flow.id,server,steps:selected}));setTab('workflows');}}>在对话中配置环境</button></div>
    <div role="status" className="workflow-environment-status"><strong>{inProgress?'配置进行中':task.state==='failed'?'配置未完成':task.state==='complete'?'最近一次配置已完成':'配置记录'}</strong><p>{task.state==='failed'?message(task.detail):task.detail}</p>{task.request?.steps&&<p className="t-caption">本记录包含：{task.request.steps.map(id=>steps.find(s=>s.id===id)?.name||id).join('、')}</p>}{task.log&&<details><summary>查看安装日志</summary><pre className="whitespace-pre-wrap break-all selectable mt-2">{task.log}</pre></details>}</div>
-   <details><summary className="cursor-pointer t-caption">将已有环境关联到此流程</summary><p className="t-caption mt-2">作为此流程的默认环境；已单独设置的步骤环境继续保留。关联后仍需检查所选步骤的软件。</p><select aria-label="已有服务器分析环境" className="field mt-2" value={image} disabled={busy||inProgress} onChange={e=>setImage(e.target.value)}><option value="">选择已安装环境</option>{inventory?.images.filter(i=>i.installed).map((i,index)=><option key={i.id} value={i.id}>{summary(i)||'分析环境 '+(index+1)} · {i.id.slice(-12)}</option>)}</select><button className="btn btn-tint mt-2" disabled={!image||busy||inProgress} onClick={()=>void run(async()=>{await call('workflow_environment',{workflow:flow.id,image});await load();if(selected.length)await check();else setNotice('默认环境已关联，请勾选步骤后检查所需软件。');})}>检查并关联</button></details>
+
    {notice&&<p role="status" className="t-caption">{notice}</p>}
   </section>
   <section className="card p-5 flex flex-col gap-3"><h2 className="t-headline">账号已有的 Conda 环境</h2><p className="t-caption">读取账号登记记录和常见安装位置，只查看名称和路径，不改动已有环境。未登记的自定义位置可能不在列表中。</p>{inventory?.conda?.error&&<p className="t-caption break-words">{message(inventory.conda.error)}</p>}<div className="max-h-80 overflow-y-auto flex flex-col gap-3">{inventory?.conda?.environments.map(env=><div className="hairline-b pb-2" key={env.path}><strong>{env.name}</strong><div className="t-caption selectable break-all">{env.path}</div></div>)}</div>{inventory?.conda&&!inventory.conda.error&&!inventory.conda.environments.length&&<p className="t-caption">未发现已有的 Conda 环境。</p>}</section>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { AppSettings, CatalogSkill, CredentialStatus, DshStatus, EnvStatus, PlatformSession, SkillStatus } from '@shared/types';
 
-export type Tab = 'chat' | 'data' | 'workflows' | 'db' | 'knowledge' | 'hosts' | 'tasks' | 'servers' | 'store' | 'env' | 'settings';
+export type Tab = 'chat' | 'data' | 'workflows' | 'db' | 'hosts' | 'tasks' | 'servers' | 'store' | 'env' | 'settings';
 
 interface AppState {
   ready: boolean;
@@ -80,15 +80,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       else if (ev.type === 'dsh') setDsh(ev.status);
       else if (ev.type === 'skills') setStatuses(toMap(ev.statuses));
     });
-    window.biodsh.onDebugTab((t) => { if (t.startsWith('onboard')) { void api.setSettings({ onboarded: false }).then(setSettings); } else { void api.setSettings({ onboarded: true }).then(setSettings); if (t === 'community') { try { localStorage.setItem('biodsh.storeTier', 'community'); } catch { /* */ } setTab('store'); setTimeout(() => window.dispatchEvent(new CustomEvent('biodsh:tier', { detail: 'community' })), 300); } else setTab(t as Tab); } });
+    window.biodsh.onDebugTab((t) => { if (t.startsWith('onboard')) { void api.setSettings({ onboarded: false }).then(setSettings); } else { void api.setSettings({ onboarded: true }).then(setSettings); if (t === 'community') { try { localStorage.setItem('biodsh.storeTier', 'community'); } catch { /* */ } setTab('store'); setTimeout(() => window.dispatchEvent(new CustomEvent('biodsh:tier', { detail: 'community' })), 300); } else setTab(t === 'knowledge' ? 'chat' : t as Tab); } });
     return off;
   }, [refresh]);
-
-  useEffect(() => {
-    if (!settings?.ragflowUrl) return;
-    const sync = () => { void api.knowledgeSyncFolders().catch(() => undefined); };
-    sync(); const timer = setInterval(sync, 60_000); return () => clearInterval(timer);
-  }, [settings?.ragflowUrl]);
 
   const updateSettings = async (p: Partial<AppSettings>) => setSettings(await api.setSettings(p));
   const platformLogin = async (username: string, password: string) => {

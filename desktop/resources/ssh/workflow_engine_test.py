@@ -30,6 +30,19 @@ class ContractTests(unittest.TestCase):
   self.configure(flow)
   return {'cpu':1,'memoryMb':512,'timeoutSeconds':300,'workflow':flow,'source':'data','input':'.','steps':[stage],'parameters':{stage:{'config':'samples.yaml'}} if flow=='rnaseq' else {},'configs':{}}
  def make(self,flow='gene_family'):return w.dispatch(r,'workflow_plan',self.request(flow),actor='agent')
+ def test_result_binary_preview_is_verified_and_bounded(self):
+  import base64
+  record=self.make();job=record['plan']['id'];w.dispatch(r,'workflow_confirm',{'id':job,'digest':record['digest']})
+  output=r.jobdir(job)/'output';output.mkdir(parents=True,exist_ok=True)
+  image=output/'plot.png';image.write_bytes(b'\x89PNG\r\n\x1a\nfixture')
+  manifest={'steps':[],'files':[{'path':'plot.png','size':image.stat().st_size,'sha256':w.file_hash(image)}]}
+  (output/'workflow-result.json').write_text(json.dumps(manifest))
+  db=r.database();db.execute("UPDATE jobs SET state='complete' WHERE id=?",(job,));db.commit()
+  result=w.dispatch(r,'workflow_result',{'id':job,'file':'plot.png'})
+  self.assertEqual(result['mime'],'image/png');self.assertEqual(base64.b64decode(result['contentBase64']),image.read_bytes())
+  with self.assertRaises(ValueError):w.dispatch(r,'workflow_result',{'id':job,'file':'../secret.txt'})
+  image.write_bytes(b'changed')
+  with self.assertRaisesRegex(ValueError,'结果文件发生变化'):w.dispatch(r,'workflow_result',{'id':job,'file':'plot.png'})
  def test_all_five_workflows_generate_fixed_plans(self):
   for flow in ['gene_family','rnaseq','singlecell','spatial','metagenome']:
    record=self.make(flow);self.assertEqual(record['plan']['workflow'],flow);self.assertEqual(record['plan']['validationMode'],'execution_only');self.assertNotIn('scientificValidation',record['plan']);self.assertEqual(record['plan']['parameterOrigin'],'model_proposal')

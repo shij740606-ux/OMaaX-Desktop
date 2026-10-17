@@ -131,10 +131,22 @@ def status(r,workflow):
         with log.open('rb') as handle:handle.seek(max(0,log.stat().st_size-12000));result['log']=handle.read().decode('utf-8','replace')
     return result
 
+def validate_recipes(recipes,steps):
+    if not isinstance(recipes,dict) or set(recipes)-{step['id'] for step in steps}:raise ValueError('安装方案必须对应本次选定步骤')
+    for recipe in recipes.values():
+        if not isinstance(recipe,dict) or set(recipe)-{'packages','channels','script'}:raise ValueError('安装方案字段无效')
+        for key in ('packages','channels'):
+            values=recipe.get(key,[])
+            if not isinstance(values,list) or len(values)>256 or any(not isinstance(v,str) or not v or len(v)>512 or v.startswith('-') or any(c in v for c in ('\n','\r','\x00')) for v in values):raise ValueError('安装软件或来源格式无效')
+        script=recipe.get('script','')
+        if not isinstance(script,str) or len(script.encode())>131072 or '\x00' in script:raise ValueError('安装脚本无效或过大')
+    return recipes
+
 def start(r,body):
     import workflow_engine as w
-    w.no_extra(body,{'workflow','steps','parameters','configs'})
+    w.no_extra(body,{'workflow','steps','parameters','configs','recipes'})
     flow=w.flow_for(body.get('workflow'));steps=w.select_steps(flow,body.get('steps'))
+    recipes=validate_recipes(body.get('recipes',{}),steps)
     w.safe_values(body.get('parameters',{}));w.safe_values(body.get('configs',{}))
     r.protection();w.ready_bundle(r)
     db=r.database();tables(db)
@@ -144,11 +156,11 @@ def start(r,body):
     running=db.execute("SELECT id,request FROM workflow_environment_tasks WHERE workflow=? AND state IN ('queued','running')",(flow['id'],)).fetchone()
     if running:
         db.commit();active=json.loads(running['request'])
-        if active.get('steps')!=[s['id'] for s in steps] or active.get('parameters',{})!=body.get('parameters',{}) or active.get('configs',{})!=body.get('configs',{}):raise ValueError('此流程正在配置其他步骤或参数，请等待完成后再为新的选择生成计划。')
+        if active.get('steps')!=[s['id'] for s in steps] or active.get('parameters',{})!=body.get('parameters',{}) or active.get('configs',{})!=body.get('configs',{}) or active.get('recipes',{})!=recipes:raise ValueError('此流程正在配置其他步骤或参数，请等待完成后再为新的选择生成计划。')
         return status(r,flow['id'])
     job=r.uuid.uuid4().hex;directory=r.root()/'workflow-environments'/job
     directory.mkdir(parents=True,mode=0o700,exist_ok=False)
-    request={'workflow':flow['id'],'steps':[s['id'] for s in steps],'parameters':body.get('parameters',{}),'configs':body.get('configs',{})}
+    request={'workflow':flow['id'],'steps':[s['id'] for s in steps],'parameters':body.get('parameters',{}),'configs':body.get('configs',{}),'recipes':recipes}
     now=time.time();db.execute('INSERT INTO workflow_environment_tasks VALUES(?,?,?,?,?,?,?)',(job,flow['id'],json.dumps(request),'queued','等待配置所选步骤的环境',now,now));db.commit()
     child=launch(r,job)
     if child is not None and type(child.pid) is int:
@@ -161,12 +173,19 @@ def launch(r,job):
 def update(db,job,state,detail):
     db.execute('UPDATE workflow_environment_tasks SET state=?,detail=?,updated=? WHERE id=?',(state,detail,time.time(),job));db.commit()
 
-def build_context(w,r,directory,step,spec):
+def build_context(w,r,directory,step,spec,model_recipe=None):
     """Network is allowed only while preparing software, with no input-data mount."""
-    requested=packages(spec);upstream=step.get('nextflowSource')
+    model_recipe=model_recipe or {}
+    requested=model_recipe.get('packages',packages(spec));upstream=step.get('nextflowSource')
+    requested=list(dict.fromkeys(['python','pyyaml',*requested]))
     if upstream:requested+=['conda','nextflow','openjdk=17']
     recipe='FROM scratch\nCOPY rootfs /\nENV MAMBA_ROOT_PREFIX=/opt/mamba PATH=/opt/conda/bin:/usr/local/bin:/usr/bin:/bin SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt\n'
-    recipe+='RUN micromamba create -y -p /opt/conda --override-channels -c conda-forge -c bioconda '+ ' '.join(shlex.quote(value) for value in requested)+' && micromamba clean --all --yes\n'
+    channels=model_recipe.get('channels') or ['conda-forge','bioconda']
+    recipe+='RUN micromamba create -y -p /opt/conda --override-channels '+ ' '.join('-c '+shlex.quote(value) for value in channels)+' '+ ' '.join(shlex.quote(value) for value in requested)+' && micromamba clean --all --yes\n'
+    model_commands=''
+    if model_recipe.get('script'):
+        (directory/'model-install.sh').write_text(model_recipe['script'],encoding='utf-8')
+        model_commands='COPY model-install.sh /opt/omaax/model-install.sh\nRUN /bin/bash -eu /opt/omaax/model-install.sh\n'
     if upstream:
         # Each nf-core process keeps its original dependency versions in a separate environment.
         with zipfile.ZipFile(w.bundle_path(r)) as source:
@@ -175,8 +194,9 @@ def build_context(w,r,directory,step,spec):
                 if item.startswith(prefix) and (item.endswith('environment.yml') or item.endswith('.config') or item.endswith('.nf')) and process_selected(item.removeprefix(prefix),step.get('environmentSelection',{})):
                     target=directory/'upstream'/item.removeprefix(prefix)
                     target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(source.read(item))
-        recipe+='COPY upstream /opt/omaax/upstream\nCOPY prepare-nextflow.py /opt/omaax/prepare-nextflow.py\nRUN python3 /opt/omaax/prepare-nextflow.py\nENV OMAAX_NEXTFLOW_ENVS=/opt/omaax/nextflow-environments.json\n'
+        recipe+='COPY upstream /opt/omaax/upstream\nCOPY prepare-nextflow.py /opt/omaax/prepare-nextflow.py\n'+model_commands+'RUN python3 /opt/omaax/prepare-nextflow.py\nENV OMAAX_NEXTFLOW_ENVS=/opt/omaax/nextflow-environments.json\n'
         (directory/'prepare-nextflow.py').write_text(NEXTFLOW_PREPARE.replace('UPSTREAM_ID',repr(upstream)).replace('PROCESS_KEY',repr(spec.get('processEnvironments',[upstream])[0])),encoding='utf-8')
+    else:recipe+=model_commands
     recipe+='RUN python3 -c "import ssl,sqlite3,ctypes,yaml" && micromamba list -p /opt/conda --explicit > /opt/omaax-environment-lock.txt\nENTRYPOINT []\nUSER root\n'
     (directory/'Containerfile').write_text(recipe,encoding='utf-8')
     (directory/'requirements.json').write_text(json.dumps({'step':step['id'],'packages':requested,'requirements':spec},indent=2),encoding='utf-8')
@@ -305,7 +325,8 @@ def run(r,job):
                     if spec.get('services'):raise ValueError(step['name']+'需要外部在线服务，安装软件不能解除该限制。请取消此步骤或使用已有结果。')
                     candidates=list(dict.fromkeys(filter(None,[env.get('stageImages',{}).get(step['id']),env.get('image'),found.get(flow['id']),*cfg.get('images',[])])))
                     image=None;unchecked=[]
-                    for candidate in candidates:
+                    model_recipe=request.get('recipes',{}).get(step['id'],{})
+                    for candidate in ([] if model_recipe else candidates):
                         if candidate not in probes:
                             try:probes[candidate]=w.software_probe(r,candidate,wanted)
                             except Exception as error:probes[candidate]={'error':str(error)}
@@ -316,7 +337,7 @@ def run(r,job):
                         update(db,job,'running',step['name']+'：已有软件可用，无需安装')
                     else:
                         if unchecked:raise ValueError(step['name']+'的软件检查未完成：'+unchecked[0]+'；请重新检查，原有环境未更改。')
-                        fingerprint=hashlib.sha256(w.canonical({'requirements':spec,'upstream':step.get('nextflowSource'),'base':RUNTIME_VERSION,'installer':3})).hexdigest()
+                        fingerprint=hashlib.sha256(w.canonical({'requirements':spec,'upstream':step.get('nextflowSource'),'base':RUNTIME_VERSION,'installer':4,'recipe':model_recipe})).hexdigest()
                         tag='localhost/omaax-auto-'+fingerprint[:24]+':1'
                         image=built.get(fingerprint)
                         if not image:
@@ -325,12 +346,12 @@ def run(r,job):
                             except Exception:image=None
                         if not image:
                             context=directory/fingerprint;context.mkdir(mode=0o700)
-                            build_context(w,r,context,{**step,'environmentSelection':upstream_selection(step,request['configs'].get(step['id'],{}))},spec)
+                            build_context(w,r,context,{**step,'environmentSelection':upstream_selection(step,request['configs'].get(step['id'],{}))},spec,model_recipe)
                             update(db,job,'running',step['name']+'：正在准备所需软件，不依赖镜像仓库')
                             prepare_rootfs(context)
                             update(db,job,'running',step['name']+'：正在安装缺少的软件，日志保留在服务器')
                             direct={k:v for k,v in os.environ.items() if k.lower() not in ('http_proxy','https_proxy','all_proxy','no_proxy')}
-                            process=subprocess.run(['podman','build','--http-proxy=false','--label','org.omaax.environment='+fingerprint,'--tag',tag,'--file',str(context/'Containerfile'),str(context)],stdout=log,stderr=subprocess.STDOUT,timeout=14400,env=direct)
+                            process=subprocess.run(['podman','build','--isolation=rootless','--cap-drop=ALL','--http-proxy=false','--label','org.omaax.environment='+fingerprint,'--tag',tag,'--file',str(context/'Containerfile'),str(context)],stdout=log,stderr=subprocess.STDOUT,timeout=14400,env=direct)
                             if process.returncode:raise ValueError(step['name']+'的软件安装失败，请查看安装日志并检查服务器下载连接；原有环境保持不变。')
                             info=json.loads(r.command(['podman','image','inspect',tag],timeout=20))[0];image=info.get('Id') or info.get('ID')
                         if not image.startswith('sha256:'):image='sha256:'+image

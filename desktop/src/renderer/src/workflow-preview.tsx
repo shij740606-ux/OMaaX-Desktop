@@ -47,4 +47,26 @@ window.biodsh={
     throw Error('隔离预览不支持此操作');
   },
 } as unknown as typeof window.biodsh;
+// Extended model-workflow acceptance scenario, still entirely synthetic.
+if(new URLSearchParams(location.search).has('model')){
+ const qa={calls:[] as {action:string;body:any}[],failure:false,delay:0};(window as any).__qa=qa;
+ const api=window.biodsh,oldCompute=api.personalCompute;
+ api.workspaceFiles=async()=>[];
+ api.sshHosts=async()=>[host,{...host,id:'preview-b',name:'空服务器'}] as any;
+ api.dshRpc=async(method:string,args:any)=>{qa.calls.push({action:method,body:args});if(method==='workspace.list')return {items:[{workspaceId:'preview',path:'C:/isolated-ui-preview/project',title:'界面验收',sessionIds:['preview-session'],updatedAt:''}],archivedSessionIds:[]};if(method==='session.list')return {items:[]};if(method==='server.context')return {projectId:'preview',projectName:'测试项目',sessionId:'preview-session',sessionName:'测试对话'};return {};};
+ const record=(id:string,state:string)=>({plan:{id,prefix:id,name:'RNA-seq',context:{projectName:'测试项目',sessionName:'测试对话'}},state});
+ api.personalCompute=async(id:string,action:string,body:any={})=>{
+  qa.calls.push({action,body});if(qa.delay)await new Promise(resolve=>setTimeout(resolve,qa.delay));
+  if(action==='workflow_plans'){if(qa.failure)throw Error('模拟连接失败');return id==='preview-b'?[]:[record('已完成任务','complete'),record('失败任务','failed'),record('运行任务','running')];}
+  if(action==='workflow_result'){
+   const files=[{path:'report.html',size:120},{path:'table.tsv',size:30},{path:'plot.png',size:68}];
+   const result:any={id:body.id,state:body.id==='失败任务'?'failed':'complete',error:body.id==='失败任务'?'示例错误，保留已生成文件':undefined,steps:[{id:'rnaseq_qc',state:'complete'}],files:body.offset?[{path:'last.txt',size:10}]:files,fileCount:4,nextOffset:body.offset?null:3};
+   if(body.file==='report.html')result.content='<h1>结果报告</h1><script>parent.__reportExecuted=true</script><img src="https://example.invalid/should-not-load">';
+   if(body.file==='table.tsv')result.content='gene\tvalue\nA\t1';
+   if(body.file==='plot.png'){result.mime='image/png';result.contentBase64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';}
+   if(body.file==='last.txt')result.content='最后一个文件';result.contentFile=body.file;return result;
+  }
+  return oldCompute(id,action,body);
+ };
+}
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

@@ -5,6 +5,7 @@ import { FileTypeIcon } from '../icons';
 import { useApp } from '../store';
 import ContextMenu, { type MenuState } from '../components/ContextMenu';
 import { Copy, Sparkles as SparklesIcon } from 'lucide-react';
+import WorkflowResults from '../components/WorkflowResults';
 import { useT } from '../i18n';
 
 interface FileEntry { name: string; rel: string; size: number; modified: number; kind: string; preview?: string }
@@ -208,6 +209,7 @@ export default function DataView() {
         <div className="max-w-[860px] mx-auto px-8 py-6 flex flex-col gap-6">
 
 
+          <WorkflowResults />
           {notice && <div className="px-3 py-2 rounded-lg t-body rise" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{notice}</div>}
           {files === null && <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('正在扫描…')}</div>}
           {files !== null && files.length === 0 && (

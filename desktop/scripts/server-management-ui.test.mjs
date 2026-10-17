@@ -13,6 +13,7 @@ const host={id:'test-server',name:'测试服务器',host:'127.0.0.1',port:22,use
 function harness(api){
  const modules=new Map(),events=new EventTarget(),data=new Map(),timers=[];
  globalThis.sessionStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
+ globalThis.localStorage=globalThis.sessionStorage;
  globalThis.window={biodsh:api,addEventListener:events.addEventListener.bind(events),removeEventListener:events.removeEventListener.bind(events),dispatchEvent:events.dispatchEvent.bind(events),setInterval:fn=>{timers.push(fn);return timers.length;},clearInterval:()=>{},confirm:()=>true};
  const load=file=>{
   if(modules.has(file))return modules.get(file).exports;const module={exports:{}};modules.set(file,module);
@@ -247,11 +248,11 @@ test('environment management only reads on entry and configures exactly the sele
  const checkbox=view.root.findAllByType('input').find(n=>n.props.type==='checkbox'&&!n.props.disabled);await act(async()=>checkbox.props.onChange({target:{checked:true}}));
  await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='检查所需软件').props.onClick();await settle();});
  const wanted=calls.find(c=>c.action==='workflow_readiness').body.steps;assert.equal(wanted.length,1);
- await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='配置所选步骤').props.onClick();await settle();});
- assert.deepEqual(calls.find(c=>c.action==='workflow_prepare').body.steps,wanted);assert.match(text(view.root),/仅安装所选步骤/);
- assert.equal(view.root.findAllByType('button').find(b=>text(b)==='正在配置…').props.disabled,true);await act(async()=>view.unmount());
+ await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='在对话中配置环境').props.onClick();await settle();});
+ assert.equal(calls.filter(c=>c.action==='workflow_prepare').length,0);assert.ok(localStorage.getItem('omaax.workflow.view'));
+ await act(async()=>view.unmount());
  await act(async()=>{view=create(React.createElement(View,{server:host.id,label:host.name}));await settle();});
- assert.equal(view.root.findAllByType('input').filter(n=>n.props.checked).length,1);assert.equal(calls.filter(c=>c.action==='workflow_prepare').length,1);await act(async()=>view.unmount());
+ assert.equal(view.root.findAllByType('input').filter(n=>n.props.checked).length,1);assert.equal(calls.filter(c=>c.action==='workflow_prepare').length,0);await act(async()=>view.unmount());
 });
 
 test('file links open protection, and management exposes an environment section',async()=>{
@@ -278,16 +279,14 @@ test('switching servers ignores late environment inventories and does not start 
  assert.ok(!calls.includes('workflow_prepare'));await act(async()=>view.unmount());
 });
 
-test('associating an existing environment without steps does not send an invalid empty software check',async()=>{
+test('environment inventory remains visible while manual association is removed',async()=>{
  const calls=[],image='sha256:'+'a'.repeat(64);
  const h=harness({personalCompute:async(id,action,body)=>{
   calls.push({action,body});if(action==='server_environments')return {images:[{id:image,tags:[],size:100,installed:true,approved:true,bindings:[],activeJobs:0}],error:'',setup:{state:'complete',detail:'已就绪'},checkedAt:Date.now()/1000,conda:{environments:[],error:''}};
   if(action==='workflow_prepare_status')return {state:'idle',detail:'未配置'};if(action==='workflow_environment')return {ready:true};throw Error(action);
  }}),View=h.load('components/ServerEnvironments.tsx').default;
  let view;await act(async()=>{view=create(React.createElement(View,{server:'associate',label:'测试'}));await settle();});
- await act(async()=>view.root.findByProps({'aria-label':'已有服务器分析环境'}).props.onChange({target:{value:image}}));
- await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='检查并关联').props.onClick();await settle();});
- assert.ok(calls.some(c=>c.action==='workflow_environment'));assert.ok(!calls.some(c=>c.action==='workflow_readiness'));assert.match(text(view.root),/默认环境已关联/);await act(async()=>view.unmount());
+ assert.equal(view.root.findAllByProps({'aria-label':'已有服务器分析环境'}).length,0);assert.ok(!calls.some(c=>c.action==='workflow_environment'||c.action==='workflow_readiness'));assert.match(text(view.root),/已安装/);await act(async()=>view.unmount());
 });
 
 test('completed installation clears stale missing-software labels without launching another check',async()=>{
@@ -303,7 +302,7 @@ test('completed installation clears stale missing-software labels without launch
  const row=()=>view.root.findAllByType('label').find(l=>l.findAllByType('input').some(n=>n.props['aria-label']===name));
  await act(async()=>checkbox.props.onChange({target:{checked:true}}));
  await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='检查所需软件').props.onClick();await settle();});assert.match(text(row()),/缺少环境/);
- await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='配置所选步骤').props.onClick();await settle();});
+ await act(async()=>{await view.root.findAllByType('button').find(b=>text(b)==='在对话中配置环境').props.onClick();await settle();});
  state='complete';await act(async()=>{for(const tick of h.timers)tick();await settle();});
  assert.doesNotMatch(text(row()),/缺少环境/);assert.match(text(row()),/尚未检查/);assert.equal(calls.filter(a=>a==='workflow_readiness').length,1);await act(async()=>view.unmount());
 });

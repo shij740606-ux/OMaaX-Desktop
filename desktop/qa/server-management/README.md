@@ -2,7 +2,7 @@
 
 在独立、无头 Edge 中运行真实 React 管理界面，服务接口使用隔离的测试夹具；不操作用户已打开的 OMaaX。
 
-已配置 Anthropic 官方 [webapp-testing](https://github.com/anthropics/skills/tree/main/skills/webapp-testing) 技能。技能需在下一轮会话才能被自动发现；本测试入口直接使用其 `with_server.py`。
+已配置 Anthropic 官方 [webapp-testing](https://github.com/anthropics/skills/tree/main/skills/webapp-testing) 技能。本测试入口直接使用其 `with_server.py`。
 
 ## 本机复测
 
@@ -38,3 +38,9 @@ powershell -File desktop/qa/server-management/run.ps1 -Soak -LiveServers
 - 90 秒压力结果不等于长期无泄漏或所有发行版、架构、全新安装都可用。
 
 本轮报告入口：`validation-local/server-full-qa/report.html`。初始失败、测试夹具修正及外部阻塞均保留记录；不要只读取通过计数。
+
+## 模型流程与分析结果回归（0.4.21）
+
+`run.ps1` 在服务器管理回归后，串行运行 `model_workflow_test.py`，端口为 127.0.0.1:41740；端口占用时停止。该测试使用完整 React 外壳、实际分析与流程页面及模拟原生桥，检查模型交接、知识库入口关闭、报告隔离、结果分页和切换服务器时的迟到响应。记录在 `validation-local/model-workflow-browser`。它不调用真实模型，不下载环境或连接 SSH。
+
+模型环境方案、失败重试和结果文件保护由 `workflow_environments_test.py` 与 `workflow_engine_test.py` 覆盖。Windows 运行 Python 测试应使用独立短路径临时目录，避免系统路径长度限制。平台专用跳过项须单列，不能算通过。

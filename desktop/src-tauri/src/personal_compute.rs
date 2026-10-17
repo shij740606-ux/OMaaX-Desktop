@@ -136,8 +136,8 @@ pub fn bind_workflow(home:&Path, payload:&Value) -> Result<Value,String> {
 
 fn permitted(action:&str,agent:bool)->bool {
     match action {
-        "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" => true,
-        "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_environment" | "workflow_bundle_status" | "workflow_prepare" => !agent,
+        "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" | "workflow_prepare" | "workflow_environment" => true,
+        "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_bundle_status" => !agent,
         _ => false,
     }
 }
@@ -253,9 +253,9 @@ mod tests {
         for action in ["server_write_confirm","server_write_reject","server_write_requests"] {assert!(!permitted(action,true));assert!(permitted(action,false));}
     }
     #[test]
-    fn agent_cannot_expand_its_access_or_install_software() {
-        for action in ["configure","bootstrap","install_environment","import_prepare","import_finish","execute","delete","submit","workflow_confirm","workflow_environment","workflow_prepare"] { assert!(!permitted(action,true)); }
-        for action in ["status","jobs","logs","cancel","workflow_plan","workflow_plans"] { assert!(permitted(action,true)); }
+    fn agent_can_prepare_workflow_software_but_cannot_bypass_data_protection() {
+        for action in ["configure","bootstrap","install_environment","import_prepare","import_finish","execute","delete","submit","workflow_confirm"] { assert!(!permitted(action,true)); }
+        for action in ["status","jobs","logs","cancel","workflow_plan","workflow_plans","workflow_prepare","workflow_environment"] { assert!(permitted(action,true)); }
         assert!(permitted("bootstrap",false));
     }
     #[test]

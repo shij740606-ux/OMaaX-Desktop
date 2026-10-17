@@ -87,7 +87,7 @@ with sync_playwright() as p:
    def environments():
     tab('环境管理');expect(page.get_by_text('existing-r',exact=True)).to_be_visible();assert not calls('workflow_prepare')
     step=page.locator('fieldset input[type=checkbox]:not([disabled])').first;step.check();click('检查所需软件');expect(page.get_by_text('软件检查完成；参考数据和输入配置在生成分析计划时检查。',exact=True)).to_be_visible()
-    click('配置所选步骤');expect(page.get_by_role('button',name='正在配置…',exact=True)).to_be_disabled();assert len(calls('workflow_prepare')[-1]['body']['steps'])==1
+    click('在对话中配置环境');assert page.evaluate('window.__qa.navigation')=='workflows';assert not calls('workflow_prepare')
     page.evaluate("window.__qa.prepareState='complete'");expect(page.get_by_text('最近一次配置已完成',exact=True)).to_be_visible(timeout=8000)
     page.get_by_text('查看安装日志',exact=True).click();expect(page.get_by_text('test installation log',exact=True)).to_be_visible();page.screenshot(path=str(OUT/'environments.png'),full_page=True)
     page.get_by_text('基础环境高级设置',exact=True).click();click('授权安装');expect(page.get_by_role('dialog',name='服务器环境安装',exact=True)).to_be_visible()
