@@ -162,7 +162,12 @@ def start(r,body):
     directory.mkdir(parents=True,mode=0o700,exist_ok=False)
     request={'workflow':flow['id'],'steps':[s['id'] for s in steps],'parameters':body.get('parameters',{}),'configs':body.get('configs',{}),'recipes':recipes}
     now=time.time();db.execute('INSERT INTO workflow_environment_tasks VALUES(?,?,?,?,?,?,?)',(job,flow['id'],json.dumps(request),'queued','等待配置所选步骤的环境',now,now));db.commit()
-    child=launch(r,job)
+    try:child=launch(r,job)
+    except Exception as error:
+        detail="环境安装进程启动失败："+str(error)
+        (directory/"install.log").write_text(detail,encoding="utf-8")
+        update(db,job,"failed",detail)
+        return status(r,flow["id"])
     if child is not None and type(child.pid) is int:
         request['_pid']=child.pid;db.execute('UPDATE workflow_environment_tasks SET request=? WHERE id=?',(json.dumps(request),job));db.commit()
     return status(r,flow['id'])

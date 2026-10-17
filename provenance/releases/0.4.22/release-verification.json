@@ -1,0 +1,37 @@
+{
+  "version": "0.4.22",
+  "installer": "OMaaX_0.4.22_x64-setup.exe",
+  "bytes": 111156787,
+  "sha256": "95b3075a10cb2696eb0492dd8f7bf608e94918c187ec551c7f212a312835826e",
+  "executableSha256": "d7d506291f71217a3f420e3de97140487393c7830214f29027ae5f8afb0b3751",
+  "resourceChecks": [
+    {
+      "file": "dsh/node_modules/@biodsh/step-guard/index.js",
+      "sha256": "79771a02f1e39c767fc2fd591f335a056d3bc82aac02b51c6876b46fcc504690",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_environments.py",
+      "sha256": "dbd2166851d1631d0c1d3b72907ed31bda3cf8d18a958b8b76e61327345440e6",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_engine.py",
+      "sha256": "01b4d088128f47dd74c3d0f41b3bbcd12f8f9a9ebc3c19174f6be3cbb6ac693e",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/workflow-guard/index.js",
+      "sha256": "4fd2743ce4a858b19da3bd37065aa8e984ad241ba28367e6f3216df610626c2f",
+      "matchesSource": true
+    }
+  ],
+  "packagedMcp": {
+    "toolCount": 25,
+    "modelEnvironmentTools": true,
+    "deleteConfirmationDenied": true,
+    "realServersContacted": false
+  },
+  "installedApplicationReplaced": true,
+  "installedResourcesVerified": true
+}

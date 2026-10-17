@@ -31,6 +31,16 @@ class EnvironmentTests(unittest.TestCase):
    retried=w.dispatch(r,'workflow_prepare',body,actor='agent')
    self.assertNotEqual(task['id'],retried['id'])
   with self.assertRaises(ValueError):w.dispatch(r,'workflow_confirm',{},actor='agent')
+ def test_launch_failure_is_logged_and_model_can_retry(self):
+  body={'workflow':'rnaseq','steps':['rnaseq_qc']}
+  with patch.object(e,'launch',side_effect=OSError('process resource temporarily unavailable')):
+   task=w.dispatch(r,'workflow_prepare',body,actor='agent')
+  self.assertEqual(task['state'],'failed')
+  log=w.dispatch(r,'workflow_prepare_status',{'workflow':'rnaseq'},actor='agent')
+  self.assertIn('process resource temporarily unavailable',log['log'])
+  with patch.object(e,'launch'):
+   retry=w.dispatch(r,'workflow_prepare',body,actor='agent')
+  self.assertEqual(retry['state'],'queued');self.assertNotEqual(task['id'],retry['id'])
  def test_model_recipe_is_confined_to_build_context_and_validated(self):
   step=self.step('rnaseq','rnaseq_qc');directory=self.base/'recipe';directory.mkdir()
   recipe={'packages':['python=3.10','fastp'],'channels':['conda-forge','bioconda'],'script':'echo fixed > /tmp/check\nrm -rf /tmp/disposable'}

@@ -1,3 +1,4 @@
+import { bindingReader } from '../workflow-guard/index.js';
 // OMaaX 收敛护栏(治"跑飞")—— cordis 插件,走 dsh 官方扩展点 agent/pre-step,不改 dsh 代码。
 // 问题:难题上 agent 会一直探索/换方法直到撞时间墙(R1 实测:8 个失败全是 400s 超时,0 个算错)。
 // 做法:每步看"本轮已用步数 / 已用秒数",到软阈值追加一条"请收尾"的用户消息,到硬阈值追加"必须现在作答";
@@ -33,11 +34,15 @@ export function apply(ctx) {
   if (process.env.BIODSH_GUARD_OFF) { dbg('disabled by BIODSH_GUARD_OFF'); return; }
   // 每个 agent 的当前轮状态:{turn, t0, softDone, hardDone}
   const state = new WeakMap();
+  const readBinding = process.env.OMAAX_WORKFLOW_GUARD_DIR ? bindingReader(process.env.OMAAX_WORKFLOW_GUARD_DIR) : () => undefined;
   ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next();
     try {
       if (!decision || decision.kind !== 'enter' || !payload || !payload.agent) return decision;
       const a = payload.agent;
+      // Workflow installation/polling can exceed ordinary chat budgets; tool protection remains independent.
+      const binding = readBinding(a);
+      if (binding && !binding.invalid) return decision;
       let st = state.get(a);
       if (!st || st.turn !== payload.turn) { st = { turn: payload.turn, t0: Date.now(), softDone: false, hardDone: false }; state.set(a, st); }
       const step = Number(payload.step) || 0;
