@@ -38,10 +38,21 @@ class RunnerTests(unittest.TestCase):
     @unittest.skipUnless(os.name == 'posix', 'Linux container mount paths')
     def test_container_hard_boundaries(self):
         args=r.container_args(self.job,r.config(r.database()))
-        for flag in ['--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--pull=never','--pids-limit=512','--cpus=1','--memory=128m']:
+        for flag in ['--network=slirp4netns:allow_host_loopback=false','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--pull=never','--pids-limit=512','--cpus=1','--memory=128m']:
             self.assertIn(flag,args)
         self.assertIn(str(self.data)+':/input/reads:ro',args)
         self.assertNotIn('--privileged',args)
+
+    def test_private_runtime_allows_caches_without_more_host_access(self):
+        with patch.object(r,'source_path',return_value=Path('/test-input')),patch.object(r,'jobdir',return_value=Path('/test-job')):
+            args=r.container_args(self.job,{'sources':{'reads':'/test-input'}})
+        self.assertNotIn('--read-only',args)
+        self.assertFalse(any(arg.startswith('--tmpfs=') for arg in args))
+        self.assertIn('--env=HOME=/tmp',args)
+        mounts=[args[i+1].replace('\\','/') for i,value in enumerate(args) if value=='--volume']
+        self.assertEqual(mounts,['/test-job/output:/output:rw','/test-input:/input/reads:ro'])
+        for flag in ['--network=slirp4netns:allow_host_loopback=false','--cap-drop=ALL','--security-opt=no-new-privileges']:
+            self.assertIn(flag,args)
 
     def test_submit_idempotency_and_no_duplicate_launch_data(self):
         r.dispatch({'action':'submit','body':self.job})

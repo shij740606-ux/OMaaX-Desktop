@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const directory = fileURLToPath(new URL('../resources/ssh/', import.meta.url));
-for (const plugin of ['workflow-guard','step-guard']) {
+for (const plugin of ['workflow-guard','step-guard','auth-guard']) {
   const directory=new URL('../dsh-runtime/node_modules/@biodsh/'+plugin+'/',import.meta.url);
   mkdirSync(directory,{recursive:true});
   for(const file of ['index.js','package.json'])copyFileSync(new URL('../dsh-plugins/'+plugin+'/'+file,import.meta.url),new URL(file,directory));

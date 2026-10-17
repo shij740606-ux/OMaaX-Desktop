@@ -15,6 +15,7 @@ writeFileSync(fixture,[
  "import path from 'node:path';",
  "import {renderPrompt} from "+JSON.stringify(pathToFileURL(path.join(sdk,'node_modules/@deepseek-ai/dsh-system-prompt/lib/index.js')).href)+";",
  "import {agentEvents} from "+JSON.stringify(pathToFileURL(path.join(sdk,'node_modules/@deepseek-ai/dsh-agent/lib/index.js')).href)+";",
+ "import {createGuard} from "+JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/auth-guard/index.js')).href)+";",
  "export const inject=['tools','agents','systemPrompt'];",
  "export function apply(ctx) {",
  " let bodies=0;",
@@ -41,7 +42,10 @@ writeFileSync(fixture,[
  "   const environmentTools={};for(const name of ['workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment','server_delete_confirm'])environmentTools[name]=await run('mcp__biodsh_ssh__'+name);",
  "   const prompt=renderPrompt(await ctx.systemPrompt.assemble({agent,scope:agent}));",
  "   const denied=await run('workflow_probe_forbidden');const allowed=await run('mcp__biodsh_ssh__workflow_catalog');",
- "   writeFileSync(path.join(dir,'result.json'),JSON.stringify({ordinary,denied,allowed,provenance,sessionId,before,after:bodies,selection,beforePrompt,prompt,ordinaryBudget,workflowBudget,environmentTools}));",
+ "   let authenticated=true;ctx.tools.guard(createGuard(()=>({ok:authenticated})));",
+ "   const authAllowed=await run('mcp__biodsh_ssh__workflow_prepare');authenticated=false;const authDenied=await run('mcp__biodsh_ssh__workflow_prepare');",
+ "   const budgetFile=path.join(dir,'workflow-bindings','budget-'+sessionId+'.json');const savedBudget=JSON.parse(readFileSync(budgetFile,'utf8'));writeFileSync(budgetFile,JSON.stringify({...savedBudget,tokens:200000}));const budgetStopped=await preStep();",
+ "   writeFileSync(path.join(dir,'result.json'),JSON.stringify({ordinary,denied,allowed,provenance,sessionId,before,after:bodies,selection,beforePrompt,prompt,ordinaryBudget,workflowBudget,environmentTools,authAllowed,authDenied,budgetStopped}));",
  "  } catch(e){writeFileSync(path.join(dir,'result.json'),JSON.stringify({error:String(e)}));}",
  " },100);",
  " ctx.effect(()=>()=>clearInterval(timer));",
@@ -69,6 +73,10 @@ try {
  while(!existsSync(path.join(home,'result.json'))&&Date.now()<deadline)await new Promise(r=>setTimeout(r,100));
  const result=JSON.parse(readFileSync(path.join(home,'result.json'),'utf8'));
  assert.ok(!result.error,JSON.stringify(result));
+ assert.equal(result.budgetStopped.kind,"reject","Token ceiling must stop the real SDK before another model request");
+ assert.ok(JSON.stringify(result.authAllowed).includes("ENV_ALLOWED_workflow_prepare"));
+ assert.ok(!JSON.stringify(result.authDenied).includes("ENV_ALLOWED_"));
+ assert.ok(JSON.stringify(result.authDenied).includes("账号未登录"));
  assert.ok(JSON.stringify(result.ordinaryBudget).includes('不要再调用任何工具'));
  assert.ok(!JSON.stringify(result.workflowBudget).includes('不要再调用任何工具'));
  assert.ok(JSON.stringify(result.ordinary).includes('FORBIDDEN_BODY'),'Fixture must be callable before workflow selection');
@@ -82,6 +90,8 @@ try {
  assert.ok(!result.beforePrompt.includes('OMaaX 内部流程选择'));
  assert.ok(result.prompt.includes(JSON.stringify(result.selection)),'Real model prompt must keep exact selection including resources and literal braces');
  assert.ok(result.prompt.includes('workflow_catalog')&&result.prompt.includes('workflow_plan'));
+ assert.ok(result.prompt.includes('HOME=/tmp')&&result.prompt.includes('临时安装和分析应放在同一次任务中'));
+ assert.ok(!result.prompt.includes('脚本只能写 /output'));
  writeFileSync(path.join(base,'latest.json'),JSON.stringify({home,sdkGuardVerified:true,result},null,2));
  console.log(JSON.stringify({sdkGuardVerified:true,bodiesBefore:result.before,bodiesAfter:result.after,home}));
 } finally {child.kill();}

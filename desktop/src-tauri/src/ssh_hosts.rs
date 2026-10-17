@@ -109,7 +109,7 @@ pub fn save(root: &Path, draft: Draft) -> Result<Vec<Host>, String> {
 }
 pub fn remove(root: &Path, id: &str) -> Result<Vec<Host>, String> {
     let _guard = WRITE_LOCK.lock().map_err(|_| "保存锁不可用")?;
-    let mut hosts = list(root)?; hosts.retain(|h| h.id != id); persist(root, &hosts)?;
+    let mut hosts = list(root)?; if !hosts.iter().any(|h|h.id==id) {return Err("服务器不存在".into());} hosts.retain(|h| h.id != id); persist(root, &hosts)?;
     let entry = secret_entry(id)?;
     if let Ok(record) = entry.get_password() { delete_parts(id, &record); }
     let _ = entry.delete_credential(); Ok(hosts)
@@ -131,7 +131,7 @@ pub fn connection(root: &Path, id: &str) -> Result<Value, String> {
     let host = list(root)?.into_iter().find(|h| h.id == id).ok_or("服务器不存在")?;
     if host.host_key.is_none() { return Err("请先确认服务器主机指纹".into()); }
     let credentials = secret(id)?;
-    Ok(json!({"host":host.host,"port":host.port,"username":host.username,"hostKey":host.host_key,
+    Ok(json!({"accountOwner":crate::hub_auth::remote_owner(root)?,"host":host.host,"port":host.port,"username":host.username,"hostKey":host.host_key,
         "password":if host.auth=="password" {Some(credentials.password)}else{None},
         "privateKey":if host.auth=="key"{Some(credentials.private_key)}else{None},"passphrase":credentials.passphrase}))
 }
@@ -143,7 +143,7 @@ pub fn call(root: &Path, node: &Path, script: &Path, id: &str, operation: &str, 
     if operation != "probe" && host.host_key.is_none() { return Err("请在服务器管理页面确认主机指纹".into()); }
     validate_command(command)?;
     let credentials = if operation == "probe" { Secret::default() } else { secret(id)? };
-    let request = json!({"operation": operation, "host": host.host, "port": host.port, "username": host.username,
+    let request = json!({"accountOwner":if operation=="probe" {None}else{crate::hub_auth::remote_owner(root)?},"operation": operation, "host": host.host, "port": host.port, "username": host.username,
         "hostKey": host.host_key, "password": if host.auth == "password" { Some(credentials.password) } else { None },
         "privateKey": if host.auth == "key" { Some(credentials.private_key) } else { None },
         "passphrase": credentials.passphrase, "command": command, "timeoutSeconds": timeout.clamp(5, 900)});
@@ -218,6 +218,13 @@ pub fn run_mcp() {
         if line.len() > 2*1024*1024 { break; }
         let Ok(request) = serde_json::from_str::<Value>(&line) else { continue };
         let Some(id) = request.get("id") else { continue };
+        if request["method"] == "tools/call" {
+            let authorization=crate::hub_auth::require(&root,"bioflow");
+            if let Ok(user)=authorization.as_ref(){crate::hub_auth::audit(&root,user,request["params"]["name"].as_str().unwrap_or("tool"));}
+            if let Err(error)=authorization {
+                println!("{}",json!({"jsonrpc":"2.0","id":id,"error":{"code":-32001,"message":error}})); let _=std::io::stdout().flush(); continue;
+            }
+        }
         let result: Result<Value, String> = match request["method"].as_str().unwrap_or("") {
             "initialize" => Ok(json!({"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "OMaaX SSH", "version": "1.0.0"}})),
             "ping" => Ok(json!({})),
@@ -239,8 +246,8 @@ pub fn run_mcp() {
                 {"name":"workspace_config","description":"Create a new sample/config table inside configs/ or files/. Never overwrite originals. YAML/JSON content is a structured object/list; CSV/TSV content is rows with columns. Use user-supplied groups; fill file paths from server_files. Returned absolute path can be passed to every fixed workflow.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"format":{"enum":["yaml","json","csv","tsv"]},"content":{},"columns":{"type":"array","items":{"type":"string"}}},"required":["serverId","path","format","content"],"additionalProperties":false}},
                 {"name":"workspace_restore","description":"Restore a deleted application-workspace entry by trashId. Never overwrite another file.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"trashId":{"type":"string"}},"required":["serverId","trashId"],"additionalProperties":false}},
                 {"name":"workspace_index","description":"Build a reference index in a protected job, keeping FASTA/GTF read-only. Uses fixed index recipes and already prepared approved workflow environment; no host commands. Returns job and generated index path. Check task_list/task_logs for completion before using the index.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"kind":{"enum":["hisat2","salmon","star","bowtie2","bwa"]},"fasta":{"type":"string"},"gtf":{"type":"string"},"cpu":{"type":"integer"},"memoryMb":{"type":"integer"},"timeoutSeconds":{"type":"integer"}},"required":["serverId","kind","fasta"],"additionalProperties":false}},
-                {"name":"workspace_script","description":"Save a server plugin/tool analysis script as a new files/*.py, .R or .sh in the application workspace. Execution is only via workspace_analysis, never direct SSH. Script writes must stay under /output. Fixed workflows continue to use their fixed source and workflow_plan.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"content":{"type":"string"}},"required":["serverId","path","content"],"additionalProperties":false}},
-                {"name":"workspace_analysis","description":"Run server plugin/tool analysis in an approved protected environment. Pass script and exact data paths in inputs; all are mounted read-only. argv host path arguments are mapped to returned inputMounts; inside script use those container paths or argv arguments. All writes go to /output; results/logs are saved in application workspace. Supports all registered workflow environments including singlecell/spatial. Does not run arbitrary host shell or install all tools.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"enum":["gene_family","rnaseq","singlecell","spatial","metagenome","atacseq","chipseq","cutandrun","methylseq"]},"step":{"type":"string"},"inputs":{"type":"array","items":{"type":"string"}},"argv":{"type":"array","items":{"type":"string"}},"cpu":{"type":"integer"},"memoryMb":{"type":"integer"},"timeoutSeconds":{"type":"integer"}},"required":["serverId","inputs","argv"],"additionalProperties":false}},
+                {"name":"workspace_script","description":"Save a server plugin/tool analysis script as a new files/*.py, .R or .sh in the application workspace. Execution is only via workspace_analysis, never direct SSH. Final results must stay under /output. Temporary dependencies and caches may use the private task runtime; each task starts fresh. Fixed workflows continue to use their fixed source and workflow_plan.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"content":{"type":"string"}},"required":["serverId","path","content"],"additionalProperties":false}},
+                {"name":"workspace_analysis","description":"Run server plugin/tool analysis in an approved protected environment. Pass script and exact data paths in inputs; all are mounted read-only. argv host path arguments are mapped to returned inputMounts; inside script use those container paths or argv arguments. Final results go to /output; results/logs are saved in application workspace. The private runtime layer is writable, HOME=/tmp, with outbound network for dependencies and online services. Each task starts fresh: perform temporary preparation and analysis in the same invocation, or use workflow_prepare for reusable software. Host mounts remain read-only except this task output. Supports all registered workflow environments including singlecell/spatial. Does not run arbitrary host shell or install all tools.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"enum":["gene_family","rnaseq","singlecell","spatial","metagenome","atacseq","chipseq","cutandrun","methylseq"]},"step":{"type":"string"},"inputs":{"type":"array","items":{"type":"string"}},"argv":{"type":"array","items":{"type":"string"}},"cpu":{"type":"integer"},"memoryMb":{"type":"integer"},"timeoutSeconds":{"type":"integer"}},"required":["serverId","inputs","argv"],"additionalProperties":false}},
                 {"name":"compute_status","description":"Inspect this SSH user's isolated execution readiness, approved image digests and read-only data sources.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"]}},
                 {"name":"task_list","description":"List this SSH account's tasks, including tasks continuing after desktop disconnect.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"]}},
                 {"name":"task_logs","description":"Read the last 64 KiB of a protected task log.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"id":{"type":"string"}},"required":["serverId","id"]}},

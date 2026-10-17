@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import {useAuth,hasUnit} from '../AuthGate';
 import { ArrowRight, Check, ExternalLink, Star } from 'lucide-react';
 import { useApp } from '../store';
 import { Logo } from '../components/Sidebar';
@@ -8,6 +9,7 @@ import { useT } from '../i18n';
 export default function Onboarding() {
   const { updateSettings, saveKey, credential, env, installEnv, setTab } = useApp();
   const { t } = useT();
+  const {user}=useAuth();const bioflow=hasUnit(user,"bioflow");
   const [step, setStep] = useState(0);
   const [key, setKey] = useState('');
   const installing = ['python', 'venv', 'packages', 'verify'].includes(env.step);
@@ -34,8 +36,8 @@ export default function Onboarding() {
             <input className="field t-mono mt-6 text-center" type="password" autoFocus placeholder={credential.hasKey ? t('已设置 {masked}', { masked: credential.masked ?? '' }) : 'sk-…'} value={key} onChange={(e) => setKey(e.target.value)} />
             <button className="btn btn-ghost mt-2" onClick={() => window.biodsh.openExternal('https://platform.deepseek.com/api_keys')}><ExternalLink size={13} /> {t('还没有？去 DeepSeek 开放平台申请')}</button>
             <div className="flex gap-3 mt-6">
-              <button className="btn btn-fill btn-lg" onClick={() => setStep(2)}>{credential.hasKey ? t('下一步') : t('先跳过')}</button>
-              <button className="btn btn-primary btn-lg" disabled={!key.trim()} onClick={async () => { await saveKey(key); setStep(2); }}>{t('保存并继续')} <ArrowRight size={15} /></button>
+              <button className="btn btn-fill btn-lg" onClick={() => setStep(bioflow?2:3)}>{credential.hasKey ? t('下一步') : t('先跳过')}</button>
+              <button className="btn btn-primary btn-lg" disabled={!key.trim()} onClick={async () => { await saveKey(key); setStep(bioflow?2:3); }}>{t('保存并继续')} <ArrowRight size={15} /></button>
             </div>
           </>
         )}

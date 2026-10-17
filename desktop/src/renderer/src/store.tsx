@@ -42,6 +42,7 @@ const emptyEnv: EnvStatus = { ready: false, step: 'idle', message: '', progress:
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const api = window.biodsh;
   const [ready, setReady] = useState(false);
+  const [loadError,setLoadError]=useState(false);
   const [info, setInfo] = useState<AppState['info']>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [platform, setPlatform] = useState<PlatformSession>({ authenticated: false, projects: [] });
@@ -60,6 +61,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toMap = (arr: SkillStatus[]) => Object.fromEntries(arr.map((s) => [s.id, s]));
 
   const refresh = useCallback(async () => {
+    setLoadError(false);
+    try {
     const [i, s, c, e, d, cat, st] = await Promise.all([
       api.appInfo(), api.getSettings(), api.getCredential(), api.envStatus(), api.dshStatus(), api.skillsCatalog(), api.skillsStatuses(),
     ]);
@@ -71,6 +74,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setInfo(i); setSettings(nextSettings); setCredential(c); setEnv(e); setDsh(d); setCatalog(cat); setStatuses(toMap(st));
     setPlatform(session);
     setReady(true);
+    } catch {setLoadError(true);}
   }, []);
 
   useEffect(() => {
@@ -125,7 +129,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={{ ready, info, settings, platform, credential, env, dsh, catalog, statuses, busy, tab, setTab, overlay, pushOverlay, popOverlay, currentSession, setCurrentSession, refresh, updateSettings, platformLogin, platformLogout, refreshPlatform, saveKey, installEnv, startDsh, restartDsh, install, uninstall }}>
-      {children}
+      {loadError?<div role="alert" className="h-full flex flex-col items-center justify-center gap-4"><p>暂时无法加载工作空间，请检查连接后重试。</p><button className="btn btn-primary" onClick={()=>void refresh()}>重新加载</button></div>:children}
     </Ctx.Provider>
   );
 }

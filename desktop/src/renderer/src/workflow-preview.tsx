@@ -11,10 +11,11 @@ let plans:MockPlan[]=[];
 const environmentTasks:Record<string,{id:string;state:string;detail:string;log:string;request:{steps:string[]}}>={};
 const scenario=new URLSearchParams(location.search).get('failure');
 window.biodsh={
+  hubStatus:async()=>({authenticated:true,hub:"http://127.0.0.1:8090",user:{id:"fixture",username:"测试账号",role:"admin",authorizations:[]}}),hubLogin:async()=>{},hubLogout:async()=>{},hubAdmin:async()=>{},
   appInfo:async()=>({version:'0.4.3',platform:'win32',dark:false,paths:{root:'C:/isolated-ui-preview'}}),
   ratingsGet:async()=>({}),ratingsSet:async()=>({}),getSettings:async()=>settings,setSettings:async()=>settings,getCredential:async()=>({hasKey:true}),
   envStatus:async()=>({ready:true,step:'ready',progress:100,message:'',log:[]}),
-  dshStatus:async()=>({state:'running',log:[]}),skillsCatalog:async()=>[],skillsStatuses:async()=>[],
+  dshStatus:async()=>({state:'running',log:[]}),dshRestart:async()=>({state:'running',log:[]}),skillsCatalog:async()=>[],skillsStatuses:async()=>[],
   onEvent:()=>()=>{},onDebugTab:(cb:(tab:string)=>void)=>{setTimeout(()=>cb('workflows'),100);},
   deepseekBalance:async()=>({balance_infos:[]}),dshSetContext:async()=>{},gitStatus:async()=>({available:false,isRepo:false,dirty:0}),
   dshRpc:async(method:string)=>method==='workspace.list'?{items:[{workspaceId:'preview',path:'C:/isolated-ui-preview/project',title:'界面验收',sessionIds:[],updatedAt:''}],archivedSessionIds:[]}:method==='session.list'?{items:[]}:{},
@@ -41,7 +42,8 @@ window.biodsh={
     }
     if(action==='workflow_confirm'){const id=(body as {id:string}).id;const p=plans.find(p=>p.plan.id===id)!;p.confirmed=true;p.state='queued';setTimeout(()=>{if(p.state==='queued')p.state='complete';},1500);return {};}
     if(action==='cancel'){const p=plans.find(p=>p.plan.id===(body as {id:string}).id)!;p.state='cancelled';return {};}
-    if(action==='workflow_result'){const p=plans.find(p=>p.plan.id===(body as {id:string}).id)!;return {id:p.plan.id,name:p.plan.name,state:p.state,version:catalog.version,steps:(p.plan.steps as string[]).map(id=>({id,state:'complete'})),files:[{path:'analysis/preview/result.tsv',size:512,sha256:'mock'}],fileCount:1};}
+    if(action==='workflow_resume')return {id:(body as {id:string}).id,state:'queued'};
+  if(action==='workflow_result'){const p=plans.find(p=>p.plan.id===(body as {id:string}).id)!;return {id:p.plan.id,name:p.plan.name,state:p.state,version:catalog.version,steps:(p.plan.steps as string[]).map(id=>({id,state:'complete'})),files:[{path:'analysis/preview/result.tsv',size:512,sha256:'mock'}],fileCount:1};}
     if(action==='logs')return {text:'隔离界面验收：此日志为模拟内容，不连接服务器。'};
     if(action==='transfer')return {path:'C:/isolated-ui-preview/result'};
     throw Error('隔离预览不支持此操作');
@@ -49,15 +51,16 @@ window.biodsh={
 } as unknown as typeof window.biodsh;
 // Extended model-workflow acceptance scenario, still entirely synthetic.
 if(new URLSearchParams(location.search).has('model')){
- const qa={calls:[] as {action:string;body:any}[],failure:false,delay:0};(window as any).__qa=qa;
+ const qa={calls:[] as {action:string;body:any}[],failure:false,delay:0,budget:{calls:80,tokens:1500,reported:true,paused:true}};(window as any).__qa=qa;
  const api=window.biodsh,oldCompute=api.personalCompute;
  api.workspaceFiles=async()=>[];
  api.sshHosts=async()=>[host,{...host,id:'preview-b',name:'空服务器'}] as any;
- api.dshRpc=async(method:string,args:any)=>{qa.calls.push({action:method,body:args});if(method==='workspace.list')return {items:[{workspaceId:'preview',path:'C:/isolated-ui-preview/project',title:'界面验收',sessionIds:['preview-session'],updatedAt:''}],archivedSessionIds:[]};if(method==='session.list')return {items:[]};if(method==='server.context')return {projectId:'preview',projectName:'测试项目',sessionId:'preview-session',sessionName:'测试对话'};return {};};
- const record=(id:string,state:string)=>({plan:{id,prefix:id,name:'RNA-seq',context:{projectName:'测试项目',sessionName:'测试对话'}},state});
+ api.dshRpc=async(method:string,args:any)=>{qa.calls.push({action:method,body:args});if(method==='session.budget')return qa.budget;if(method==='session.budgetReset'){qa.budget={calls:0,tokens:0,reported:false,paused:false};return qa.budget;}if(method==='workspace.list')return {items:[{workspaceId:'preview',path:'C:/isolated-ui-preview/project',title:'界面验收',sessionIds:['preview-session'],updatedAt:''}],archivedSessionIds:[]};if(method==='session.list')return {items:[]};if(method==='server.context')return {projectId:'preview',projectName:'测试项目',sessionId:'preview-session',sessionName:'测试对话'};return {};};
+ const record=(id:string,state:string)=>({confirmed:true,digest:'test-digest',plan:{id,prefix:id,name:'RNA-seq',context:{projectName:'测试项目',sessionName:'测试对话'}},state});
  api.personalCompute=async(id:string,action:string,body:any={})=>{
   qa.calls.push({action,body});if(qa.delay)await new Promise(resolve=>setTimeout(resolve,qa.delay));
   if(action==='workflow_plans'){if(qa.failure)throw Error('模拟连接失败');return id==='preview-b'?[]:[record('已完成任务','complete'),record('失败任务','failed'),record('运行任务','running')];}
+  if(action==='workflow_resume')return {id:(body as {id:string}).id,state:'queued'};
   if(action==='workflow_result'){
    const files=[{path:'report.html',size:120},{path:'table.tsv',size:30},{path:'plot.png',size:68}];
    const result:any={id:body.id,state:body.id==='失败任务'?'failed':'complete',error:body.id==='失败任务'?'示例错误，保留已生成文件':undefined,steps:[{id:'rnaseq_qc',state:'complete'}],files:body.offset?[{path:'last.txt',size:10}]:files,fileCount:4,nextOffset:body.offset?null:3};
@@ -68,5 +71,19 @@ if(new URLSearchParams(location.search).has('model')){
   }
   return oldCompute(id,action,body);
  };
+}
+// Auth fixture is reachable only from this development preview entry.
+const authScenario=new URLSearchParams(location.search).get('auth');
+if(authScenario){
+ if(authScenario==='qa-new')settings.onboarded=false;
+ const qa={businessCalls:0,loginCalls:0,logoutCalls:0,status:{authenticated:['qa','qa-new','admin','empty','load-error'].includes(authScenario),hub:'http://127.0.0.1:8090',user:{id:'fixture-account-a',username:'alice',role:['admin','load-error'].includes(authScenario)?'admin':'user',authorizations:authScenario.startsWith('qa')?['qa']:[]},error:authScenario==='disabled'?'登录服务尚未开通，请联系管理员':''}};
+ (window as any).__authQa=qa;
+ for(const name of ['appInfo','getSettings','getCredential','dshStatus','dshStart','sshHosts','personalCompute']){const old=(window.biodsh as any)[name];(window.biodsh as any)[name]=(...args:any[])=>{qa.businessCalls++;return old?.(...args);};}
+ window.biodsh.hubStatus=async()=>{if(authScenario==='offline')throw Error('offline');return qa.status;};
+ window.biodsh.hubLogin=async(_hub,username,password)=>{qa.loginCalls++;if(authScenario==='disabled')throw Error('登录服务尚未开通，请联系管理员');if(password!=='test-password')throw Error('UNAUTHORIZED: 用户名或密码错误');qa.status={authenticated:true,hub:qa.status.hub,user:{id:'fixture-account-b',username,role:'user',authorizations:['qa']},error:''};};
+ window.biodsh.hubLogout=async()=>{qa.logoutCalls++;qa.status.authenticated=false;};
+ window.biodsh.onDebugTab=()=>{};
+ if(authScenario==='load-error'){let failures=0;const original=window.biodsh.appInfo;window.biodsh.appInfo=async()=>{if(failures++<2)throw Error('synthetic transient error');return original();};}
+ window.biodsh.setSettings=async patch=>Object.assign(settings,patch) as any;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

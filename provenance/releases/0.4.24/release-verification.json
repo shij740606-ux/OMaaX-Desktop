@@ -1,0 +1,68 @@
+{
+  "version": "0.4.24",
+  "installer": "OMaaX_0.4.24_x64-setup.exe",
+  "bytes": 111190306,
+  "sha256": "f7ada75fc0862c3523437bc3a49f66d1cbbf7e1424871effc7737c0de2d96218",
+  "executableSha256": "ba6f5737de6f21327ef71bd40bf7698255cfa1255ba217a116e142b9bf43eaa5",
+  "resourceChecks": [
+    {
+      "file": "dsh/node_modules/@biodsh/auth-guard/index.js",
+      "sha256": "ee3d58dd30d52d9da9b4066ffa89d7bed7fe4f9688f95fb0c6830976d7c9582d",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/workflow-guard/index.js",
+      "sha256": "9f75b5279df6895f3b3b2f60c0aaf42fdbdbf741ad8a301d715a3ae6d991c8c3",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/step-guard/index.js",
+      "sha256": "79771a02f1e39c767fc2fd591f335a056d3bc82aac02b51c6876b46fcc504690",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_environments.py",
+      "sha256": "dbd2166851d1631d0c1d3b72907ed31bda3cf8d18a958b8b76e61327345440e6",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_engine.py",
+      "sha256": "d0b67e749bf9c9d4ad2ecec83492a9afae2b8839e8516f33855f03aa78006008",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow-dependencies.json",
+      "sha256": "25013e1a61a0e303ede6002c7fa86a126e9a3d140dad8ffd3439d96cf4cc954e",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/personal_runner.py",
+      "sha256": "8168b684c6922322ffe9f85350258196de373dc4203c66554977e6935c148dad",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_setup.py",
+      "sha256": "0b8d92dafd44e3c36cffd4695fa945924e4382dfb75818ac811b1c2c0a6ddf10",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_delete.py",
+      "sha256": "b3a11cd7821f17e43a5f8af72f3b4dea758443480c23deff512eba28ef97ef8f",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_file_ops.py",
+      "sha256": "8040cc519ac6e7e7c1a1cbfd758282ee459fa30412e3f4da14962361881fbb04",
+      "matchesSource": true
+    }
+  ],
+  "packagedMcp": {
+    "toolCount": 25,
+    "modelEnvironmentTools": true,
+    "unauthenticatedCallsDenied": true,
+    "deleteConfirmationDenied": true,
+    "realServersContacted": false
+  },
+  "installedApplicationReplaced": false,
+  "realHubLoginVerified": false
+}

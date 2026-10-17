@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import AuthGate,{useAuth,hasUnit} from './AuthGate';
 import { SudoInstallProvider } from './components/SudoInstall';
 import { AppProvider, useApp } from './store';
 import Sidebar, { WindowControls } from './components/Sidebar';
@@ -27,6 +28,8 @@ function useTheme() {
 
 function Shell() {
   useTheme();
+  const {user}=useAuth();
+  const bioflow=hasUnit(user,"bioflow"), chat=hasUnit(user,"qa")||bioflow;
   const { ready, settings, tab } = useApp();
   if (!ready || !settings) return <div className="h-full w-full drag" />;
   return (
@@ -35,24 +38,24 @@ function Shell() {
       <Sidebar />
       <main className="app-main flex-1 min-w-0 h-full relative">
         <div className="absolute right-3 top-[11px] z-40 no-drag"><WindowControls compact /></div>
-        {tab === 'chat'  && <ChatView />}
-        {tab === 'data' && <DataView />}
-        <WorkflowPanel active={tab === 'workflows'}/>
-        {tab === 'db' && <DatabaseView />}
-        {tab === 'hosts' && <ServerManagementView />}
-        {tab === 'tasks' && <ServerManagementView initial="tasks" />}
-        {tab === 'servers' && <ServerManagementView initial="resources" />}
-        {tab === 'store' && <StoreView />}
-        {tab === 'env' && <EnvView />}
+        {tab === 'chat' && chat && <ChatView />}{tab === 'chat' && !chat && <p className="p-12">账号尚未获得对话或分析权限，请联系管理员授权。</p>}
+        {tab === 'data' && bioflow && <DataView />}
+        {bioflow && <WorkflowPanel active={tab === 'workflows'}/>}
+        {tab === 'db' && bioflow && <DatabaseView />}
+        {tab === 'hosts' && bioflow && <ServerManagementView />}
+        {tab === 'tasks' && bioflow && <ServerManagementView initial="tasks" />}
+        {tab === 'servers' && bioflow && <ServerManagementView initial="resources" />}
+        {tab === 'store' && bioflow && <StoreView />}
+        {tab === 'env' && bioflow && <EnvView />}
         {tab === 'settings' && <SettingsView />}
       </main>
-      {!settings.onboarded && <Onboarding />}
-      <AskPopover />
+      {!settings.onboarded && chat && <Onboarding />}
+      {chat && <AskPopover />}
     </div>
     </LangContext.Provider>
   );
 }
 
 export default function App() {
-  return <AppProvider><SudoInstallProvider><Shell /></SudoInstallProvider></AppProvider>;
+  return <AuthGate><AppProvider><SudoInstallProvider><Shell /></SudoInstallProvider></AppProvider></AuthGate>;
 }

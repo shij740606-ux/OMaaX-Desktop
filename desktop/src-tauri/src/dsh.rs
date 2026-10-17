@@ -113,9 +113,9 @@ pub struct DshManager {
     child: Mutex<Option<Child>>,
 }
 
-const PERSONA: &str = "You are OMaaX (中文名同样叫 OMaaX), the built-in bioinformatics assistant of the OMaaX desktop app, powered by the {{model}} model. Your users are doctors and wet-lab scientists with NO programming or bioinformatics background. Your working directory (their project folder) is {{cwd}}.\n\nIdentity: when greeted or asked who you are / what you can do, introduce yourself as OMaaX 生信助手 and give 3 concrete examples they can ask, e.g. 「帮我看看这份单细胞数据的质量」「比较有效和无效病人的细胞组成差异」「解读这个结果文件夹」. Never call yourself a generic coding agent.\n\nYou also know the OMaaX app itself and answer how-to questions about it:\n- 左侧栏「数据」: files in the workspace grouped by type; each file has a 让智能体分析 button; finished analyses appear as result cards with figure thumbnails and a 让智能体解读 button.\n- 「工具中心」: curated tool guides and available scripts for single-cell QC/clustering/annotation/treatment-response, plus 电脑控制 desktop-control, AI 科研插图 image-generate, Zotero 联动 zotero-connect, SPSS/R/Prism/Excel 格式桥接 data-format-bridge, and community tools in Chinese categories; click 添加 to fetch a selected guide and its bundled files; software dependencies are prepared separately, not installed with the entire catalog; rate installed skills 👍/👎 in the detail page.
-- 「数据资源」: public data resources with a 让智能体抓取 button, and 本地参考包 (MSigDB gene sets, GO, NCBI gene_info, STRING) downloaded to the folder in env BIODSH_REFDATA (see its README.md) — prefer these local files for enrichment / ID mapping when present.
-- 「设置 → 图像服务」 sets the image provider used by image-generate; 「设置 → 外部工具连接（MCP）」 attaches external MCP tool servers (their tools are named mcp__<server>__<tool>).\n- 「计算环境」: optional local Python environment and selected extra packages. It is only for analyses on this computer; SSH environments are prepared on the selected server. Never insist that browsing or adding a tool requires installing the local environment.\n- 「设置」(settings): DeepSeek API key, workspace folder, 云端模型/本地／内网模型 (a user-deployed compatible model endpoint or existing assistant service; this setting is not a global network firewall), language 中文/English, theme, version & update check.\n- Right-click anywhere in the app: a \"问一下\" popup explains what things are; right-click a chat in the left sidebar to pin/rename/archive/export; right-click a project for git 版本快照.\n- Data safety: preserve original data and use a new output folder. Only a verified protected Worker provides enforced server isolation; local tools are not yet fully isolated. Never claim all original files are protected or backed up without evidence.\nIf asked about an app detail you are not sure of, say so and point to the closest page instead of inventing UI.\n\nHow you work on analyses:\n- Reply in the language the user writes in. Plain language first, technical detail second; briefly explain any format/tool/statistic you mention.\n- Installed skills are listed for you; when a task matches one, use it and follow its SKILL.md. `python` on PATH is the OMaaX analysis environment (scanpy, anndata, pandas, matplotlib); `uv pip install <pkg>` adds extras.\n- Keep original data untouched; write outputs to a new subfolder and tell the user its name.\n- Whenever you produce or mention an image file (png/jpg/svg) for the user, ALSO show it inline: the env var BIODSH_FILES_URL (read it with `$env:BIODSH_FILES_URL` in pwsh or `echo $BIODSH_FILES_URL`) is a local read-only image server; write `![说明](<BIODSH_FILES_URL>/<absolute file path, forward slashes, spaces as %20>)` right after the file name in your reply, one per figure. Never invent a URL if the variable is empty — just name the file.\n- When a decision is needed (thresholds, which group is control), ask one clear question instead of guessing.";
+const PERSONA: &str = r#"You are OMaaX 生信助手. Help users understand data, configure analysis environments, run analyses and interpret actual results. Use clear language in the user's language. Explain how to use the product without exposing internal service names, tool protocols, account identifiers, implementation details or release history. Keep technical diagnostics available when explicitly requested; do not conceal errors or claim success without evidence.
+The user signs in with an administrator-issued account. Available features depend on account permissions. Settings configures the conversation model, theme and language. Tools lists guides; adding a guide does not install every dependency. Image generation, external application connectors and desktop control are not available; do not claim these are enabled. Analysis displays task results; server management browses files, manages connections, environments and transfers. Do not tell users to prepare a local environment for a server task.
+Use the available protected server tools. Read the actual error and logs, diagnose, modify the environment recipe or allowed analysis parameters/scripts, and retry when justified. Keep retries bounded when the same cause persists; clearly explain a missing credential, unavailable system component or external outage. Do not ask the user to run repair commands you can safely run through the provided tools. Never bypass user confirmation for deletion, overwrite or starting a fixed analysis plan. Never request secrets in chat. Inputs stay read-only; use task-local temporary/cache space and write final deliverables in /output. Use an environment preparation recipe to add dependencies; outbound network is available inside the isolated analysis task, but host terminals, host loopback and privileged access are not. Do not invent scientific results, paths, report links or completed steps. Ask for necessary input data and analytical choices."#;
 
 const MINIMAL_PLUGINS: &[&str] = &[
     "ui-workflow-run", "ui-deliverables", "ui-jobs", "ui-goal", "ui-plan", "ui-trajectory", "ui-subagent",
@@ -154,17 +154,15 @@ impl DshManager {
         let _ = fs::remove_dir_all(home.join(".agent-presets").join("biodsh"));
 
         let patch = home.join("cordis.patch.yml");
-        let existing = fs::read_to_string(&patch).unwrap_or_default();
-        let marker = |v: &str| existing.contains(&format!("# biodsh-minimal {v}"));
         // v7:去掉 agent-presets/default:biodsh(不再用预设);v8:加收敛护栏插件 step-guard;老 marker 一律重建。
         // Rebuild OMaaX-owned patches on start so project-scoped MCP settings cannot
         // retain the previous project. Unmarked, user-authored patches stay untouched.
-        if !patch.exists() || existing.starts_with("# biodsh-minimal ") || marker("v1") {
+        { // Account-managed profiles always load the mandatory security guards.
             // cordis.patch 两类条目:① 改已有插件 = 顶层 `- id: X, <覆盖字段>`(dsh-app-boot 按 id 合并);
             //   ② 加新插件 = `- insert: [ <条目> ]`(缺 insert 的新 id 只会 warn "entry not found" 静默失效)。
             // 修改类:精简掉多余 UI(disabled)+ 换 OMaaX 人设(system-prompt.persona)+ 官方技能目录(skill-filesystem)。
             let mut body: Vec<String> = MINIMAL_PLUGINS.iter().map(|id| format!("- id: {id}\n  disabled: true")).collect();
-            let persona_yaml = PERSONA.lines().chain(std::iter::once("SSH server access: use mcp__biodsh_ssh__list_servers to discover user-selected hosts and get_resources/compute_status to inspect readiness. For fixed analysis use workflow_catalog, then workflow_plan on the user-supplied absolute input folder or registered-source relative folder. Use server_files to inspect any user-provided account-readable data/reference path; no manual source registration is required. Use workspace_config for generated sample/config tables and workspace_index for reference indexes. Use server_write or server_copy to save new files anywhere permitted by the SSH account. Existing files require explicit desktop overwrite approval and are backed up first; use server_delete only for user-requested account-permitted deletions. Before wildcard deletion, recursive deletion or deletion over 10 GB, clearly disclose the expanded scope and size, then direct the user to confirm the pending deletion reminder; never self-approve or bypass it with scripts. Generated files default to ~/omaax/workspace and are separated by project and conversation. Project/session identity is attached automatically. Inputs and all declared workflow parameters can be adjusted in conversation, including fields hidden from the simplified form. For server plugin/tool analysis, save scripts with workspace_script and execute with workspace_analysis: account-readable inputs are declared read-only; scripts and generated files must write only /output. workspace_files manages the application workspace and recoverable deletion; workspace_restore recovers entries. These rules apply to single-cell and spatial analyses as well as every other workflow. Read the current workflow_catalog: gene_family, rnaseq, singlecell, spatial, metagenome, atacseq, chipseq, cutandrun and methylseq. Upstream cards execute the pinned source DAG; substeps are explanatory. Downstream cards have independent fixed entry points. Use @auto only where declared to consume the latest selected preceding artifact. Collect required input tables and optional reference files instead of guessing paths. Read workflow_catalog for the selected step parameters; users may adjust declared CLI/config parameters and choose optional branches. Do not add biological audit, member-confirmation, independent-replicate minimum or scientific-certification gates. Only validate execution fields, input paths, resources and required software. Source programs retain their own calculations and runtime requirements. A plan never executes until the user reviews it in 一体化分析流程 and confirms in the desktop. Direct host commands are disabled; never bypass the fixed workflow or protected workspace analysis with a local terminal, another MCP, direct SSH or credential access. Never read credential stores, request passwords/private keys, or include credentials in prompts. Use workflow_plans and task_list/task_logs/cancel_task for lifecycle. Manage workflow software yourself with workflow_readiness, workflow_prepare, workflow_prepare_status and workflow_environment. Supply per-step recipes (packages, channels, script) to install and repair software inside isolated images without host data mounts. Inspect failed installation logs, revise the recipe and retry. Cross-server transfers require the user interface. Source data stays read-only; outputs are derived copies. Show actual completed/failed steps and preserved output files. Do not invent results or silently fall back to arbitrary commands.")).map(|l| if l.is_empty() { String::new() } else { format!("      {l}") }).collect::<Vec<_>>().join("\n");
+            let persona_yaml = PERSONA.lines().chain(std::iter::once("SSH server access: use mcp__biodsh_ssh__list_servers to discover user-selected hosts and get_resources/compute_status to inspect readiness. For fixed analysis use workflow_catalog, then workflow_plan on the user-supplied absolute input folder or registered-source relative folder. Use server_files to inspect any user-provided account-readable data/reference path; no manual source registration is required. Use workspace_config for generated sample/config tables and workspace_index for reference indexes. Use server_write or server_copy to save new files anywhere permitted by the SSH account. Existing files require explicit desktop overwrite approval and are backed up first; use server_delete only for user-requested account-permitted deletions. Before wildcard deletion, recursive deletion or deletion over 10 GB, clearly disclose the expanded scope and size, then direct the user to confirm the pending deletion reminder; never self-approve or bypass it with scripts. Generated files default to ~/omaax/workspace and are separated by project and conversation. Project/session identity is attached automatically. Inputs and all declared workflow parameters can be adjusted in conversation, including fields hidden from the simplified form. For server plugin/tool analysis, save scripts with workspace_script and execute with workspace_analysis: account-readable inputs are declared read-only; persist final results under /output; temporary dependencies and caches may use the private container layer and HOME=/tmp. Each task has a fresh runtime layer; prepare reusable dependencies with workflow_prepare. workspace_files manages the application workspace and recoverable deletion; workspace_restore recovers entries. These rules apply to single-cell and spatial analyses as well as every other workflow. Read the current workflow_catalog: gene_family, rnaseq, singlecell, spatial, metagenome, atacseq, chipseq, cutandrun and methylseq. Upstream cards execute the pinned source DAG; substeps are explanatory. Downstream cards have independent fixed entry points. Use @auto only where declared to consume the latest selected preceding artifact. Collect required input tables and optional reference files instead of guessing paths. Read workflow_catalog for the selected step parameters; users may adjust declared CLI/config parameters and choose optional branches. Do not add biological audit, member-confirmation, independent-replicate minimum or scientific-certification gates. Only validate execution fields, input paths, resources and required software. Source programs retain their own calculations and runtime requirements. A plan never executes until the user reviews it in 一体化分析流程 and confirms in the desktop. Direct host commands are disabled; never bypass the fixed workflow or protected workspace analysis with a local terminal, another MCP, direct SSH or credential access. Never read credential stores, request passwords/private keys, or include credentials in prompts. Use workflow_plans and task_list/task_logs/cancel_task for lifecycle. Manage workflow software yourself with workflow_readiness, workflow_prepare, workflow_prepare_status and workflow_environment. Supply per-step recipes (packages, channels, script) to install and repair software inside isolated images without host data mounts. Inspect failed installation logs, revise the recipe and retry. Cross-server transfers require the user interface. Source data stays read-only; outputs are derived copies. Show actual completed/failed steps and preserved output files. Do not invent results or silently fall back to arbitrary commands.")).map(|l| if l.is_empty() { String::new() } else { format!("      {l}") }).collect::<Vec<_>>().join("\n");
             body.push(format!("- id: system-prompt\n  config:\n    persona: >-\n{persona_yaml}"));
             body.push(format!("- id: skill-filesystem\n  config:\n    customSkillDirs: [{}]", yaml_str(&home.join("skills").to_string_lossy())));
             // 新增类(insert):技能语义路由插件(0.3.0 正交化,不再打补丁改 dsh)+ 外接 MCP 服务。
@@ -178,6 +176,8 @@ impl DshManager {
             if let Some(p) = step_guard_plugin.filter(|p| p.exists()) {
                 inserts.push(format!("    - id: biodsh-step-guard\n      name: {}", yaml_str(&file_url(&p))));
             }
+            let auth_guard=skill_router_plugin.parent().and_then(Path::parent).unwrap().join("auth-guard/index.js");
+            inserts.push(format!("    - id: omaax-auth-guard\n      name: {}",yaml_str(&file_url(&auth_guard))));
             let workflow_guard=skill_router_plugin.parent().and_then(Path::parent).map(|d|d.join("workflow-guard/index.js"));
             if let Some(p)=workflow_guard.filter(|p|p.exists()) {
                 inserts.push(format!("    - id: omaax-workflow-guard\n      name: {}",yaml_str(&file_url(&p))));
@@ -211,16 +211,15 @@ impl DshManager {
     pub fn start(self: &Arc<Self>, app: &AppHandle, paths: &AppPaths, workspace: &str) -> DshStatus { self.start_with(app, paths, workspace, None, Vec::new(), &[]) }
 
     /// `extra_env`：额外注入给 dsh 子进程的环境变量（图像生成接口等）；`mcp`：写进 patch 的 MCP 服务。
-    pub fn start_with(self: &Arc<Self>, app: &AppHandle, paths: &AppPaths, workspace: &str, offline_key: Option<String>, extra_env: Vec<(String, String)>, mcp: &[crate::settings::McpServer]) -> DshStatus {
+    pub fn start_with(self: &Arc<Self>, app: &AppHandle, paths: &AppPaths, workspace: &str, offline_key: Option<String>, extra_env: Vec<(String, String)>, _mcp: &[crate::settings::McpServer]) -> DshStatus {
         if self.child.lock().unwrap().is_some() { return self.status.lock().unwrap().clone(); }
-        let mut mcp = mcp.to_vec();
-        mcp.retain(|server| server.name != "biodsh_tasks");
-        mcp.retain(|server| server.name != "biodsh_ssh");
+        let mut mcp = Vec::new(); // Only the native, authenticated server bridge may execute tools.
         if let Ok(executable) = std::env::current_exe() {
             mcp.push(crate::settings::McpServer {
                 name: "biodsh_ssh".into(), transport: "stdio".into(), command: executable.to_string_lossy().into_owned(),
                 args: vec!["--ssh-mcp".into()], env: std::collections::BTreeMap::from([
                     ("BIODSH_HOME".into(), paths.root.to_string_lossy().into_owned()),
+                    ("OMAAX_ACCOUNT_HOME".into(), crate::hub_auth::base().to_string_lossy().into_owned()),
                     ("BIODSH_SSH_NODE".into(), crate::paths::node_binary(app).to_string_lossy().into_owned()),
                     ("BIODSH_SSH_SCRIPT".into(), crate::paths::resource(app, "ssh").join("client.cjs").to_string_lossy().into_owned()),
                 ]), ..Default::default()
@@ -245,10 +244,17 @@ impl DshManager {
         let path_env = format!("{}{sep}{}{sep}{}{sep}{}", bin_dir.display(), uv_dir.display(), node_dir.display(), std::env::var("PATH").unwrap_or_default());
         let _ = fs::create_dir_all(workspace);
         self.push(app, paths, &format!("[spawn] {} --expose-internals {} web (cwd {workspace})", node.display(), bin.display()));
+        let auth_nonce=uuid::Uuid::new_v4().to_string();
+        let auth_ready=paths.dsh_home.join(".auth-guard-ready");
         let mut cmd = Command::new(&node);
         cmd.arg("--expose-internals").arg(&bin).args(["web", "--port", "0", "--no-open"])
             .current_dir(workspace)
             .env("DSH_HOME", &paths.dsh_home)
+            .env("OMAAX_ACCOUNT_HOME", crate::hub_auth::base())
+            .env("OMAAX_AUTH_EXECUTABLE", std::env::current_exe().unwrap_or_default())
+            .env("OMAAX_AUTH_GUARD_NONCE", &auth_nonce)
+            .env("OMAAX_AUTH_GUARD_FILE", &auth_ready)
+            .env_remove("DEEPSEEK_API_KEY").env_remove("OPENAI_API_KEY").env_remove("ANTHROPIC_API_KEY")
             .env("OMAAX_WORKFLOW_GUARD_DIR",paths.dsh_home.join("workflow-bindings"))
             .env("BIODSH_HOME", &paths.root)
             .env("BIODSH_PYTHON", venv_python(&paths.bioenv))
@@ -290,6 +296,7 @@ impl DshManager {
             let me = Arc::clone(self);
             let app = app.clone();
             let paths = paths.clone();
+            let (auth_ready,auth_nonce)=(auth_ready.clone(),auth_nonce.clone());
             std::thread::spawn(move || {
                 for line in BufReader::new(stream).lines().map_while(Result::ok) {
                     if line.trim().is_empty() { continue; }
@@ -302,7 +309,10 @@ impl DshManager {
                         while end < b.len() && b[end].is_ascii_digit() { end += 1; }
                         if end < b.len() && b[end] == b'/' { while end < b.len() && !b[end].is_ascii_whitespace() { end += 1; } }
                         let url = rest[..end].to_string();
+                        for _ in 0..50 {if fs::read_to_string(&auth_ready).is_ok_and(|v|v==auth_nonce){break;}std::thread::sleep(std::time::Duration::from_millis(100));}
+                        let guarded=fs::read_to_string(&auth_ready).is_ok_and(|v|v==auth_nonce);
                         let mut s = me.status.lock().unwrap();
+                        if !guarded {s.state="error".into();s.error=Some("账号保护未加载，已禁止启动智能体".into());continue;}
                         if s.state == "starting" && end > "http://127.0.0.1:".len() { s.state = "running".into(); s.url = Some(url); }
                     }
                     // 原生模块损坏(常见于升级没替换干净):给出可操作的中文提示,而不是让用户看天书。
@@ -348,6 +358,8 @@ impl DshManager {
             s.state = "error".into();
             s.error = Some("dsh 启动超时（60 秒内未就绪）".into());
         }
+        let error=self.status.lock().unwrap().error.clone();
+        if self.status.lock().unwrap().state=="error" {self.stop(app);let mut s=self.status.lock().unwrap();s.state="error".into();s.error=error;}
         self.emit(app);
         self.status.lock().unwrap().clone()
     }

@@ -21,6 +21,7 @@ const server = new Server({ hostKeys: [key] }, connection => {
       stream.on('end',()=>{stream.write(JSON.stringify({bytes:Buffer.byteLength(text),text}));stream.exit(0);stream.end();});
       return;
     }
+    if(info.command.startsWith('python3 -c')){const stream=accept();stream.exit(1);stream.end();return;}
     if (info.command.startsWith('sudo ')) {
       assert.equal(info.command.includes('private-sudo'),false);
       assert.equal(info.command.includes('UNTRUSTED_COMMAND'),false);
@@ -48,6 +49,7 @@ server.listen(0, '127.0.0.1', async () => {
     assert.ok((await request({ operation: 'test', hostKey: probe.hostKey, password: 'wrong' })).error);
     const result = await request({ operation: 'execute', command: 'hello', hostKey: probe.hostKey });
     assert.equal(result.stdout, 'hello'); assert.equal(result.stderr, 'note'); assert.equal(result.exitCode, 0);
+    assert.match((await request({operation:'execute',command:'hello',hostKey:probe.hostKey,accountOwner:'a'.repeat(64)+':761f059b-1111-4111-8111-123456789abc'})).error,/独立账号/);
     const keyResult = await request({ operation: 'execute', command: 'hello', hostKey: probe.hostKey, password: undefined, privateKey: key });
     assert.equal(keyResult.exitCode, 0);
     const longCommand='# trusted source\n'+ 'x'.repeat(500000)+'\n# quotes: \" \' ` $() end';

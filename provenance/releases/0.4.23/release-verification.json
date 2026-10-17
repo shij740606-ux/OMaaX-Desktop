@@ -1,0 +1,67 @@
+{
+  "version": "0.4.23",
+  "installer": "OMaaX_0.4.23_x64-setup.exe",
+  "bytes": 111180894,
+  "sha256": "e36b625e112a2ebf2a6449e55827a3e01325864f48e47bd3e2799753dbdc2a9b",
+  "executableSha256": "2be59ac7a4145556c9c50b652002c265be65d01c88008cb80b4e17894a39f822",
+  "resourceChecks": [
+    {
+      "file": "dsh/node_modules/@biodsh/auth-guard/index.js",
+      "sha256": "ee3d58dd30d52d9da9b4066ffa89d7bed7fe4f9688f95fb0c6830976d7c9582d",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/workflow-guard/index.js",
+      "sha256": "4fd2743ce4a858b19da3bd37065aa8e984ad241ba28367e6f3216df610626c2f",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/step-guard/index.js",
+      "sha256": "79771a02f1e39c767fc2fd591f335a056d3bc82aac02b51c6876b46fcc504690",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_environments.py",
+      "sha256": "dbd2166851d1631d0c1d3b72907ed31bda3cf8d18a958b8b76e61327345440e6",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_engine.py",
+      "sha256": "01b4d088128f47dd74c3d0f41b3bbcd12f8f9a9ebc3c19174f6be3cbb6ac693e",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/personal_runner.py",
+      "sha256": "3fb8fe7b17b34b2af951c8aeb288417d94a328cc1175b536b0928c9396c278e1",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_delete.py",
+      "sha256": "b3a11cd7821f17e43a5f8af72f3b4dea758443480c23deff512eba28ef97ef8f",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_file_ops.py",
+      "sha256": "8040cc519ac6e7e7c1a1cbfd758282ee459fa30412e3f4da14962361881fbb04",
+      "matchesSource": true
+    }
+  ],
+  "packagedMcp": {
+    "toolCount": 25,
+    "modelEnvironmentTools": true,
+    "unauthenticatedCallsDenied": true,
+    "deleteConfirmationDenied": true,
+    "realServersContacted": false
+  },
+  "nativeTests": {
+    "passed": 33,
+    "ignoredLiveSsh": 1
+  },
+  "browserChecks": {
+    "login": 9,
+    "analysis": 11,
+    "pageErrors": 0
+  },
+  "installedApplicationReplaced": false,
+  "realHubLoginVerified": false
+}

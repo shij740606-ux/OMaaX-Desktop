@@ -236,10 +236,12 @@ def update(db, job, state, detail=''):
 def container_args(spec, cfg):
     out = jobdir(spec['id']) / 'output'
     args = ['podman', 'run', '--name', 'biodsh-'+spec['id'], '--label', 'biodsh.personal='+spec['id'],
-            '--pull=never', '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
+            '--pull=never', '--network=slirp4netns:allow_host_loopback=false', '--cap-drop=ALL', '--security-opt=no-new-privileges',
             '--user=0:0', '--pids-limit='+str(max(512,min(4096,256+spec['cpu']*32))), '--cpus='+str(spec['cpu']), '--memory='+str(spec['memoryMb'])+'m',
-            '--memory-swap='+str(spec['memoryMb'])+'m', '--tmpfs=/tmp:rw,nosuid,nodev,size=256m',
+            '--memory-swap='+str(spec['memoryMb'])+'m', '--env=HOME=/tmp', '--env=XDG_CACHE_HOME=/tmp/.cache', '--env=TMPDIR=/tmp',
             '--volume', str(out)+':/output:rw', '--workdir=/output']
+    # The private container layer permits package caches and large disk-backed temporary files.
+    # Only this job's output is host-writable; original inputs stay read-only.
     for alias, name in spec.get('mounts', {name:name for name in spec.get('sources', [])}).items():
         path = str(source_path(cfg['sources'][name], imported=name.startswith('import_')))
         if ':' in path or '\n' in path:
@@ -284,6 +286,89 @@ def execute_container(job,spec,cfg,directory,started,log):
     return process.returncode,stopping
 
 
+def admission(db, spec):
+    running=[json.loads(row['spec']) for row in db.execute("SELECT spec FROM jobs WHERE state='running'")]
+    total_memory=int(next(line.split()[1] for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemTotal:')))//1024
+    return (len(running)<4 and sum(s['cpu'] for s in running)+spec['cpu'] <= (os.cpu_count() or 1)
+            and sum(s['memoryMb'] for s in running)+spec['memoryMb'] <= total_memory
+            and memory() >= spec['memoryMb']*1048576)
+
+
+def tree_manifest(directory):
+    rows=[]
+    for file in sorted(directory.rglob('*')):
+        relative=file.relative_to(directory).as_posix()
+        if file.is_symlink():
+            link=os.readlink(file)
+            resolved=(directory/link.removeprefix('/output/')).resolve() if link.startswith('/output/') else (file.parent/link).resolve()
+            if directory.resolve() not in resolved.parents:raise ValueError('续跑快照不能包含外部链接')
+            rows.append({'path':relative,'link':link})
+        elif file.is_file():
+            digest=hashlib.sha256()
+            with file.open('rb') as handle:
+                while chunk:=handle.read(1048576):digest.update(chunk)
+            rows.append({'path':relative,'size':file.stat().st_size,'sha256':digest.hexdigest()})
+        elif not file.is_dir():raise ValueError('续跑快照不能包含特殊文件')
+    return rows
+
+
+def checkpoint(directory,spec,completed):
+    # Snapshot outside the writable task mount. Never trust a manifest written by a model.
+    out=directory/'output';manifest=tree_manifest(out)
+    if sum(row.get('size',0) for row in manifest)>disk_available():raise ValueError('空间不足，无法保存续跑快照；已有结果保留')
+    target=directory/('checkpoint-'+str(uuid.uuid4()));target.mkdir(mode=0o700)
+    shutil.copytree(out,target/'output',symlinks=True)
+    # Absolute internal symlinks resolve against /output in the container, not the snapshot.
+    data={'spec':spec,'completed':list(completed),'files':manifest,'directory':target.name}
+    temp=directory/'checkpoint.tmp';temp.write_text(json.dumps(data),encoding='utf-8')
+    os.replace(temp,directory/'checkpoint.json')
+
+
+def read_resume(directory,spec):
+    marker=directory/'resume.json'
+    if not marker.exists():return []
+    data=json.loads(marker.read_text())
+    steps=[s['step'] for s in spec.get('pipeline',[])]
+    completed=data.get('completed',[])
+    if data.get('spec')!=spec or not completed or completed!=steps[:len(completed)]:raise ValueError('续跑记录与确认计划不一致')
+    return list(completed)
+
+
+def resume_job(job):
+    import fcntl
+    job=identifier(job);directory=jobdir(job);db=database()
+    with (directory/'supervisor.lock').open('a') as lock:
+        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise ValueError('任务仍在运行，请等待停止后续跑')
+        row=db.execute('SELECT * FROM jobs WHERE id=?',(job,)).fetchone()
+        if not row or row['state'] not in ('failed','cancelled','interrupted','invalid_result'):raise ValueError('只有已停止的失败或中断任务可以续跑')
+        spec=json.loads(row['spec'])
+        if not spec.get('pipeline'):raise ValueError('此任务没有可续跑的固定步骤')
+        validate_job(spec,config(db))
+        if json.loads(command(['podman','ps','--filter','name=^biodsh-'+job+'$','--format','json'])):raise ValueError('任务容器仍在运行，不能恢复输出')
+        if not (directory/'checkpoint.json').is_file():raise ValueError('尚无已完成步骤的续跑快照，请保留日志并重新准备任务')
+        saved=json.loads((directory/'checkpoint.json').read_text())
+        if saved.get('spec')!=spec or not re.fullmatch(r'checkpoint-[a-f0-9-]{36}',saved.get('directory','')):raise ValueError('续跑快照与原计划不一致')
+        completed=saved.get('completed',[]);steps=[s['step'] for s in spec['pipeline']]
+        if not completed or completed!=steps[:len(completed)]:raise ValueError('已完成步骤记录无效')
+        snapshot=directory/saved['directory']/'output'
+        if snapshot.is_symlink() or snapshot.parent.is_symlink() or tree_manifest(snapshot)!=saved['files']:raise ValueError('续跑快照校验失败，原结果保持不变')
+        if sum(f.get('size',0) for f in saved['files'])>disk_available():raise ValueError('空间不足，原结果保持不变')
+        staged=directory/('restore-'+str(uuid.uuid4()));shutil.copytree(snapshot,staged,symlinks=True)
+        previous=directory/('attempt-'+str(uuid.uuid4()))
+        had_output=(directory/'output').exists()
+        if had_output:os.rename(directory/'output',previous)
+        try:os.rename(staged,directory/'output')
+        except BaseException:
+            if had_output:os.rename(previous,directory/'output')
+            raise
+        marker=directory/'resume.tmp';marker.write_text(json.dumps(saved),encoding='utf-8');os.replace(marker,directory/'resume.json')
+        if (directory/'cancel').exists():os.rename(directory/'cancel',directory/('cancel-'+str(uuid.uuid4())))
+        update(db,job,'queued','从已校验步骤继续；此前输出保留在 attempt 目录')
+    launch(job)
+    return {'id':job,'state':'queued','completed':completed,'preservedAttempt':previous.name if had_output else None}
+
+
 def run_job(job):
     import fcntl
     db = database()
@@ -307,11 +392,11 @@ def run_job(job):
                 while True:
                     if (directory/'cancel').exists():
                         update(db, job, 'cancelled'); return
-                    if time.time()-row['created'] > spec['timeoutSeconds']:
-                        update(db, job, 'failed', 'Queue timeout'); return
                     try:
                         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        if memory() >= spec['memoryMb']*1048576 and os.getloadavg()[0]+spec['cpu'] <= (os.cpu_count() or 1)+0.5:
+                        if admission(db, spec):
+                            update(db, job, 'running')
+                            fcntl.flock(lock, fcntl.LOCK_UN)
                             break
                         fcntl.flock(lock, fcntl.LOCK_UN)
                     except BlockingIOError:
@@ -320,11 +405,12 @@ def run_job(job):
                 protection()
                 cfg = config(db)
                 validate_job(spec, cfg)
-                update(db, job, 'running')
                 started=time.time();state='succeeded';detail=''
                 pipeline=spec.get('pipeline') or [None]
+                resumed=read_resume(directory,spec)
                 with (directory/'log.txt').open('ab') as log:
                     for stage in pipeline:
+                        if stage and stage['step'] in resumed:continue
                         if (directory/'cancel').exists():state='cancelled';break
                         actual=dict(spec)
                         if stage:
@@ -333,6 +419,9 @@ def run_job(job):
                         code,stopping=execute_container(job,actual,cfg,directory,started,log)
                         if (directory/'cancel').exists():state='cancelled';break
                         if code!=0 or stopping:state='failed';detail='exit='+str(code);break
+                        if stage:
+                            resumed.append(stage['step'])
+                            checkpoint(directory,spec,resumed)
                 if 'workflow' in spec and state!='cancelled':
                     import workflow_engine
                     state,detail=workflow_engine.finish(types.SimpleNamespace(**globals()),job,state=='succeeded')
@@ -458,7 +547,7 @@ def dispatch(req):
         db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?)', (job, json.dumps(spec), 'queued', now, now, ''))
         db.execute('INSERT INTO job_locations VALUES(?,?)',(job,directory.relative_to(workspace_root()).as_posix()))
         (directory/'task.json').write_text(json.dumps({'id':job,'context':spec.get('context'),'title':spec.get('title','分析任务'),'resources':{key:spec[key] for key in ('cpu','memoryMb','timeoutSeconds')}}),encoding='utf-8')
-        audit(db, 'job.queued', {'id': job, 'uid': os.getuid(), 'protection':'rootless-readonly'})
+        audit(db, 'job.queued', {'id': job, 'uid': os.getuid(), 'protection':'rootless-readonly-inputs'})
         launch(job); return {'id': job}
     if action == 'jobs':
         rows = [dict(r) for r in db.execute('SELECT * FROM jobs ORDER BY created DESC LIMIT 200')]

@@ -52,6 +52,8 @@ pub fn list(workspace: &str) -> Vec<FileEntry> {
             let name = e.file_name().to_string_lossy().to_string();
             if name.starts_with('.') || name == "__pycache__" || name == "node_modules" { continue; }
             let path = e.path();
+            let Ok(canonical)=path.canonicalize() else {continue};
+            if !root.canonicalize().is_ok_and(|r|canonical.starts_with(r)){continue;}
             let Ok(meta) = e.metadata() else { continue };
             if meta.is_dir() {
                 if depth < 2 { stack.push((path, depth + 1)); }

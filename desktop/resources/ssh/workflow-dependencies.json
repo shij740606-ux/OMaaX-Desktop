@@ -94,9 +94,6 @@
     ]
   },
   "ncbi_fetch_sequences": {
-    "services": [
-      "NCBI（当前隔离环境禁止联网）"
-    ],
     "modules": [
       "Bio"
     ]
@@ -193,9 +190,6 @@
     ]
   },
   "pep": {
-    "services": [
-      "ExPASy / DeepTMHMM / WoLF PSORT（当前隔离环境禁止联网）"
-    ],
     "modules": [
       "openpyxl"
     ]

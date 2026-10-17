@@ -1,0 +1,242 @@
+{
+  "version": "0.4.24",
+  "date": "2026-10-17",
+  "status": "tested-with-explicit-gaps",
+  "pythonWindows": {
+    "total": 156,
+    "passed": 142,
+    "skipped": 14
+  },
+  "pythonLinux": {
+    "tests": 156,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": true
+  },
+  "node": {
+    "passed": 99,
+    "failed": 0
+  },
+  "native": {
+    "passed": 34,
+    "ignored": 1
+  },
+  "browser": {
+    "authGroups": 13,
+    "analysisGroups": 11,
+    "serverGroups": 10,
+    "pageErrors": 0
+  },
+  "soak": {
+    "passed": true,
+    "durationSeconds": 93.9,
+    "navigationCount": 1561,
+    "faultRecoveries": 44,
+    "baselineIntervals": 2,
+    "finalIntervals": 2,
+    "latencyP95Ms": 141.0,
+    "domBefore": {
+      "documents": 1,
+      "nodes": 407,
+      "jsEventListeners": 194
+    },
+    "domAfter": {
+      "documents": 1,
+      "nodes": 407,
+      "jsEventListeners": 194
+    }
+  },
+  "liveServerChecks": [
+    {
+      "name": "独立工作目录",
+      "passed": true
+    },
+    {
+      "name": "环境准备幂等",
+      "passed": true
+    },
+    {
+      "name": "标准隔离环境自检",
+      "passed": true
+    },
+    {
+      "name": "环境清单与只读Conda",
+      "passed": true
+    },
+    {
+      "name": "项目对话隔离",
+      "passed": true
+    },
+    {
+      "name": "新建重命名移动搜索",
+      "passed": true
+    },
+    {
+      "name": "递归删除先提醒",
+      "passed": true
+    },
+    {
+      "name": "目录移入回收站并恢复",
+      "passed": true
+    },
+    {
+      "name": "覆盖先确认",
+      "passed": true
+    },
+    {
+      "name": "覆盖备份可核对",
+      "passed": true
+    },
+    {
+      "name": "单文件回收恢复",
+      "passed": true
+    },
+    {
+      "name": "通配符提醒不先删除",
+      "passed": true
+    },
+    {
+      "name": "任意有权限路径只读预览",
+      "passed": true
+    },
+    {
+      "name": "真实小文件任务完成",
+      "passed": true
+    },
+    {
+      "name": "任务日志",
+      "passed": true
+    },
+    {
+      "name": "结果导出清单",
+      "passed": true
+    },
+    {
+      "name": "真实任务联网安装依赖与缓存临时空间",
+      "passed": true
+    },
+    {
+      "name": "联网放开后原始输入仍不可写",
+      "passed": true
+    },
+    {
+      "name": "失败任务及日志",
+      "passed": true
+    },
+    {
+      "name": "运行任务取消",
+      "passed": true
+    },
+    {
+      "name": "执行时间上限",
+      "passed": true
+    },
+    {
+      "name": "提交幂等不重复",
+      "passed": true
+    },
+    {
+      "name": "非法请求拒绝 cpu",
+      "passed": true
+    },
+    {
+      "name": "非法请求拒绝 image",
+      "passed": true
+    },
+    {
+      "name": "非法请求拒绝 id",
+      "passed": true
+    },
+    {
+      "name": "非法请求无新增任务",
+      "passed": true
+    },
+    {
+      "name": "四并发100次后端读取",
+      "passed": true
+    },
+    {
+      "name": "测试原始文件未变化",
+      "passed": true
+    },
+    {
+      "name": "审计记录",
+      "passed": true
+    },
+    {
+      "name": "原有生产配置不变",
+      "passed": true
+    }
+  ],
+  "crossServerChecks": [
+    {
+      "name": "真实跨服务器续传8192字节前缀",
+      "passed": true
+    },
+    {
+      "name": "完成后同一传输再次核对不覆盖",
+      "passed": true
+    },
+    {
+      "name": "已有不同内容拒绝覆盖",
+      "passed": true,
+      "error": "Partial destination differs from source; refusing to overwrite"
+    },
+    {
+      "name": "真实服务器到本机下载及校验",
+      "passed": true
+    },
+    {
+      "name": "来源文件内容保持不变",
+      "passed": true
+    },
+    {
+      "name": "冲突目标内容保持不变",
+      "passed": true
+    }
+  ],
+  "realModel": {
+    "passed": true,
+    "model": "deepseek-chat",
+    "tasks": [
+      {
+        "state": "failed",
+        "output": null
+      },
+      {
+        "state": "failed",
+        "output": null
+      },
+      {
+        "state": "succeeded",
+        "output": {
+          "total": 10.0,
+          "helper_used": true,
+          "cache_writable": true,
+          "temp_bytes": 314572800
+        }
+      }
+    ],
+    "totalTokens": 3984,
+    "inputUnchanged": true,
+    "productionLoginTested": false
+  },
+  "knownGaps": [
+    "176 SSH handshake timed out",
+    "Production login awaits administrator activation",
+    "Not full biological datasets or all nine pipelines",
+    "Image generation/external app connectors remain unavailable",
+    "ARM execution not validated beyond connection and transfer",
+    "Bounded soak is not a long-term memory leak proof"
+  ],
+  "runtimeSourceHashes": {
+    "personal_runner.py": "8168b684c6922322ffe9f85350258196de373dc4203c66554977e6935c148dad",
+    "workflow_environments.py": "dbd2166851d1631d0c1d3b72907ed31bda3cf8d18a958b8b76e61327345440e6",
+    "workflow_engine.py": "d0b67e749bf9c9d4ad2ecec83492a9afae2b8839e8516f33855f03aa78006008",
+    "workflow-dependencies.json": "25013e1a61a0e303ede6002c7fa86a126e9a3d140dad8ffd3439d96cf4cc954e",
+    "server_delete.py": "b3a11cd7821f17e43a5f8af72f3b4dea758443480c23deff512eba28ef97ef8f",
+    "server_file_ops.py": "8040cc519ac6e7e7c1a1cbfd758282ee459fa30412e3f4da14962361881fbb04",
+    "server_setup.py": "0b8d92dafd44e3c36cffd4695fa945924e4382dfb75818ac811b1c2c0a6ddf10"
+  }
+}

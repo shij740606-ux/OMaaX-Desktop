@@ -16,7 +16,7 @@ export function workflowConnections<T extends WorkflowStep & {autoInputs?:Record
 }
 
 export function stepReadiness(step:WorkflowStep,checks:Record<string,StepReadiness>):StepReadiness {
- return step.entryPresent?(checks[step.id]||{state:'unchecked'}):{state:'missing_source',detail:'原始脚本包未提供此步骤的入口，不能运行。'};
+ return step.entryPresent?(checks[step.id]||{state:'unchecked'}):{state:'missing_source',detail:'此步骤暂不可用，请选择其他分析步骤。'};
 }
 
-export const readinessLabels:Record<StepReadiness['state'],string>={ready:'软件已检查',missing_environment:'缺少环境',unchecked:'环境未检查',missing_source:'源码缺失'};
+export const readinessLabels:Record<StepReadiness['state'],string>={ready:'软件已检查',missing_environment:'缺少环境',unchecked:'环境未检查',missing_source:'暂不可用'};

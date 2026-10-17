@@ -25,6 +25,7 @@ function harness({ state = {}, api = {}, lang = 'zh' } = {}) {
     const require = name => {
       if (['react', 'react/jsx-runtime'].includes(name)) return realRequire(name);
       if (name === 'lucide-react') return new Proxy({}, { get: (_, k) => k === '__esModule' ? false : () => null });
+      if (name.endsWith('/AuthGate')) return {useAuth:()=>({user:{role:'admin',authorizations:[]}}),hasUnit:()=>true};
       if (name.endsWith('/store')) return { useApp: () => app };
       if (name.endsWith('/i18n')) return { useT: () => ({ t: (value, vars) => Object.entries(vars || {}).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), value), lang }) };
       if (name.endsWith('/icons')) return new Proxy({}, { get: () => () => null });
@@ -70,32 +71,12 @@ test('English help does not expose untranslated feature tips', async () => {
   }
 });
 
-test('image form saves only image connection fields and preserves the selected provider', async () => {
-  const writes = []; let restarts = 0;
-  const View = harness({ state: { updateSettings: async value => writes.push(value), restartDsh: () => restarts++ } }).load('views/SettingsView.tsx').default;
-  let view; await act(async () => { view = create(React.createElement(View)); await settle(); });
-  assert.match(text(view.root), /设置.*图像服务.*外部工具连接（MCP）/);
-  const image = view.root.findAllByType('section').find(n => n.findAllByType('h2').some(h => text(h) === '图像服务'));
-  await act(async () => image.findAllByType('button').find(b => text(b) === '智谱 CogView').props.onClick());
-  const fields = image.findAllByType('input');
-  await act(async () => fields.find(i => i.props.type === 'password').props.onChange({ target: { value: 'test-image-key' } }));
-  await act(async () => { await image.findAllByType('button').find(b => text(b) === '保存图像连接').props.onClick(); });
-  assert.equal(writes.length, 1);
-  assert.deepEqual(writes[0], { imageBaseUrl: 'https://open.bigmodel.cn/api/paas/v4', imageModel: 'cogview-4-250304', imageApiKey: 'test-image-key' });
-  assert.equal(restarts, 1); await act(async () => view.unmount());
-});
-
-test('MCP presets stay as drafts until saved and keep their original connection settings', async () => {
-  const writes = []; let restarts = 0;
-  const View = harness({ state: { updateSettings: async value => writes.push(value), restartDsh: () => restarts++ } }).load('views/SettingsView.tsx').default;
-  let view; await act(async () => { view = create(React.createElement(View)); await settle(); });
-  const mcp = view.root.findAllByType('section').find(n => n.findAllByType('h2').some(h => text(h) === '外部工具连接（MCP）'));
-  await act(async () => mcp.findAllByType('button').find(b => text(b).includes('Zotero 文献库')).props.onClick());
-  assert.equal(writes.length, 0); assert.equal(restarts, 0);
-  await act(async () => { await mcp.findAllByType('button').find(b => text(b) === '保存工具连接').props.onClick(); });
-  assert.equal(writes[0].mcpServers[0].command, 'uv');
-  assert.deepEqual(writes[0].mcpServers[0].args, ['tool', 'run', 'zotero-mcp', 'serve']);
-  assert.equal(restarts, 1); await act(async () => view.unmount());
+test('account settings do not advertise disabled connectors or import legacy data',async()=>{
+  const calls=[];const View=harness({api:{migrateScan:async()=>{calls.push('scan');return [];}}}).load('views/SettingsView.tsx').default;
+  let view;await act(async()=>{view=create(React.createElement(View));await settle();});
+  assert.match(text(view.root),/图像生成与外部应用连接暂不可用/);
+  assert.doesNotMatch(text(view.root),/保存工具连接|保存图像连接|已有助手服务地址|MCP|中枢|旧版|新版/);
+  assert.deepEqual(calls,[]);await act(async()=>view.unmount());
 });
 
 test('local-model labels retain the offline setting value and saved endpoint', async () => {
@@ -110,17 +91,18 @@ test('local-model labels retain the offline setting value and saved endpoint', a
 });
 
 test('settings navigation shows one category and preserves unsaved connection edits', async () => {
-  const View=harness().load('views/SettingsView.tsx').default;
+  const View=harness({state:{settings:{mode:'offline',workspace:'test'}}}).load('views/SettingsView.tsx').default;
   let view;await act(async()=>{view=create(React.createElement(View));await settle();});
   const panel=id=>view.root.findByProps({id:'settings-pane-'+id});
   const tab=id=>view.root.findByProps({id:'settings-tab-'+id});
   assert.equal(panel('model').props.hidden,false);assert.equal(panel('tools').props.hidden,true);
   await act(async()=>tab('tools').props.onClick());
   assert.equal(panel('model').props.hidden,true);assert.equal(panel('tools').props.hidden,false);
-  const image=panel('tools').findAllByType('section').find(n=>n.findAllByType('h2').some(h=>text(h)==='图像服务'));
-  await act(async()=>image.findAllByType('input')[0].props.onChange({target:{value:'http://127.0.0.1:8123/v1'}}));
-  await act(async()=>tab('workspace').props.onClick());await act(async()=>tab('tools').props.onClick());
-  assert.equal(image.findAllByType('input')[0].props.value,'http://127.0.0.1:8123/v1');
+  await act(async()=>tab('model').props.onClick());
+  const endpoint=panel('model').findAllByType('input').find(n=>n.props.placeholder==='http://192.168.1.10:8000/v1');
+  await act(async()=>endpoint.props.onChange({target:{value:'http://127.0.0.1:8123/v1'}}));
+  await act(async()=>tab('workspace').props.onClick());await act(async()=>tab('model').props.onClick());
+  assert.equal(endpoint.props.value,'http://127.0.0.1:8123/v1');
   assert.equal(view.root.findAllByProps({role:'tabpanel'}).filter(n=>!n.props.hidden).length,1);
   await act(async()=>view.unmount());
 });

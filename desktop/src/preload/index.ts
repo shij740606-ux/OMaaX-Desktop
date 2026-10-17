@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { AppSettings, IpcEvent, Rect, RefPack, DemoInfo, PlatformJob, PlatformJobArtifact, PlatformJobCreate, PlatformJobEvent, PlatformNode, PlatformNodeControlStatus, PlatformNodeMetric, PlatformSession, KnowledgeCitation, KnowledgeCredentialStatus, KnowledgeDataset, KnowledgeDocument, KnowledgeFolder, KnowledgeSyncResult } from '../shared/types';
 
 const api = {
+  hubAdmin: ():Promise<void> => Promise.reject(new Error("需要 Tauri 桌面版")),
+  hubStatus: (): Promise<import("../renderer/src/AuthGate").HubStatus> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
+  hubLogin: (_hub:string,_username:string,_password:string):Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
+  hubLogout: ():Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
   personalCompute: (_id:string, _action:string, _body:unknown = {}): Promise<unknown> => Promise.reject(new Error('需要 Tauri 桌面版')),
   platformStorage: (_action:string, _body:unknown = {}): Promise<unknown> => Promise.reject(new Error('需要 Tauri 桌面版')),
   platformProjectCollaboration: (_projectId:string, _action:string, _body:unknown = null): Promise<unknown> => Promise.reject(new Error('需要 Tauri 桌面版')),

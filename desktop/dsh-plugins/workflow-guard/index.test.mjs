@@ -60,5 +60,5 @@ test('all nine selections survive resume, keep exact parameters and never bleed 
 test('model environment tools are allowed while delete approval and host execution remain blocked',()=>{
  const {dir,agent}=bound(),guard=createGuard(dir);
  for(const name of ['workflow_prepare','workflow_prepare_status','workflow_readiness','workflow_environment'])assert.equal(guard({agent,name:'mcp__biodsh_ssh__'+name,arguments:{workflow:'rnaseq'}}),undefined);
- for(const name of ['server_delete_confirm','execute'])assert.ok(guard({agent,name:'mcp__biodsh_ssh__'+name}));
+ for(const name of ['server_delete_confirm','workflow_resume','execute'])assert.ok(guard({agent,name:'mcp__biodsh_ssh__'+name}));
 });

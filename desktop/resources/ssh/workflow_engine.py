@@ -55,7 +55,7 @@ def select_steps(flow,requested):
     ids=requested if requested is not None else flow['defaultSteps']
     if not isinstance(ids,list) or not ids or len(ids)>100 or len(ids)!=len(set(ids)):raise ValueError('请选择需要运行的步骤')
     by_id={s['id']:s for s in flow['nodes']+flow['extraNodes']}
-    if any(s not in by_id or not by_id[s]['entryPresent'] for s in ids):raise ValueError('所选步骤不属于此流程或源码缺失')
+    if any(s not in by_id or not by_id[s]['entryPresent'] for s in ids):raise ValueError('所选步骤不属于此流程或暂不可用')
     return [by_id[s] for s in flow['order'] if s in ids]
 def resolve_parameters(flow,steps,body):
     params=body.get('parameters',{});configs=body.get('configs',{})
@@ -228,8 +228,8 @@ def available_images(r):
 
 # Check software presence, not biological suitability or availability of reference data.
 STEP_SOFTWARE={
-    'ncbi_fetch_sequences':{'services':['NCBI（当前隔离环境禁止联网）']},
-    'pep':{'services':['ExPASy / DeepTMHMM / WoLF PSORT（当前隔离环境禁止联网）']},
+    'ncbi_fetch_sequences':{'modules':['Bio']},
+    'pep':{'modules':['openpyxl']},
     'identify':{'tools':['hmmsearch','blastp']},'phylogeny':{'tools':['mafft','iqtree']},
     'motif':{'tools':['meme']},'domain':{'tools':['interproscan']},
     'synteny':{'tools':['MCScanX','blastp']},'interspecies_synteny':{'tools':['MCScanX','blastp']},
@@ -289,10 +289,10 @@ if packages and result['tools']['Rscript']:
                 name,value=line[8:].split('=',1);result['r'][name]=value=='TRUE'
 print(json.dumps(result))
 """.replace('MODULES',repr(modules)).replace('TOOLS',repr(tools)).replace('PACKAGES',repr(packages)).replace('UPSTREAM',repr(upstream))
-    return json.loads(r.command(['podman','run','--rm','--pull=never','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--pids-limit=256','--cpus=1','--memory=2048m','--memory-swap=2048m','--tmpfs=/tmp:rw,nosuid,nodev,size=64m','--env','PYTHONDONTWRITEBYTECODE=1',image,'python3','-c',code],timeout=120))
+    return json.loads(r.command(['podman','run','--rm','--pull=never','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--pids-limit=256','--cpus=1','--memory=2048m','--memory-swap=2048m','--tmpfs=/tmp:rw,nosuid,nodev,size=64m','--env','PYTHONDONTWRITEBYTECODE=1','--env','HOME=/tmp','--env','XDG_CACHE_HOME=/tmp/.cache',image,'python3','-c',code],timeout=120))
 
 def readiness_for(step,probe,required=None):
-    if not step['entryPresent']:return {'state':'missing_source','missing':[],'detail':'原始脚本包未提供此步骤的入口，不能运行。'}
+    if not step['entryPresent']:return {'state':'missing_source','missing':[],'detail':'此步骤暂不可用，请选择其他分析步骤。'}
     if probe is None:return {'state':'missing_environment','missing':['运行环境'],'detail':'尚未为此流程登记运行环境。'}
     if probe.get('error'):return {'state':'unchecked','missing':[],'detail':probe['error']}
     required=required if required is not None else STEP_SOFTWARE.get(step['id'],{})
@@ -498,6 +498,11 @@ def dispatch(r,action,body,actor='user'):
         r.dispatch({'action':'import_finish','body':{'id':transfer,'files':[{'name':f.name,'size':f.stat().st_size,'sha256':file_hash(f)} for f in dest.iterdir()]}})
         db.execute('INSERT INTO workflow_plans VALUES(?,?,?,?,?)',(p['id'],sha,json.dumps(p),0,time.time()));r.audit(db,'workflow.plan_created',{'id':p['id'],'workflow':flow['id']})
         return {'plan':p,'digest':sha,'confirmed':False,'state':'awaiting_confirmation'}
+    if action=='workflow_resume':
+        if actor!='user':raise ValueError('续跑需要用户在分析页面确认')
+        row,p=load_plan(r,db,body)
+        if not row['confirmed']:raise ValueError('请先确认执行计划')
+        return r.resume_job(p['id'])
     if action=='workflow_confirm':
         row,p=load_plan(r,db,body)
         if cfg.get('workflowEnvironments',{}).get(p['workflow'],{}).get('image')!=p['image']:raise ValueError('运行环境已变化，请重新生成计划')

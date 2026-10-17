@@ -15,7 +15,7 @@ def status(r):
     item=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {'state':'idle','detail':'尚未准备基础环境'}
     detail=item.get('detail','')
     if item.get('state')=='failed' and detail.startswith('Command ') and 'podman' in detail and 'timed out' in detail:
-        item={**item,'detail':'上次基础环境检查超时，SSH 登录不受影响。请重试检查；新版会优先使用已允许的轻量环境。','errorDetail':detail}
+        item={**item,'detail':'上次环境检查超时。请重新检查，已配置的环境会继续使用。','errorDetail':detail}
     if item['state']=='running':
         alive=True
         if item.get('pid') and os.name=='posix':

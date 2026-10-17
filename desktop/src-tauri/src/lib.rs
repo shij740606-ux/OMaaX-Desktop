@@ -1,6 +1,8 @@
 //! OMaaX Desktop（Tauri 版）主进程：一个无边框窗口里放两个 WebView —— "ui"（我们的 React 壳子）
 //! 和 "dsh"（dsh web 原版界面，作为子视图贴在对话页的内容区）。
 mod dsh;
+mod hub_auth;
+pub use hub_auth::check_model;
 mod files_server;
 mod refdata;
 mod demos;
@@ -218,7 +220,7 @@ fn ensure_dsh_view(app: &AppHandle, state: &AppState, url: &str) {
     }
     let Some(window) = app.get_window("main") else { return };
     let opener = app.clone();
-    let builder = tauri::webview::WebviewBuilder::new("dsh", WebviewUrl::External(url.parse().unwrap()))
+    let builder = tauri::webview::WebviewBuilder::new("dsh", WebviewUrl::External(url.parse().unwrap())).data_directory(state.paths.root.join("webview-dsh"))
         // 关键:关掉 Tauri 自带的拖放拦截。开着时(默认 true)WebView2 会吞掉 dsh 网页里
         // <input type=file>/文件夹选择的原生对话框 → dsh 那边"新增本地文件夹/附件"的选项框弹不出来。
         // 关掉后原生选择框恢复,且网页自身的 HTML5 拖放(ondrop)照常可用。
@@ -244,7 +246,9 @@ fn app_info(app: AppHandle, state: State<'_, AppState>) -> serde_json::Value {
 #[tauri::command]
 fn settings_get(state: State<'_, AppState>) -> AppSettings { state.settings.lock().unwrap().clone() }
 #[tauri::command]
-fn settings_set(app: AppHandle, state: State<'_, AppState>, patch: serde_json::Value) -> AppSettings {
+fn settings_set(app: AppHandle, state: State<'_, AppState>, patch: serde_json::Value) -> Result<AppSettings,String> {
+    if let Some(w)=patch["workspace"].as_str() { hub_auth::local_path(&state.paths.root,w)?; }
+    if patch["remoteDshUrl"].as_str().is_some_and(|v|!v.is_empty()) || patch["mcpServers"].as_array().is_some_and(|v|!v.is_empty()) {return Err("此连接方式暂不可用，请使用对话模型设置或添加分析服务器".into());}
     let mut s = state.settings.lock().unwrap();
     if let Some(b) = patch.get("useChinaMirror").and_then(|x| x.as_bool()) { s.use_china_mirror = b; }
     if let Some(w) = patch.get("workspace").and_then(|x| x.as_str()) { s.workspace = w.into(); }
@@ -280,7 +284,7 @@ fn settings_set(app: AppHandle, state: State<'_, AppState>, patch: serde_json::V
         if let Some(t) = theme_changed.as_deref() { dsh::set_theme(&state.paths, t); }
         if let Some(v) = app.get_webview("dsh") { let _ = v.eval("location.reload()"); }
     }
-    out
+    Ok(out)
 }
 #[tauri::command]
 fn credential_get(state: State<'_, AppState>) -> CredentialStatus { read_credential(&state.paths) }
@@ -460,6 +464,7 @@ fn dsh_status(state: State<'_, AppState>) -> dsh::DshStatus { state.dsh.status.l
 async fn dsh_start(app: AppHandle, state: State<'_, AppState>) -> Result<dsh::DshStatus, String> {
     let (d, paths, ws) = (Arc::clone(&state.dsh), state.paths.clone(), workspace_of(&state));
     let app2 = app.clone();
+    hub_auth::local_path(&state.paths.root,&ws)?;
     let ws2 = ws.clone();
     let (offline, offline_key, remote) = {
         let st = state.settings.lock().unwrap();
@@ -486,6 +491,8 @@ async fn dsh_start(app: AppHandle, state: State<'_, AppState>) -> Result<dsh::Ds
     };
     // 离线模式 + 配置了远程服务器：不在本机启动，直接连服务器上的 dsh
     if offline && !remote.is_empty() {
+        return Err("账号模式不允许连接未隔离的远程智能体".into());
+        #[allow(unreachable_code)]
         let mut s = state.dsh.status.lock().unwrap();
         s.state = "running".into();
         s.url = Some(remote.clone());
@@ -607,11 +614,11 @@ async fn deepseek_balance(state: State<'_, AppState>) -> Result<serde_json::Valu
     }).await.map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn git_status(path: String) -> git::GitStatus { tauri::async_runtime::spawn_blocking(move || git::status(&path)).await.unwrap_or_default() }
+async fn git_status(state: State<'_,AppState>,path: String) -> Result<git::GitStatus,String> { hub_auth::local_path(&state.paths.root,&path)?; Ok(tauri::async_runtime::spawn_blocking(move || git::status(&path)).await.unwrap_or_default()) }
 #[tauri::command]
-async fn git_init(path: String) -> Result<git::GitStatus, String> { tauri::async_runtime::spawn_blocking(move || git::init(&path)).await.map_err(|e| e.to_string())? }
+async fn git_init(state: State<'_,AppState>,path: String) -> Result<git::GitStatus, String> { hub_auth::local_path(&state.paths.root,&path)?; tauri::async_runtime::spawn_blocking(move || git::init(&path)).await.map_err(|e| e.to_string())? }
 #[tauri::command]
-async fn git_commit(path: String, message: String) -> Result<git::GitStatus, String> { tauri::async_runtime::spawn_blocking(move || git::commit(&path, &message)).await.map_err(|e| e.to_string())? }
+async fn git_commit(state: State<'_,AppState>,path: String, message: String) -> Result<git::GitStatus, String> { hub_auth::local_path(&state.paths.root,&path)?; tauri::async_runtime::spawn_blocking(move || git::commit(&path, &message)).await.map_err(|e| e.to_string())? }
 /// 从 dsh web URL 取「源」(scheme://host:port)，丢掉 path 和 ?token=…。
 /// dsh 0.1.2 起 URL 带 `?token=`，直接 `{url}/api/…` 会拼出坏地址(token 夹在中间)导致 RPC 全挂、项目列不出来。
 fn origin_of(u: &str) -> String {
@@ -861,6 +868,23 @@ fn dsh_url(state: &AppState) -> Result<String, String> { state.dsh.status.lock()
 
 #[tauri::command]
 async fn dsh_rpc(state: State<'_, AppState>, method: String, payload: serde_json::Value) -> Result<serde_json::Value, String> {
+    if method.starts_with("workflow.") || method.starts_with("server.") {let root=state.paths.root.clone();tauri::async_runtime::spawn_blocking(move ||hub_auth::require(&root,"bioflow")).await.map_err(|e|e.to_string())??;}
+    for key in ["path","cwd"] { if let Some(path)=payload[key].as_str(){hub_auth::local_path(&state.paths.root,path)?;} }
+    if !["session.budget","session.budgetReset","workflow.select","server.files","server.context","workspace.list","workspace.create","workspace.rename","workspace.archiveSession","workspace.delete","session.list","session.create","session.rename","session.prompt"].contains(&method.as_str()) {return Err("此对话操作未授权".into());}
+    if matches!(method.as_str(),"session.budget"|"session.budgetReset") {
+        let sid=payload["sessionId"].as_str().ok_or("请选择对话")?;
+        personal_compute::session_context(&state.paths.dsh_home,Some(sid))?;
+        let file=state.paths.dsh_home.join("workflow-bindings").join(format!("budget-{sid}.json"));
+        let mut value:serde_json::Value=match std::fs::read(&file) {Ok(bytes)=>serde_json::from_slice(&bytes).map_err(|_|"消耗记录损坏，请联系管理员")?,Err(e) if e.kind()==std::io::ErrorKind::NotFound=>serde_json::json!({}),Err(_)=>return Err("无法读取消耗记录".into())};
+        if method=="session.budgetReset" {
+            value["calls"]=serde_json::json!(0);value["tokens"]=serde_json::json!(0);value["failures"]=serde_json::json!(0);value["paused"]=serde_json::json!(false);value["reported"]=serde_json::json!(false);
+            if let Some(parent)=file.parent(){std::fs::create_dir_all(parent).map_err(|e|e.to_string())?;}
+            let temp=file.with_extension(format!("{}.tmp",uuid::Uuid::new_v4()));
+            std::fs::write(&temp,serde_json::to_vec(&value).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+            std::fs::rename(&temp,&file).map_err(|e|e.to_string())?;
+        }
+        return Ok(value);
+    }
     if method=="workflow.select" {return personal_compute::bind_workflow(&state.paths.dsh_home,&payload);}
     if method=="server.files" {
         let sid=payload["sessionId"].as_str().ok_or("请选择对话")?;personal_compute::session_context(&state.paths.dsh_home,Some(sid))?;
@@ -1007,11 +1031,13 @@ async fn session_export(app: AppHandle, state: State<'_, AppState>, session_id: 
 async fn workspace_files(state: State<'_, AppState>, path: Option<String>) -> Result<Vec<files::FileEntry>, String> {
     if let (Some(f), Some(p)) = (state.files.as_ref(), path.as_ref()) { f.add_root(std::path::PathBuf::from(p)); }
     let ws = path.filter(|p| !p.trim().is_empty()).unwrap_or_else(|| workspace_of(&state));
+    hub_auth::local_path(&state.paths.root,&ws)?;
     Ok(tauri::async_runtime::spawn_blocking(move || files::list(&ws)).await.map_err(|e| e.to_string())?)
 }
 #[tauri::command]
 async fn read_workspace_image(state: State<'_, AppState>, rel: String, path: Option<String>) -> Result<String, String> {
     let ws = path.filter(|p| !p.trim().is_empty()).unwrap_or_else(|| workspace_of(&state));
+    hub_auth::local_path(&state.paths.root,&ws)?;
     tauri::async_runtime::spawn_blocking(move || files::read_image(&ws, &rel)).await.map_err(|e| e.to_string())?
 }
 fn ratings_path(state: &AppState) -> std::path::PathBuf { state.paths.root.join("ratings.json") }
@@ -1071,9 +1097,9 @@ async fn migrate_import(app: AppHandle, state: State<'_, AppState>, source_id: S
     Ok(tauri::async_runtime::spawn_blocking(move || migrate::import(&home, &skills_root, &ws, &source_id)).await.map_err(|e| e.to_string())?)
 }
 #[tauri::command]
-fn open_path(app: AppHandle, path: String) { let _ = app.opener().open_path(path, None::<&str>); }
+fn open_path(app: AppHandle,state: State<'_,AppState>, path: String) -> Result<(),String> { hub_auth::local_path(&state.paths.root,&path)?; app.opener().open_path(path, None::<&str>).map_err(|e|e.to_string()) }
 #[tauri::command]
-fn open_external(app: AppHandle, url: String) { let _ = app.opener().open_url(url, None::<&str>); }
+fn open_external(app: AppHandle, url: String) -> Result<(),String> { let url=hub_auth::external_url(&url)?;app.opener().open_url(url,None::<&str>).map_err(|e|e.to_string()) }
 #[tauri::command]
 async fn pick_folder(app: AppHandle) -> Option<String> {
     let (tx, rx) = std::sync::mpsc::channel();
@@ -1105,13 +1131,39 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<Window> {
     if let Some(icon) = app.default_window_icon() { window.set_icon(icon.clone())?; }
     let size = window.inner_size()?.to_logical::<f64>(window.scale_factor()?);
     let _ui = window.add_child(
-        tauri::webview::WebviewBuilder::new("ui", WebviewUrl::App("index.html".into())).disable_drag_drop_handler().auto_resize(),
+        tauri::webview::WebviewBuilder::new("ui", WebviewUrl::App("index.html".into())).data_directory(app.state::<AppState>().paths.root.join("webview-ui")).disable_drag_drop_handler().auto_resize(),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(size.width, size.height),
     )?;
     #[cfg(target_os = "linux")]
     linux_layout::prepare_shell(&_ui)?;
     Ok(window)
+}
+
+#[tauri::command]
+async fn hub_status(app: AppHandle, state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let root=state.paths.root.clone();
+    let value=tauri::async_runtime::spawn_blocking(move || hub_auth::status(&root)).await.map_err(|e|e.to_string())?;
+    if value["authenticated"] != true { state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); } }
+    Ok(value)
+}
+#[tauri::command]
+async fn hub_login(app: AppHandle, state: State<'_, AppState>, hub: String, username: String, password: String) -> Result<(),String> {
+    state.dsh.stop(&app);
+    tauri::async_runtime::spawn_blocking(move || hub_auth::login(&hub,&username,&password)).await.map_err(|e|e.to_string())??;
+    app.restart();
+}
+#[tauri::command]
+async fn hub_logout(app: AppHandle, state: State<'_, AppState>) -> Result<(),String> {
+    state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); }
+    tauri::async_runtime::spawn_blocking(hub_auth::logout).await.map_err(|e|e.to_string())??;
+    app.restart();
+}
+#[tauri::command]
+async fn hub_admin(app:AppHandle,state:State<'_,AppState>) -> Result<(),String> {
+    let root=state.paths.root.clone();let user=tauri::async_runtime::spawn_blocking(move||hub_auth::require(&root,"")).await.map_err(|e|e.to_string())??;
+    if user.role!="admin" {return Err("仅管理员可以打开管理后台".into());}
+    app.opener().open_url(format!("{}/admin/",hub_auth::configured_hub()),None::<&str>).map_err(|_|"无法打开管理后台".into())
 }
 
 pub fn run() {
@@ -1147,6 +1199,16 @@ pub fn run() {
             let _ = TITLES_PATH.set(paths.dsh_home.join("storages").join("biodsh-project-titles.json"));
 
             app.manage(AppState { paths, settings: Mutex::new(settings), dsh: Arc::new(DshManager::new()), pyenv: Arc::new(PyEnvManager::new()), dsh_bounds: Mutex::new((Rect::default(), false)), files });
+            let watchdog=handle.clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_secs(15));
+                let st=watchdog.state::<AppState>();
+                if hub_auth::require(&st.paths.root, "").is_err() {
+                    st.dsh.stop(&watchdog);
+                    if let Some(view)=watchdog.get_webview("dsh") {let _=view.close();}
+                    let _=watchdog.emit("hub-locked", ());
+                }
+            });
             build_main_window(&handle)?;
             Ok(())
         })
@@ -1158,14 +1220,23 @@ pub fn run() {
                 if window.label() == "main" { let app = window.app_handle(); if let Some(st) = app.try_state::<AppState>() { st.dsh.stop(app); } }
             }
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(|invoke: tauri::ipc::Invoke| {
+            let app=invoke.message.webview().app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let check=(|| { let unit=hub_auth::command_unit(invoke.message.command())?; if let Some(unit)=unit { let st=app.state::<AppState>();let user=hub_auth::require(&st.paths.root,unit)?;if matches!(invoke.message.command(),"personal_compute"|"ssh_hosts_save"|"ssh_hosts_remove"|"session_delete"|"session_export"){hub_auth::audit(&st.paths.root,&user,invoke.message.command());} } Ok::<(),String>(()) })();
+                if let Err(error)=check { invoke.resolver.reject(error); return; }
+                let handler: Box<dyn Fn(tauri::ipc::Invoke)->bool> = Box::new(tauri::generate_handler![hub_status, hub_login, hub_logout, hub_admin,
             app_info, settings_get, settings_set, credential_get, credential_set, personal_compute, platform_session, platform_login, platform_project_collaboration, platform_storage, platform_logout, platform_nodes, platform_node_metrics, platform_update_node, platform_jobs, platform_job_kinds, platform_create_job, platform_scheduling_nodes, platform_scheduling, ssh_hosts_bind, platform_cancel_job, platform_job_events, platform_job_artifacts, platform_download_job_artifact,
             knowledge_credential, knowledge_set_credential, knowledge_datasets, knowledge_create_dataset, knowledge_documents, knowledge_add_files, knowledge_folders, knowledge_add_folder, knowledge_remove_folder, knowledge_sync_folders, knowledge_search,
             ssh_hosts_list, ssh_hosts_save, ssh_hosts_remove, ssh_hosts_select, ssh_hosts_trust, ssh_hosts_test, ssh_hosts_metrics, ssh_hosts_files,
             env_status, env_install, dsh_status, dsh_start, dsh_restart, dsh_stop, dsh_reload, dsh_bounds,
             skills_catalog, skills_statuses, skills_readme, skills_install, skills_uninstall,
             open_path, open_external, pick_folder, window_control, client_log, deepseek_balance, git_status, git_init, git_commit, dsh_rpc, dsh_open_session, dsh_new_session, check_updates, assistant_ask, session_export, workspace_files, read_workspace_image, ratings_get, ratings_set, session_delete, env_install_extra, migrate_scan, migrate_import, refdata_list, refdata_install, refdata_remove, demos_seed, dsh_set_context, embed_query, db_catalog, light_update_check, light_update_apply
-        ])
+                ]);
+                handler(invoke);
+            });
+            true
+        })
         .run(tauri::generate_context!())
         .expect("error while running OMaaX");
 }

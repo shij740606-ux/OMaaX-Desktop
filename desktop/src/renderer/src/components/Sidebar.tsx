@@ -1,3 +1,4 @@
+import {useAuth,hasUnit} from '../AuthGate';
 import omaaxIcon from '../assets/omaax-icon.svg';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, Wallet, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server } from 'lucide-react';
@@ -38,6 +39,8 @@ function ordered<T>(items: T[], ids: string[], key: (item: T) => string): T[] {
 }
 export default function Sidebar() {
   const { tab, setTab, env, dsh, info, settings, restartDsh, currentSession: current, setCurrentSession: setCurrent } = useApp();
+  const {user}=useAuth();
+  const bioflow=hasUnit(user,"bioflow"), chat=hasUnit(user,"qa")||bioflow;
   const offline = settings?.mode === 'offline';
   const { t, lang } = useT();
   const api = window.biodsh;
@@ -206,7 +209,7 @@ export default function Sidebar() {
 {id:'db', content: nav('db', t('数据资源'), Globe)},
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
-{id:'store', content: nav('store', t('工具中心'), Store)}], orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store'], orders.nav || [], id => id))}>{item.content}</div>)}
+{id:'store', content: nav('store', t('工具中心'), Store)}].filter(item=>item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 mt-3">
@@ -287,7 +290,7 @@ function UsagePanel({ balance, usage, onClose }: { balance: Balance | null; usag
 }
 
 export function WindowControls({ compact = false }: { compact?: boolean }) {
-  const { info } = useApp();
+  const { info } = useApp() || {info:null};
   if (info?.platform === 'darwin') return null;
   const size = compact ? 'w-[30px] h-[30px]' : 'w-[46px] h-[44px]';
   const b = (a: 'minimize' | 'maximize' | 'close', I: typeof Minus) => (

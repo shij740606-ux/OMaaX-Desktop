@@ -77,9 +77,10 @@ class EnvironmentTests(unittest.TestCase):
   for request in [{'workflow':'gene_family','steps':['synteny_plot_revise']},{'workflow':'rnaseq','steps':['rnaseq_de'],'command':'bad'},{'workflow':'rnaseq','steps':['rnaseq_de'],'parameters':{'rnaseq_de':{'config':'a;bad'}}}]:
    with self.assertRaises(ValueError):e.start(r,request)
   with self.assertRaises(ValueError):w.dispatch(r,'workflow_prepare',{},actor='agent')
- def test_dynamic_choices_and_offline_services_are_not_success(self):
+ def test_online_steps_are_not_blocked_but_required_software_is_checked(self):
   qc=e.requirements(self.step('rnaseq','rnaseq_qc'),{'qc_tool':'cutadapt'});self.assertEqual(qc['tools'],['cutadapt'])
-  spec=e.requirements(self.step('gene_family','pep'));self.assertTrue(spec['services'])
+  spec=e.requirements(self.step('gene_family','pep'));self.assertNotIn('services',spec);self.assertIn('openpyxl',spec['modules'])
+  ncbi=e.requirements(self.step('gene_family','ncbi_fetch_sequences'));self.assertNotIn('services',ncbi);self.assertIn('Bio',ncbi['modules'])
   upstream=self.step('metagenome','metagenome_profile');state=w.readiness_for(upstream,{'tools':{'nextflow':True,'java':True}},e.requirements(upstream));self.assertEqual(state['state'],'missing_environment')
  def test_recipe_has_no_user_data_and_only_step_dependencies(self):
   step=self.step('gene_family','msa');recipe=e.build_context(w,r,self.base,step,e.requirements(step))

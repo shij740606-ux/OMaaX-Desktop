@@ -19,6 +19,8 @@ impl AppPaths {
         let root = strip_unc(std::env::var_os("OMAAX_HOME").or_else(|| std::env::var_os("BIODSH_HOME"))
             .map(PathBuf::from)
             .unwrap_or_else(|| { let home = app.path().home_dir().expect("home dir"); let legacy = home.join("BioDSH"); if legacy.exists() { legacy } else { home.join("OMaaX") } }));
+        crate::hub_auth::initialize(root);
+        let root = crate::hub_auth::startup_root();
         let dsh_home = root.join("dsh-home");
         let p = AppPaths {
             skills: dsh_home.join("skills"),

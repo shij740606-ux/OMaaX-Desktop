@@ -58,7 +58,7 @@ patchToolcall(dir);
 patchSse(dir);
 // OMaaX 的 cordis 插件(官方扩展面,不打补丁改 dsh 代码):skill-router=技能语义路由;step-guard=收敛护栏(治跑飞)。
 // 把插件包拷进运行时,由 cordis.patch.yml(ensure_home 生成)以 `@biodsh/<name>` 加载。
-for (const p of ['skill-router', 'step-guard', 'workflow-guard']) {
+for (const p of ['skill-router', 'step-guard', 'workflow-guard', 'auth-guard']) {
   const src = path.join(root, 'dsh-plugins', p);
   if (existsSync(src)) {
     const dst = path.join(dir, 'node_modules', '@biodsh', p);

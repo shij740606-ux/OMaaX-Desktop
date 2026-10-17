@@ -108,7 +108,7 @@ class ManagementTests(unittest.TestCase):
   self.assertFalse(any(args[:2]==['podman','rm'] for args in calls));self.assertTrue(list(self.control.glob('environment-probe-*.json')))
  def test_old_timeout_is_presented_readably_without_rewriting_history(self):
   original={'state':'failed','detail':"Command '['podman', 'run']' timed out after 60 seconds"};setup.save(r,original)
-  shown=setup.status(r);self.assertIn('上次基础环境检查超时',shown['detail']);self.assertEqual(shown['errorDetail'],original['detail'])
+  shown=setup.status(r);self.assertIn('上次环境检查超时',shown['detail']);self.assertEqual(shown['errorDetail'],original['detail'])
   self.assertEqual(json.loads(setup.path(r).read_text(encoding='utf-8')),original)
  def test_recursive_deletion_warns_and_model_cannot_confirm(self):
   pending=self.call('server_delete',{'path':str(self.data),'recursive':True});self.assertTrue(pending['requiresApproval']);self.assertTrue(self.data.exists())

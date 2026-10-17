@@ -1,0 +1,65 @@
+{
+  "version": "0.4.25",
+  "date": "2026-10-17",
+  "delivery": "source only; installed application not replaced",
+  "linux": {
+    "tests": 162,
+    "failures": 0,
+    "skipped": 0,
+    "directory": "/home/xzq/omaax/diagnostics/server-full-qa-ba39741b23424622ba113ad12c7c9e04"
+  },
+  "node": {
+    "passed": 102,
+    "failed": 0
+  },
+  "native": {
+    "passed": 34,
+    "ignored": 1
+  },
+  "browser": {
+    "analysisResumeUsage": 13,
+    "authSettings": 13,
+    "pageErrors": 0
+  },
+  "realContainers": {
+    "passed": true,
+    "directory": "/home/xzq/omaax/diagnostics/reliability-live-774fbcfbcd2f4f4b8ee9a455f06ddf8e",
+    "realRootlessContainers": true,
+    "checkpointRestored": true,
+    "failedOutputPreserved": true,
+    "completedStepNotRepeated": true,
+    "twoTasksOverlap": true,
+    "queueTimestampZeroAccepted": true,
+    "fixedPlanValidation": "separate unit tests; this fixture injects a controlled failing stage",
+    "intervals": [
+      [
+        1792209075.265737,
+        1792209078.265905
+      ],
+      [
+        1792209077.2706404,
+        1792209080.2707837
+      ]
+    ]
+  },
+  "sdkBudgetRejectionVerified": true,
+  "typescript": "passed",
+  "frontendProductionBuild": "passed",
+  "productionAccountBindingDeployed": false,
+  "productionLoginVerified": false,
+  "sourceSha256": {
+    "desktop/resources/ssh/personal_runner.py": "653990b6b900cf0efeb19df3f1cb01aa32ea8401eb2473fb7faca2704d15254f",
+    "desktop/resources/ssh/workflow_engine.py": "d2cdf83c87aa91769e1b8d4bbfd444d81b71a2caaab554384b69c0ec5055673d",
+    "desktop/resources/ssh/account-policy.cjs": "c97122e5c2ce9ab6ffbff2359bd50e9a84a7a92a577cc259cc947d2c0e2c3bb4",
+    "desktop/resources/ssh/client.cjs": "c0ca09f12dc6abda43eb12abc9761d5a22f9406158ae0983b9d2a7f51f04eda7",
+    "desktop/resources/ssh/relay.cjs": "5f357df41006f7017a24ba07faa740938b58dea828c14eebef040329ccee6c19",
+    "desktop/resources/ssh/stage-workflows.cjs": "3316fe9ff58a89a50423701d6848e2e9107b9a7da18c766921ec3f2e4abd4cc1",
+    "desktop/dsh-plugins/workflow-guard/index.js": "01b089c2012b77d4e25dee3fc9d013cae5a2c96cfc40ab4461b95fe202a5c9c6",
+    "desktop/src-tauri/src/hub_auth.rs": "86e438c9e5f3764ab6306f2c7b5f6cd001739f5d7f7eecc5bd4c8502c0aeaa0a",
+    "desktop/src-tauri/src/personal_compute.rs": "cf1183d9443ca4931a94f4be616633e9ecea3c8a4ccbf256165ce858f3854a6f",
+    "desktop/src-tauri/src/lib.rs": "54d53ce4ce3e5d9c7a2365030e78c3c9ff414279ea2bb636eda3079199d13f8f",
+    "desktop/src/renderer/src/components/WorkflowResults.tsx": "e4a105491ebd1ec4e9d0aa57faa0fe95c146d0eb16bef4ab6968193f6ee6f987",
+    "desktop/src/renderer/src/views/ChatView.tsx": "757bac014fac91ded501f1789ca631e33dc88366e17b273d2f794467d56e0f0a",
+    "desktop/src/renderer/src/views/WorkflowsView.tsx": "821d3ff2c4d9b534df784bc15791f0e24322e3dc1c312dc8c42c2b6d1b27bab4"
+  }
+}

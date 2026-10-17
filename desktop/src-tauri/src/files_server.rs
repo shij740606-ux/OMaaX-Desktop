@@ -12,17 +12,18 @@ impl FilesServer {
         let listener = TcpListener::bind("127.0.0.1:0").ok()?;
         let port = listener.local_addr().ok()?.port();
         let token = uuid::Uuid::new_v4().simple().to_string();
+        let profile=initial_roots.first()?.clone();
         let roots = Arc::new(Mutex::new(initial_roots));
         let srv = Arc::new(FilesServer { port, token: token.clone(), roots: roots.clone() });
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (roots, token) = (roots.clone(), token.clone());
-                std::thread::spawn(move || { let _ = handle(stream, &roots, &token); });
+                let (roots, token, profile) = (roots.clone(), token.clone(), profile.clone());
+                std::thread::spawn(move || { if crate::hub_auth::require(&profile,"qa").is_err() {let _=respond(stream,401,"text/plain",b"login required");return;} let _ = handle(stream, &roots, &token); });
             }
         });
         Some(srv)
     }
-    pub fn add_root(&self, p: PathBuf) { let mut r = self.roots.lock().unwrap(); if !r.iter().any(|x| x == &p) { r.push(p); } }
+    pub fn add_root(&self, p: PathBuf) { let mut r = self.roots.lock().unwrap(); if !r.first().is_some_and(|root|crate::hub_auth::local_path(root,&p.to_string_lossy()).is_ok()) {return;} if !r.iter().any(|x| x == &p) { r.push(p); } }
     /// 智能体/页面用的基址，例如 http://127.0.0.1:12345/f/<token>
     pub fn base_url(&self) -> String { format!("http://127.0.0.1:{}/f/{}", self.port, self.token) }
 }
