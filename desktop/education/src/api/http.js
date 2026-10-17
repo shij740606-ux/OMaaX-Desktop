@@ -145,8 +145,8 @@ async function request(path, { method = 'GET', body, headers = {}, timeout = DEF
   if(method === 'DELETE') {
     const requestId=crypto.randomUUID();
     return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{window.removeEventListener('message',reply);reject(new ApiError('删除确认已超时'));},120000);
-      function reply(event){if(event.source!==parent||event.data?.type!=='omaax-delete-result'||event.data.requestId!==requestId)return;clearTimeout(timer);window.removeEventListener('message',reply);event.data.error?reject(new ApiError(event.data.error)):resolve(event.data.value);}
+      const timer=setTimeout(()=>{window.removeEventListener('message',reply);reject(new ApiError('删除确认已超时',{code:'NATIVE_CONFIRMATION'}));},120000);
+      function reply(event){if(event.source!==parent||event.data?.type!=='omaax-delete-result'||event.data.requestId!==requestId)return;clearTimeout(timer);window.removeEventListener('message',reply);event.data.error?reject(new ApiError(event.data.error,{code:'NATIVE_CONFIRMATION'})):resolve(event.data.value);}
       window.addEventListener('message',reply);parent.postMessage({type:'omaax-delete',requestId,path:path.slice(path.indexOf('/api/review/'))},'*');
     });
   }

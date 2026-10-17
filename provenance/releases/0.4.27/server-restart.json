@@ -1,0 +1,10 @@
+{
+  "backup": "/home/xzq/omaax/backups/review-service-before-omaax-0.4.27-20261017",
+  "backupFiles": 1053,
+  "archiveSha256": "6c29d620cc2bd9105d4f5f7f1c9de9b142874f7d98d998d556e6ccae60483c6b",
+  "oldPid": 3095780,
+  "newPid": 886454,
+  "routeCount": 35,
+  "newRoutesVerified": true,
+  "serverCodeChanged": false
+}

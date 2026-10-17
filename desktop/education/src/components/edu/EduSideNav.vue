@@ -19,6 +19,8 @@ const ITEMS = [
   // SVG 内联（U+1F4AC/U+2709 在用户 Ubuntu 浏览器均无字形 → 方框；SVG 不依赖字体）
   { key: 'rebuttal', label: '审稿回复助手', icon: '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M2 2h12v9H6l-4 3z"/></svg>' },
   { key: 'calendar', label: '会议与投稿日历', icon: '📅' },
+  // P5 科研汇报（幻灯片图标纯 SVG，同上不依赖字体）
+  { key: 'ppt', label: '科研汇报助手', icon: '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M2 2h12v8H2V2zm1 2v4h10V4H3zm2 6h4l1 3H4l1-3z"/></svg>' },
 ];
 </script>
 

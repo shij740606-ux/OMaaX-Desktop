@@ -14,6 +14,7 @@ import FormatPanel from './panels/FormatPanel.vue';
 import ReformatPanel from './panels/ReformatPanel.vue';
 import CalendarPanel from './panels/CalendarPanel.vue';
 import RebuttalPanel from './panels/RebuttalPanel.vue';
+import PptPanel from './panels/PptPanel.vue';
 
 const edu = useEduStore();
 
@@ -28,6 +29,7 @@ const panelMap = {
   reformat: ReformatPanel,
   calendar: CalendarPanel,
   rebuttal: RebuttalPanel,
+  ppt: PptPanel,
 };
 
 const currentPanel = computed(() => panelMap[edu.section] || JournalsPanel);
@@ -37,7 +39,7 @@ const currentPanel = computed(() => panelMap[edu.section] || JournalsPanel);
   <div class="edu-workspace">
     <EduSideNav class="edu-nav" />
     <main class="edu-panel">
-      <component :is="currentPanel" />
+      <KeepAlive include="PptPanel"><component :is="currentPanel" /></KeepAlive>
     </main>
   </div>
 </template>

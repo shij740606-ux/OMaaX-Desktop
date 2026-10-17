@@ -545,7 +545,19 @@ function download() {
 
     <!-- ========== ④ 上传区 ========== -->
     <div v-else class="rf-upload">
-      <p class="rf-sub">支持单文件 .tex；多文件工程请先合并为一个文件。</p>
+      <!-- P4 模式切换：单文件 .tex（P3 重排版链路）| 项目 .zip（两段式编译，不经重排版） -->
+      <div class="rf-modes" role="tablist" aria-label="上传模式">
+        <button
+          class="rf-mode" :class="{ active: uploadMode === 'tex' }" type="button"
+          role="tab" :aria-selected="uploadMode === 'tex'" data-testid="rf-mode-tex"
+          @click="switchMode('tex')"
+        >单文件 .tex</button>
+        <button
+          class="rf-mode" :class="{ active: uploadMode === 'zip' }" type="button"
+          role="tab" :aria-selected="uploadMode === 'zip'" data-testid="rf-mode-zip"
+          @click="switchMode('zip')"
+        >项目 .zip</button>
+      </div>
 
       <!-- ========== ④-zip 项目上传（P4 两段式） ========== -->
       <template v-if="uploadMode === 'zip'">

@@ -224,3 +224,53 @@ export function rebuttalDeleteJob(id, opts = {}) {
   return unwrap(del(`${RB}/jobs/${id}`, opts));
 }
 
+
+/* ==================== P5 科研汇报助手（/api/review/ppt，SQLite job 模式） ==================== */
+const PPT = `${BASE}/ppt`;
+
+/** GET /ppt/styles → {ok, items:[{id,label,display_name,description,bg,accent}], meta:{count}}
+ *  风格清单来自 review_service/data/ppt_styles/*.json（数量动态，面板副标题不再写死 8/14） */
+export function pptStyles(opts = {}) {
+  return unwrap(get(`${PPT}/styles`, {}, opts));
+}
+
+/** POST /ppt/jobs {text,scenario,minutes,style_id} → {ok, job, meta}
+ *  文本粘贴主入口（map-reduce 大纲生成为长调用：BFF 360s / http.js 默认 600s） */
+export function pptCreateJob(body, opts = {}) {
+  return unwrap(post(`${PPT}/jobs`, body, opts));
+}
+
+/** POST /ppt/jobs/pdf（multipart：file + scenario/minutes/style_id form 字段）→ 同上 */
+export function pptCreateFromPdf(formData, opts = {}) {
+  return unwrap(post(`${PPT}/jobs/pdf`, formData, opts));
+}
+
+/** GET /ppt/jobs/{id} → {ok, job} 全量还原（raw_text 不回传，source.text_chars 代之） */
+export function pptGetJob(id, opts = {}) {
+  return unwrap(get(`${PPT}/jobs/${id}`, {}, opts));
+}
+
+/** PATCH /ppt/jobs/{id} {pages} → {ok, job}（结构清洗 + evidence 状态按原文重验） */
+export function pptSavePages(id, pages, opts = {}) {
+  return unwrap(patch(`${PPT}/jobs/${id}`, { pages }, opts));
+}
+
+/** POST /ppt/jobs/{id}/build → {ok, job, meta:{slides,bytes,previews}}（python-pptx 本地生成 + 缩略图） */
+export function pptBuildJob(id, opts = {}) {
+  return unwrap(post(`${PPT}/jobs/${id}/build`, {}, opts));
+}
+
+/** DELETE /ppt/jobs/{id} → {ok, meta:{deleted}} 手动清行 + 产物目录（无 TTL） */
+export function pptDeleteJob(id, opts = {}) {
+  return unwrap(del(`${PPT}/jobs/${id}`, opts));
+}
+
+/** pptx 下载直链（<a href>；FileResponse 附件下载，非信封，缺失时回信封 JSON） */
+export function pptDownloadUrl(id) {
+  return `${PPT}/jobs/${id}/pptx`;
+}
+
+/** 第 page 页缩略图直链（<img src>；PNG。缺失时回信封 JSON → img onerror 隐藏） */
+export function pptPreviewUrl(id, page) {
+  return `${PPT}/jobs/${id}/preview/${page}`;
+}

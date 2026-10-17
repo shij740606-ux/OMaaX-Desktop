@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "installed 0.4.27 enters without login",
+    "native SSH bridge loads journal data inside installed WebView",
+    "conference data works in installed app",
+    "existing analysis view remains available",
+    "presentation module and fourteen styles available in installed desktop",
+    "multi-file ZIP project entry available in installed desktop"
+  ],
+  "errors": []
+}

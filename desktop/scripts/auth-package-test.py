@@ -20,6 +20,9 @@ for relative,source in checks:
  resources.append({'file':relative,'sha256':sha(out/relative),'matchesSource':True})
 env=dict(os.environ,OMAAX_ACCOUNT_HOME=str(ROOT/'validation-local/auth-package-empty-account'),BIODSH_HOME=str(ROOT/'validation-local/auth-package-empty-profile'))
 exe=out/'OMaaX.exe'
+# Tauri patches the runtime bundle marker to NSS for NSIS, then restores UNK in the build artifact.
+release_bytes=(ROOT/'desktop/src-tauri/target/release/OMaaX.exe').read_bytes()
+assert exe.read_bytes()==release_bytes.replace(b'__TAURI_BUNDLE_TYPE_VAR_UNK',b'__TAURI_BUNDLE_TYPE_VAR_NSS'),'Packaged executable differs beyond the NSIS bundle marker'
 requests=[{'jsonrpc':'2.0','id':1,'method':'tools/list','params':{}},{'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'workflow_prepare','arguments':{}}},{'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'server_delete_confirm','arguments':{}}}]
 r=subprocess.run([str(exe),'--ssh-mcp'],input=''.join(json.dumps(x)+'\n' for x in requests),capture_output=True,text=True,encoding='utf-8',env=env,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
 rows=[json.loads(x) for x in r.stdout.splitlines() if x.startswith('{')]

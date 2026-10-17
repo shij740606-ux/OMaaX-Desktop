@@ -4,11 +4,11 @@
 //   - 进行中的请求由 store action 持有 → 面板卸载不中断；
 //   - 表单草稿存 drafts → 切菜单不丢。
 import { defineStore } from 'pinia';
-import { compileTex, formatCheck, formatErrorMessage, getConferences, getDirectory, getJournals, inspectZip, presubmit, recommend, reformatTex, reviewErrorMessage, rebuttalConfirm, rebuttalCreateFromPdf, rebuttalCreateJob, rebuttalDeleteJob, rebuttalDraft, rebuttalLetter, rebuttalSaveResponse, runZipCompile } from '../api/review.js';
+import { pptBuildJob, pptCreateFromPdf, pptCreateJob, pptDeleteJob, pptSavePages, pptStyles, compileTex, formatCheck, formatErrorMessage, getConferences, getDirectory, getJournals, inspectZip, presubmit, recommend, reformatTex, reviewErrorMessage, rebuttalConfirm, rebuttalCreateFromPdf, rebuttalCreateJob, rebuttalDeleteJob, rebuttalDraft, rebuttalLetter, rebuttalSaveResponse, runZipCompile } from '../api/review.js';
 
 const STORAGE_KEY = 'plantai.edu.submissions'; // D3 台账持久化（tracker 面板已解除映射，state 保留）
 // tracker 已砍（2026-10-12，仅解除 UI 映射；TrackerPanel.vue 保留在 panels/ 下可复用）
-const SECTIONS = ['journals', 'recommend', 'presubmit', 'report', 'format', 'reformat', 'calendar', 'rebuttal'];
+const SECTIONS = ['journals', 'recommend', 'presubmit', 'report', 'format', 'reformat', 'calendar', 'rebuttal', 'ppt'];
 
 // ⑥ 台账状态枚举（labels 由 step-7 UI 层给；store 只存字符串）
 export const SUBMISSION_STATUS = ['draft', 'submitted', 'under_review', 'revision', 'accepted', 'rejected'];
@@ -133,6 +133,28 @@ export const useEduStore = defineStore('edu', {
       prefillJournal: '',
     },
 
+    /* —— P5 风格清单（GET /ppt/styles；与 job 生命周期无关，clearPpt/删除都不清）—— */
+    pptStyles: [], // [{id,label,display_name,description,bg,accent}]
+    pptStylesStatus: 'idle', // idle | loading | ready | error（error 允许下次面板挂载重试）
+
+    /* —— P5 科研汇报助手（PPT 大纲 job；纯内存态，切换面板不丢，刷新丢失）—— */
+    ppt: {
+      job: null, // 后端全量 job（pages/warnings/status...；raw_text 不回传）
+      status: 'idle', // idle | loading | editing | building | done | error
+      error: null,
+      saving: false, // PATCH 进行中（编辑器保存按钮 loading）
+      buildMeta: null, // 最近一次 {slides, bytes}（编辑后清空，提示重新生成）
+      createMeta: null, // 生成期 meta（llm_calls/target_pages... 供页头展示）
+      // 生成表单（跨菜单保留；style/scenario/minutes 在创建时固化进 job）
+      form: {
+        mode: 'pdf', // 'pdf' | 'text'
+        scenario: 'group_meeting',
+        minutes: 15,
+        styleId: 'academic-minimal',
+        file: null, // File（pdf 模式；每次生成后保留，便于重试）
+        text: '', // 文本模式草稿
+      },
+    },
   }),
 
   getters: {
@@ -384,6 +406,127 @@ export const useEduStore = defineStore('edu', {
       this.rebuttal = this._rebuttalBase();
     },
 
+    /* —— P5 科研汇报助手 actions（job 为后端权威，本地只镜像）—— */
+    /** 风格清单（面板挂载时取一次；失败留空 → 副标题回落「多风格」文案） */
+    async pptLoadStyles() {
+      if (this.pptStylesStatus === 'loading' || this.pptStylesStatus === 'ready') {
+        return this.pptStyles;
+      }
+      this.pptStylesStatus = 'loading';
+      try {
+        const res = await pptStyles();
+        const items = Array.isArray(res && res.items) ? res.items : [];
+        this.pptStyles = items;
+        this.pptStylesStatus = 'ready';
+      } catch {
+        this.pptStyles = [];
+        this.pptStylesStatus = 'error';
+      }
+      return this.pptStyles;
+    },
+
+    _pptBase() {
+      return {
+        job: null,
+        status: 'idle',
+        error: null,
+        saving: false,
+        buildMeta: null,
+        createMeta: null,
+        form: { ...this.ppt.form },
+      };
+    },
+    /** 生成大纲（pdf 上传 / 文本粘贴，按 form.mode 分派；同步长调用） */
+    async pptGenerate() {
+      const f = this.ppt.form;
+      if (f.mode === 'pdf' && !f.file) {
+        this.ppt.status = 'error';
+        this.ppt.error = '请先选择 PDF 文件';
+        return null;
+      }
+      if (f.mode === 'text' && (!f.text || f.text.trim().length < 300)) {
+        this.ppt.status = 'error';
+        this.ppt.error = '正文过短（<300 字），无法生成汇报大纲';
+        return null;
+      }
+      this.ppt.status = 'loading';
+      this.ppt.error = null;
+      try {
+        let res;
+        if (f.mode === 'pdf') {
+          const fd = new FormData();
+          fd.append('file', f.file);
+          fd.append('scenario', f.scenario);
+          fd.append('minutes', String(f.minutes));
+          fd.append('style_id', f.styleId);
+          res = await pptCreateFromPdf(fd);
+        } else {
+          res = await pptCreateJob({
+            text: f.text, scenario: f.scenario, minutes: f.minutes, style_id: f.styleId,
+          });
+        }
+        this.ppt.job = res.job;
+        this.ppt.createMeta = res.meta || null;
+        this.ppt.buildMeta = null;
+        this.ppt.status = 'editing';
+        return res.job;
+      } catch (err) {
+        this.ppt.status = 'error';
+        this.ppt.error = reviewErrorMessage(err);
+        return null;
+      }
+    },
+    /** 保存编辑后的完整 pages（后端结构清洗 + evidence 重验；失败保留编辑态） */
+    async pptSave(pages) {
+      if (!this.ppt.job) return null;
+      this.ppt.saving = true;
+      this.ppt.error = null;
+      try {
+        const res = await pptSavePages(this.ppt.job.id, pages);
+        this.ppt.job = res.job;
+        this.ppt.buildMeta = null; // 旧 pptx 失效（后端亦清 pptx_path）
+        return res.job;
+      } catch (err) {
+        this.ppt.error = reviewErrorMessage(err);
+        return null;
+      } finally {
+        this.ppt.saving = false;
+      }
+    },
+    /** 大纲 → draft.pptx（python-pptx 本地生成） */
+    async pptBuild() {
+      if (!this.ppt.job) return null;
+      this.ppt.status = 'building';
+      this.ppt.error = null;
+      try {
+        const res = await pptBuildJob(this.ppt.job.id);
+        this.ppt.job = res.job;
+        this.ppt.buildMeta = res.meta || null;
+        this.ppt.status = 'done';
+        return res.job;
+      } catch (err) {
+        this.ppt.status = 'error';
+        this.ppt.error = reviewErrorMessage(err);
+        return null;
+      }
+    },
+    /** 删除 job（行 + 产物目录）；保留表单便于立即重做 */
+    async pptDelete() {
+      const id = this.ppt.job?.id;
+      if (!id) return { ok: true };
+      try {
+        await pptDeleteJob(id);
+        this.ppt = this._pptBase();
+        return { ok: true };
+      } catch (err) {
+        this.ppt.error = reviewErrorMessage(err);
+        return { ok: false, error: this.ppt.error };
+      }
+    },
+    /** 回到生成表单（保留表单值，清 job/产物状态） */
+    clearPpt() {
+      this.ppt = this._pptBase();
+    },
     async submitRecommend(payload) {
       this.recommendStatus = 'loading';
       this.recommendError = null;
