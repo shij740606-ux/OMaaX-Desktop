@@ -1,0 +1,58 @@
+/* tokens.css —— B1 归属。设计令牌唯一来源：docs/UI_SPEC.md §1。
+   值一字不差；实现以本文件为准，权威视觉原型仅作参考。 */
+
+/* ---------- 1.1 深色主题（默认） ---------- */
+:root[data-theme="dark"] {
+  --pa-canvas: #0A0A10;      --pa-surface-1: #111119;   --pa-surface-2: #161622;
+  --pa-surface-3: #1C1C2A;   --pa-raised: #202031;      --pa-hairline: #23232F;
+  --pa-hairline-strong: #33334A; --pa-ink: #F2F3F8;     --pa-ink-muted: #A9ADC4;
+  --pa-ink-subtle: #6B6F8B;  --pa-code-bg: #0D0D16;
+  --pa-user-bubble: linear-gradient(135deg, #2A2A3E, #1C1C2A);
+  --pa-user-bubble-border: #33334A;
+  --pa-glow-opacity: 1;      --pa-aurora-opacity: 1;
+  --pa-grid-dot: rgba(255,255,255,.035);
+  --pa-scrim: rgba(10,10,16,.6);
+}
+
+/* ---------- 1.2 浅色主题 ---------- */
+:root[data-theme="light"] {
+  --pa-canvas: #F6F8FC;      --pa-surface-1: #FFFFFF;   --pa-surface-2: #F0F3FA;
+  --pa-surface-3: #E9EDF7;   --pa-raised: #FFFFFF;      --pa-hairline: #E2E7F2;
+  --pa-hairline-strong: #C9D2E8; --pa-ink: #16182A;     --pa-ink-muted: #4C5268;
+  --pa-ink-subtle: #9AA1B8;  --pa-code-bg: #F1F4FB;
+  --pa-user-bubble: linear-gradient(135deg, #E8ECFF, #F4FBFF);
+  --pa-user-bubble-border: #C9D2E8;
+  --pa-glow-opacity: .35;    --pa-aurora-opacity: .08;
+  --pa-grid-dot: rgba(22,24,42,.05);
+  --pa-scrim: rgba(246,248,252,.6);
+}
+
+/* ---------- 1.3 双主题公共 ---------- */
+:root {
+  /* 品牌 */
+  --pa-g-from: #5E6AD2;  --pa-g-to: #00D4FF;  --pa-aux: #A78BFA;
+  --pa-gradient: linear-gradient(135deg, var(--pa-g-from), var(--pa-g-to));
+  /* 语义色（只表状态，双主题通用） */
+  --pa-success: #2ED3A0; --pa-warning: #F5B85C; --pa-error: #FF5C7A; --pa-info: #5E9BFF;
+  /* 相位五色（只用于流水线卡/相位徽章/底栏状态点） */
+  --pa-t-planning: #C0A8DD; --pa-t-execution: #9FBBE0; --pa-t-knowledge: #9FC9A2;
+  --pa-t-validation: #DFA88F; --pa-t-done: #C08532;
+  /* 字体 */
+  --pa-font-ui: 'SF Pro Display','SF Pro Text','PingFang SC','Helvetica Neue','Microsoft YaHei','Noto Sans SC',system-ui,sans-serif;
+  --pa-font-mono: 'SF Mono',Menlo,'JetBrains Mono',Consolas,'Liberation Mono',monospace;
+  /* 圆角 */
+  --pa-r-xs: 4px; --pa-r-sm: 6px; --pa-r-md: 8px; --pa-r-lg: 12px; --pa-r-xl: 16px; --pa-r-pill: 9999px;
+  /* 缓动 */
+  --pa-ease: cubic-bezier(.4,0,.2,1);
+  --pa-ease-out: cubic-bezier(.16,1,.3,1);
+  --pa-ease-spring: cubic-bezier(.34,1.56,.64,1);
+  /* 壳层尺寸 */
+  /* 2026-08-26 用户要求：顶栏高度 100px（logo 220px 会超出顶栏，按视觉预期可接受） */
+  --topbar-h: 100px; --statusbar-h: 28px;
+}
+
+/* ---------- UI_SPEC §1.4 合法硬编码值之一：热图 8 级色板（本项目图谱热力用途） ---------- */
+:root {
+  --pa-heat-0: #0D0D16; --pa-heat-1: #1E2A5E; --pa-heat-2: #2B4AA8; --pa-heat-3: #3B5FD0;
+  --pa-heat-4: #5E6AD2; --pa-heat-5: #00A3E8; --pa-heat-6: #00D4FF; --pa-heat-7: #8DF0FF;
+}

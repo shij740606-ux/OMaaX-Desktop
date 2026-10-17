@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "模型仅列出已授权服务器",
+      "passed": true
+    },
+    {
+      "name": "模型不发布任意SSH命令和自批删除工具",
+      "passed": true
+    },
+    {
+      "name": "get_resources",
+      "server": "175",
+      "passed": true,
+      "expectedError": false
+    },
+    {
+      "name": "compute_status",
+      "server": "175",
+      "passed": true,
+      "expectedError": false
+    },
+    {
+      "name": "workspace_files",
+      "server": "175",
+      "passed": true,
+      "expectedError": false
+    },
+    {
+      "name": "execute",
+      "server": "175",
+      "passed": true,
+      "expectedError": true
+    },
+    {
+      "name": "server_delete_confirm",
+      "server": "175",
+      "passed": true,
+      "expectedError": true
+    },
+    {
+      "name": "get_resources",
+      "server": "spark",
+      "passed": true,
+      "expectedError": false
+    },
+    {
+      "name": "compute_status",
+      "server": "spark",
+      "passed": true,
+      "expectedError": false
+    },
+    {
+      "name": "workspace_files",
+      "server": "spark",
+      "passed": true,
+      "expectedError": false
+    },
+    {
+      "name": "execute",
+      "server": "spark",
+      "passed": true,
+      "expectedError": true
+    },
+    {
+      "name": "server_delete_confirm",
+      "server": "spark",
+      "passed": true,
+      "expectedError": true
+    }
+  ],
+  "nativeVersion": "0.4.26",
+  "mode": "installed native MCP executable, saved Windows credentials, real selected SSH servers; no user GUI or analysis submissions"
+}

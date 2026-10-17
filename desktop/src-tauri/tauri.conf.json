@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OMaaX",
-  "version": "0.4.25",
+  "version": "0.4.26",
   "identifier": "org.omaax.desktop",
   "build": {
     "frontendDist": "../dist-tauri",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "node scripts/stage-ssh.mjs && npx vite --config vite.tauri.config.ts",
-    "beforeBuildCommand": "node scripts/sync-skills.mjs && node scripts/stage-ssh.mjs && npx vite build --config vite.tauri.config.ts"
+    "beforeBuildCommand": "node scripts/sync-skills.mjs && node scripts/stage-ssh.mjs && npx vite build --config vite.education.config.mjs && npx vite build --config vite.tauri.config.ts"
   },
   "app": {
     "withGlobalTauri": false,
@@ -42,7 +42,8 @@
       "../resources/databases": "databases",
       "../resources/bioenv": "bioenv",
       "../dsh-runtime/node_modules": "dsh/node_modules",
-      "../../LICENSE": "LICENSE"
+      "../../LICENSE": "LICENSE",
+      "../resources/education": "education"
     },
     "windows": {
       "nsis": {

@@ -3,6 +3,8 @@ import type { AppSettings, IpcEvent, Rect, RefPack, DemoInfo, PlatformJob, Platf
 
 const api = {
   hubAdmin: ():Promise<void> => Promise.reject(new Error("需要 Tauri 桌面版")),
+  educationStart: (): Promise<string> => Promise.reject(new Error("请使用桌面版打开教育科研")),
+  educationDelete: (_path:string): Promise<unknown> => Promise.reject(new Error("请使用桌面版删除")),
   hubStatus: (): Promise<import("../renderer/src/AuthGate").HubStatus> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
   hubLogin: (_hub:string,_username:string,_password:string):Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
   hubLogout: ():Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),

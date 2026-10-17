@@ -1,0 +1,82 @@
+/* animations.css —— B1 归属。UI_SPEC §2 动画规格全量。
+   悬停态（hover lift）由 base.css 包 @media (hover: hover) 呈现；
+   本文件追加 prefers-reduced-motion 关闭规则。 */
+
+/* 脉冲：running 状态点/徽章。
+   2026-08-25 二次性能修复：box-shadow 扩散每帧触发重绘，改为透明度呼吸
+   （纯合成）。辉光扩散的视觉细节让位于输入流畅度——呼吸节奏仍清晰表达
+   「运行中」状态，与静态状态点（实心/空心）区分明确。 */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .4; }
+}
+
+/* 扫光：运行中卡片 / 骨架屏 / 流式进度线。
+   2026-08-25 性能修复：background-position 每帧触发 paint（软渲染下输入卡顿主因），
+   改为 transform 平移（纯合成，GPU 加速）。
+   配套伪元素形态：position:absolute; top/bottom:0; left:0; width:200%;
+   background: linear-gradient(...); will-change:transform; overflow 由宿主隐藏。
+   位移数学：宽度 200% 时，光带中心在元素 50% = 容器 100%（右缘），
+   translateX(-50%) 后移到容器 0%（左缘）——两端均不可见，循环无缝，方向与原版一致。 */
+@keyframes shimmer {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* 流式光标 */
+@keyframes blink { 50% { opacity: 0; } }
+
+/* 旋转：running 相位 spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 进度条高光带（方向同 shimmer；性能修复同上） */
+@keyframes sweep {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* tab 切换 / 工具卡展开体入场 */
+@keyframes fade-slide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 新消息入场 */
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 背景光斑漂移（blob.b 延迟 -8s 在 base.css .blob.b 上声明） */
+@keyframes aurora-drift {
+  from { transform: translate(0,0) scale(1); }
+  to   { transform: translate(-40px, 30px) scale(1.08); }
+}
+
+/* scrim 淡入（抽屉/覆盖层） */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 主题图标切换 rotate 180°（400ms）——挂在 .theme-toggle-anim 上 */
+.theme-toggle-anim {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .4s var(--pa-ease);
+}
+/* svg 脱离行内基线,避免主题图标较其他按钮图标下沉(2026-09-15 对齐修复) */
+.theme-toggle-anim svg { display: block; }
+.theme-toggle-anim.flipped { transform: rotate(180deg); }
+
+/* 面板折叠 .3s ease-out：app-shell 的 grid-template-columns 过渡在 base.css .app-shell 上声明 */
+
+/* ---------- 动效降级（FR-THEME-004）：关闭全部 animation/transition ----------
+   状态仍由静态符号表达（✓/●/◌/实心/空心），不依赖运动。 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
