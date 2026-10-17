@@ -1,0 +1,2 @@
+html,body,#app{height:100%;margin:0}*{box-sizing:border-box}
+@media(max-width:900px){.edu-workspace{flex-direction:column!important}.edu-sidenav{height:auto!important;width:100%!important}.edu-menu{flex-direction:row!important;flex-wrap:wrap}.edu-panel{padding:16px!important}.edu-item{white-space:nowrap}}

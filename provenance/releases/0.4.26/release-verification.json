@@ -1,0 +1,89 @@
+{
+  "version": "0.4.26",
+  "installer": "OMaaX_0.4.26_x64-setup.exe",
+  "bytes": 111292290,
+  "sha256": "602de59a208343574e38f5a9a14d4dbcaf6980a1a11b33cfa8fcf9b7054d6b20",
+  "executableSha256": "84aba345bfeb58de22c5e2ecad8e10b294e768052e111b21cadbbe3e62a7a220",
+  "resourceChecks": [
+    {
+      "file": "dsh/node_modules/@biodsh/auth-guard/index.js",
+      "sha256": "b023f04ac6da21214b16d91270d98bd013b887648d7d726594deb15b8fb5d9ed",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/workflow-guard/index.js",
+      "sha256": "00c8927282ac47b00797032f418ed8890508c8226e041fa6552b7038f1d8a7e1",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/step-guard/index.js",
+      "sha256": "a0d555a3fa42496b57f0d737d63b4797af2fe1550700eb5aa2b7d9e3249df619",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_environments.py",
+      "sha256": "b9b0fd3ab76e55250c00ebdbc26995d6f050b4669796f40dad9e41f08c928ab3",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_engine.py",
+      "sha256": "9b43a0f7c0a43bc0dbc0d81a6d33878c947f9ace586defac3457dc365ad7ddec",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow-dependencies.json",
+      "sha256": "cf61b8a3b7b862165641475433fcf25eb78b2a8fecfcc137b7f18005ab9905cd",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/personal_runner.py",
+      "sha256": "178e23d3629808c15b05ff5e81538fb0844ac282bf3f7bb057a5f4accdc72c5f",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_setup.py",
+      "sha256": "b5fa1f1e95ddbe66c7f9c6fcb171aa3b008ab3cc9cc9b73de9dada9863801ddd",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_delete.py",
+      "sha256": "b3a11cd7821f17e43a5f8af72f3b4dea758443480c23deff512eba28ef97ef8f",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_file_ops.py",
+      "sha256": "8040cc519ac6e7e7c1a1cbfd758282ee459fa30412e3f4da14962361881fbb04",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/education.cjs",
+      "sha256": "ada380ad04de6c4bde89a100feea825b5e39d45f15e59af14b9a5024b21f8100",
+      "matchesSource": true
+    },
+    {
+      "file": "education/index.html",
+      "sha256": "c4686fc4198d4298556a15ce034bf60627ba4b1535a825f168ac92c2f4367bbd",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/index--MAnLxdc.js",
+      "sha256": "7a198fd0ff216d1031c144c71ed03fd37860097ea4c8abc0d8775c1019c507a2",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/index-DlRTXJix.css",
+      "sha256": "ff34376fc21c8b55be099cc58c062bd44db15a036ff8ffc08f24c566668fc8e3",
+      "matchesSource": true
+    }
+  ],
+  "packagedMcp": {
+    "toolCount": 25,
+    "modelEnvironmentTools": true,
+    "mismatchedProfileCallsDenied": true,
+    "localAccess": true,
+    "deleteConfirmationDenied": true,
+    "realServersContacted": false
+  },
+  "installedApplicationReplaced": false,
+  "realHubLoginVerified": false
+}

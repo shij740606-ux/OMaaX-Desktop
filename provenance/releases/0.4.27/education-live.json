@@ -1,0 +1,21 @@
+[
+  {
+    "name": "styles",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "PDF to outline, retained draft, save, PPTX build, preview, download, deletion denial/cancel",
+    "ok": true,
+    "fixtureJob": "ppt_b2b18c51e730"
+  },
+  {
+    "name": "ZIP upload, inspect, multi-file compile and PDF download",
+    "ok": true
+  },
+  {
+    "name": "ZIP traversal rejected",
+    "ok": true
+  }
+]

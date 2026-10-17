@@ -1,0 +1,12 @@
+{
+  "checks": [
+    "account page unavailable before login",
+    "qa retains account UI and entitlement restrictions",
+    "admin retains account UI and entitlement restrictions",
+    "plan selection and both payment previews preserved",
+    "light/dark layouts at three viewport widths",
+    "logout unmounts account and payment UI",
+    "empty retains account UI and entitlement restrictions"
+  ],
+  "errors": []
+}

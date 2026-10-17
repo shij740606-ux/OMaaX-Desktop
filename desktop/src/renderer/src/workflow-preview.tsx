@@ -76,11 +76,13 @@ if(new URLSearchParams(location.search).has('model')){
 const authScenario=new URLSearchParams(location.search).get('auth');
 if(authScenario){
  if(authScenario==='qa-new')settings.onboarded=false;
- const qa={businessCalls:0,loginCalls:0,logoutCalls:0,status:{authenticated:['qa','qa-new','admin','empty','load-error'].includes(authScenario),hub:'http://127.0.0.1:8090',user:{id:'fixture-account-a',username:'alice',role:['admin','load-error'].includes(authScenario)?'admin':'user',authorizations:authScenario.startsWith('qa')?['qa']:[]},error:authScenario==='disabled'?'登录服务尚未开通，请联系管理员':''}};
+ const qa={businessCalls:0,loginCalls:0,logoutCalls:0,status:{localAccess:authScenario==='local',authenticated:['local','qa','qa-new','admin','empty','load-error'].includes(authScenario),hub:'http://127.0.0.1:8090',user:{id:'fixture-account-a',username:'alice',role:['admin','load-error'].includes(authScenario)?'admin':'user',authorizations:authScenario==='local'?['qa','bioflow']:authScenario.startsWith('qa')?['qa']:[]},error:authScenario==='disabled'?'登录服务尚未开通，请联系管理员':''}};
  (window as any).__authQa=qa;
  for(const name of ['appInfo','getSettings','getCredential','dshStatus','dshStart','sshHosts','personalCompute']){const old=(window.biodsh as any)[name];(window.biodsh as any)[name]=(...args:any[])=>{qa.businessCalls++;return old?.(...args);};}
+ window.biodsh.educationStart=async()=>{const url=new URLSearchParams(location.search).get('eduUrl');if(!url)throw Error('请在服务器管理中连接并选用 175 服务器');return url;};
+ window.biodsh.educationDelete=async()=>{throw Error('已取消删除');};
  window.biodsh.hubStatus=async()=>{if(authScenario==='offline')throw Error('offline');return qa.status;};
- window.biodsh.hubLogin=async(_hub,username,password)=>{qa.loginCalls++;if(authScenario==='disabled')throw Error('登录服务尚未开通，请联系管理员');if(password!=='test-password')throw Error('UNAUTHORIZED: 用户名或密码错误');qa.status={authenticated:true,hub:qa.status.hub,user:{id:'fixture-account-b',username,role:'user',authorizations:['qa']},error:''};};
+ window.biodsh.hubLogin=async(_hub,username,password)=>{qa.loginCalls++;if(authScenario==='disabled')throw Error('登录服务尚未开通，请联系管理员');if(password!=='test-password')throw Error('UNAUTHORIZED: 用户名或密码错误');qa.status={localAccess:false,authenticated:true,hub:qa.status.hub,user:{id:'fixture-account-b',username,role:'user',authorizations:['qa']},error:''};};
  window.biodsh.hubLogout=async()=>{qa.logoutCalls++;qa.status.authenticated=false;};
  window.biodsh.onDebugTab=()=>{};
  if(authScenario==='load-error'){let failures=0;const original=window.biodsh.appInfo;window.biodsh.appInfo=async()=>{if(failures++<2)throw Error('synthetic transient error');return original();};}

@@ -145,3 +145,15 @@ test('resource cards separate server usage from task limits and retain metrics',
   assert.match(text(view.root), /交换空间已有占用，不一定表示服务器当前缺内存/);
   await act(async () => view.unmount());
 });
+
+test('settings model usage retains current, project and total counts including cached tokens', async () => {
+  const session=(id,input,output,cache)=>({sessionId:id,projections:{values:{tokenUsage:{uncachedInputTokens:input,outputTokens:output,cacheReadTokens:cache}}}});
+  const View=harness({state:{currentSession:'a',dsh:{state:'running'}},api:{
+    deepseekBalance:async()=>({balance_infos:[{currency:'CNY',total_balance:'12.50'}]}),
+    dshRpc:async method=>method==='workspace.list'?{items:[{sessionIds:['a','b']}]}:{items:[session('a',10,20,30),session('b',1,2,3),session('c',100,200,300)]},
+  }}).load('components/ModelUsage.tsx').default;
+  let view;await act(async()=>{view=create(React.createElement(View));await settle();});
+  assert.match(text(view.root),/CNY 12.50/);
+  assert.deepEqual(view.root.findAllByType('dd').map(text),['60 tokens','66 tokens','666 tokens']);
+  await act(async()=>view.unmount());
+});

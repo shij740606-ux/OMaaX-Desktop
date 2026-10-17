@@ -6,6 +6,7 @@ import { useApp } from '../store';
 import ContextMenu, { type MenuState } from '../components/ContextMenu';
 import { Copy, Sparkles as SparklesIcon } from 'lucide-react';
 import WorkflowResults from '../components/WorkflowResults';
+import PersonalComputeView from './PersonalComputeView';
 import { useT } from '../i18n';
 
 interface FileEntry { name: string; rel: string; size: number; modified: number; kind: string; preview?: string }
@@ -86,6 +87,7 @@ export default function DataView() {
   const { t } = useT();
   const { info, settings, dsh, currentSession, setTab } = useApp();
   const api = window.biodsh;
+  const [source, setSource] = useState<'workspace'|'workflows'|'server'>('workspace');
   const [files, setFiles] = useState<FileEntry[] | null>(null);
   const [busyRel, setBusyRel] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -205,11 +207,16 @@ export default function DataView() {
           <button className="btn btn-ghost" onClick={() => refresh()}><RefreshCw size={13} /></button>
         </div>
       </header>
+      <nav aria-label="分析结果来源" className="flex flex-wrap gap-2 px-5 py-3 hairline-b">
+        {([['workspace','工作区分析'],['workflows','长流程结果'],['server','服务器结果']] as const).map(([id,label])=><button key={id} className={`btn ${source===id?'btn-primary':'btn-ghost'}`} aria-pressed={source===id} onClick={()=>setSource(id)}>{t(label)}</button>)}
+      </nav>
       <div className="flex-1 overflow-y-auto">
+        {source==='workflows'&&<div className="max-w-[1180px] mx-auto p-6"><WorkflowResults /></div>}
+        {source==='server'&&<PersonalComputeView section="tasks" resultsOnly/>}
+        <div hidden={source!=='workspace'}>
         <div className="max-w-[860px] mx-auto px-8 py-6 flex flex-col gap-6">
 
 
-          <WorkflowResults />
           {notice && <div className="px-3 py-2 rounded-lg t-body rise" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{notice}</div>}
           {files === null && <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('正在扫描…')}</div>}
           {files !== null && files.length === 0 && (
@@ -223,7 +230,7 @@ export default function DataView() {
           {outputs.length > 0 && (
             <section>
               <div className="t-headline mb-2 flex items-center gap-1.5"><ClipboardList size={16} strokeWidth={1.75} /> {t('分析产出')} <span className="t-caption">{outputs.length}</span></div>
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))' }}>
                 {outputs.map((o) => <OutputCard key={o.dir} dir={o.dir} items={o.items} mtime={o.mtime} onAnalyze={() => analyzeOutput(o.dir, o.items.length)} busy={busyRel === `dir:${o.dir}`} onMenu={(e) => outputMenu(e, o.dir, o.items.length)} wsPath={workspace} />)}
               </div>
             </section>
@@ -257,6 +264,7 @@ export default function DataView() {
           ))}
           {files !== null && files.length > 0 && <p className="t-caption pb-2" style={{ color: 'var(--text-3)' }}>{t('只显示常见数据类型，最多 500 个；扫描不进隐藏目录。')}</p>}
         </div>
+      </div>
       </div>
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </div>

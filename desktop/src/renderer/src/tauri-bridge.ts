@@ -9,6 +9,8 @@ import {serverRequest,invalidateServer} from './serverRequests';
 export function installTauriBridge() {
   const reportDshBounds=dshLayoutQueue((rect,visible)=>invoke('dsh_bounds',{rect,visible}),error=>console.error('Chat layout failed',error));
   const api = {
+    educationStart: () => invoke<string>("education_start"),
+    educationDelete: (path:string) => invoke("education_delete",{path}),
     hubAdmin: () => invoke<void>("hub_admin"),
     hubStatus: () => invoke<import("./AuthGate").HubStatus>("hub_status"),
     hubLogin: (hub:string,username:string,password:string) => invoke<void>("hub_login",{hub,username,password}),

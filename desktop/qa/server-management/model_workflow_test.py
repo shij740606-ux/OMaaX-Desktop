@@ -11,7 +11,7 @@ with sync_playwright() as p:
  page.on('pageerror',lambda e:errors.append(str(e)))
  page.on('request',lambda r:external.append(r.url) if 'should-not-load' in r.url else None)
  try:
-  page.goto('http://127.0.0.1:41740/workflow-preview.html?model=1');page.wait_for_load_state('networkidle')
+  page.goto(os.environ.get('OMAAX_QA_URL','http://127.0.0.1:41740')+'/workflow-preview.html?model=1');page.wait_for_load_state('networkidle')
   (OUT/'initial-dom.html').write_text(page.content(),encoding='utf-8')
   expect(page.get_by_role('button',name='知识库',exact=True)).to_have_count(0);checks.append('knowledge entry absent in actual shell')
   page.get_by_role('article').filter(has=page.get_by_role('heading',name='RNA-seq 分析',exact=True)).get_by_role('button').click()
@@ -28,7 +28,7 @@ with sync_playwright() as p:
   expect(page.get_by_role('button',name='确认继续',exact=True)).to_have_count(0)
   assert page.evaluate("window.__qa.calls.some(c=>c.action==='session.budgetReset'&&c.body.sessionId==='preview-session')")
   checks.append('usage visible; dismiss keeps pause; explicit confirmation renews budget')
-  page.get_by_role('button',name='分析',exact=True).click();expect(page.get_by_role('heading',name='长流程分析结果')).to_be_visible()
+  page.get_by_role('button',name='分析',exact=True).click();page.get_by_role('button',name='长流程结果',exact=True).click();expect(page.get_by_role('heading',name='长流程分析结果')).to_be_visible()
   section=page.get_by_label('服务器流程结果',exact=True)
   complete=section.get_by_role('article').filter(has_text='已完成任务');complete.get_by_role('button',name='查看结果').click()
   expect(section.get_by_text('已显示 3 / 4 个文件')).to_be_visible();checks.append('server results visible in analysis')

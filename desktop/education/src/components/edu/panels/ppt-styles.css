@@ -1,0 +1,40 @@
+/* ppt-styles.css —— P5 科研汇报风格选择卡（前端 CSS 投影）。
+   真源：review_service/data/ppt_styles/*.json（tokens JSON 优先，决定生成的
+   PPT 配色/字体）；卡面封面图 = ui/src/assets/ppt-style-cards/*.png
+   （build_pptx + ppt_preview 真实渲染的各风格封面，风格变更时需重新生成）。 */
+
+.ppt-style-card {
+  display: flex; flex-direction: column; align-items: stretch; gap: 7px;
+  padding: 8px 10px 9px; border-radius: var(--pa-r-md, 10px);
+  border: 1px solid var(--pa-hairline); background: var(--pa-surface-1);
+  cursor: pointer; text-align: left; width: 100%;
+}
+.ppt-style-card.on {
+  border-color: var(--pa-accent, #2563eb);
+  box-shadow: 0 0 0 1px var(--pa-accent, #2563eb);
+}
+.ppt-style-cover {
+  width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
+  border-radius: 6px; border: 1px solid var(--pa-hairline);
+  background: var(--st-bg, #fff);
+}
+.ppt-style-meta { display: flex; flex-direction: column; gap: 1px; }
+.ppt-style-name { font-size: 13px; font-weight: 600; color: var(--pa-ink); }
+.ppt-style-desc { font-size: 12px; color: var(--pa-ink-muted); margin-top: 1px; }
+
+/* 十四风格 tokens（与 data/ppt_styles/*.json palette 同步；
+   domestic 起 6 个移植自开源 paper-skills styles） */
+.ppt-style-card.academic-minimal { --st-bg: #ffffff; --st-primary: #111827; --st-accent: #2563eb; }
+.ppt-style-card.botanic-forest   { --st-bg: #f4faf6; --st-primary: #14532d; --st-accent: #16a34a; }
+.ppt-style-card.classic-defense  { --st-bg: #ffffff; --st-primary: #1a365d; --st-accent: #b7791f; }
+.ppt-style-card.academic-blue    { --st-bg: #eff6ff; --st-primary: #1d4ed8; --st-accent: #3b82f6; }
+.ppt-style-card.nature-green     { --st-bg: #f0fdf4; --st-primary: #15803d; --st-accent: #22c55e; }
+.ppt-style-card.tech-dark        { --st-bg: #0b1220; --st-primary: #38bdf8; --st-accent: #22d3ee; }
+.ppt-style-card.monochrome       { --st-bg: #ffffff; --st-primary: #111111; --st-accent: #444444; }
+.ppt-style-card.warm-earth       { --st-bg: #fff7ed; --st-primary: #9a3412; --st-accent: #ea580c; }
+.ppt-style-card.domestic         { --st-bg: #ffffff; --st-primary: #1f4e79; --st-accent: #c00000; }
+.ppt-style-card.international    { --st-bg: #ffffff; --st-primary: #111111; --st-accent: #c0392b; }
+.ppt-style-card.systems-talk     { --st-bg: #ffffff; --st-primary: #1f3a5f; --st-accent: #e4572e; }
+.ppt-style-card.theory-beamer    { --st-bg: #fafafa; --st-primary: #23373b; --st-accent: #eb811b; }
+.ppt-style-card.jp-gothic        { --st-bg: #ffffff; --st-primary: #1e5bd8; --st-accent: #ffe14d; }
+.ppt-style-card.editorial        { --st-bg: #faf7f2; --st-primary: #8e7dbe; --st-accent: #c8553d; }

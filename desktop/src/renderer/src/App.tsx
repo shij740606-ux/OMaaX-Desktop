@@ -5,7 +5,7 @@ import { AppProvider, useApp } from './store';
 import Sidebar, { WindowControls } from './components/Sidebar';
 import ChatView from './views/ChatView';
 import StoreView from './views/StoreView';
-import AccountView from './views/AccountView';
+import EducationView from './views/EducationView';
 import DataView from './views/DataView';
 import DatabaseView from './views/DatabaseView';
 import EnvView from './views/EnvView';
@@ -48,7 +48,8 @@ function Shell() {
         {tab === 'servers' && bioflow && <ServerManagementView initial="resources" />}
         {tab === 'store' && bioflow && <StoreView />}
         {tab === 'env' && bioflow && <EnvView />}
-        {tab === 'account' && <AccountView />}
+        {bioflow && <EducationView active={tab === 'education'} />}
+        {tab === 'account' && <SettingsView initialPane="account" />}
         {tab === 'settings' && <SettingsView />}
       </main>
       {!settings.onboarded && chat && <Onboarding />}

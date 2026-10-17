@@ -77,17 +77,26 @@ pub fn profile(base: &Path, hub: &str, user: &User) -> Result<PathBuf, String> {
     let id = uuid::Uuid::parse_str(&user.id).map_err(|_|"用户标识无效")?;
     Ok(base.join("accounts/profiles").join(digest(&hub)).join(id.to_string()))
 }
+pub fn local_access() -> bool { cfg!(feature = "local-access") }
+fn local_user() -> User { User { id: "local".into(), username: "本机使用".into(), role: "local".into(), authorizations: vec!["qa".into(), "bioflow".into()] } }
 pub fn startup_root() -> PathBuf {
+    if local_access() { return base(); }
     stored().and_then(|s| profile(&base(), &s.hub, &s.user)).unwrap_or_else(|_|base().join("accounts/locked"))
 }
 pub fn has(user: &User, unit: &str) -> bool { unit.is_empty() || user.role == "admin" || user.authorizations.iter().any(|v|v==unit || (unit=="qa" && v=="bioflow")) }
 pub fn remote_owner(root: &Path) -> Result<Option<String>,String> {
     #[cfg(test)]
     if !root.starts_with(base().join("accounts/profiles")) { return Ok(None); }
+    if local_access() { require(root,"bioflow")?; return Ok(None); }
     let user=require(root,"bioflow")?;
     Ok(Some(format!("{}:{}",digest(&normalize(&configured_hub())?),user.id)))
 }
 pub fn require(root: &Path, unit: &str) -> Result<User, String> {
+    if local_access() {
+        if root != base() { return Err("当前数据目录不匹配，请重新打开软件".into()); }
+        let user=local_user();
+        return if has(&user,unit) { Ok(user) } else { Err("该功能暂不可用".into()) };
+    }
     let session = stored()?;
     if normalize(&configured_hub())? != session.hub || profile(&base(),&session.hub,&session.user)? != root { return Err("UNAUTHORIZED: 账号已切换，请重新打开软件".into()); }
     let fingerprint=digest(&format!("{}:{}",session.hub,session.token));
@@ -101,7 +110,7 @@ pub fn require(root: &Path, unit: &str) -> Result<User, String> {
     if !has(&user,unit) { return Err("FORBIDDEN: 当前账号没有该功能授权".into()); } Ok(user)
 }
 pub fn status(root: &Path) -> Value {
-    match require(root,"") { Ok(user)=>json!({"authenticated":true,"hub":configured_hub(),"user":user}), Err(error)=>json!({"authenticated":false,"hub":configured_hub(),"error":error}) }
+    match require(root,"") { Ok(user)=>json!({"authenticated":true,"localAccess":local_access(),"hub":configured_hub(),"user":user}), Err(error)=>json!({"authenticated":false,"hub":configured_hub(),"error":error}) }
 }
 pub fn login(hub: &str, username: &str, password: &str) -> Result<(), String> {
     let hub = normalize(hub)?;
@@ -137,7 +146,7 @@ pub fn logout() -> Result<(), String> {
 pub fn command_unit(command: &str) -> Result<Option<&'static str>, String> {
     match command {
         "hub_status"|"hub_login"|"hub_logout"|"window_control" => Ok(None),
-        "open_path"|"open_external"|"hub_admin"|"app_info"|"settings_get"|"settings_set"|"credential_get"|"credential_set"|"env_status"|"dsh_status"|"skills_catalog"|"skills_statuses"|"client_log"|"check_updates"|"dsh_stop"|"dsh_bounds" => Ok(Some("")),
+        "open_path"|"open_external"|"education_start"|"education_delete"|"hub_admin"|"app_info"|"settings_get"|"settings_set"|"credential_get"|"credential_set"|"env_status"|"dsh_status"|"skills_catalog"|"skills_statuses"|"client_log"|"check_updates"|"dsh_stop"|"dsh_bounds" => Ok(Some("")),
         "dsh_start"|"dsh_restart"|"dsh_reload"|"dsh_rpc"|"dsh_open_session"|"dsh_new_session"|"dsh_set_context"|"assistant_ask"|"deepseek_balance"|"session_export"|"session_delete"|"ratings_get"|"ratings_set" => Ok(Some("qa")),
         "personal_compute"|"ssh_hosts_list"|"ssh_hosts_save"|"ssh_hosts_remove"|"ssh_hosts_select"|"ssh_hosts_trust"|"ssh_hosts_test"|"ssh_hosts_metrics"|"ssh_hosts_files"|"env_install"|"env_install_extra"|"skills_readme"|"skills_install"|"skills_uninstall"|"workspace_files"|"read_workspace_image"|"refdata_list"|"refdata_install"|"refdata_remove"|"db_catalog"|"embed_query"|"demos_seed"|"git_status"|"git_init"|"git_commit"|"pick_folder" => Ok(Some("bioflow")),
         _ => Err("FORBIDDEN: 此功能暂不可用，请联系管理员".into())
@@ -151,8 +160,18 @@ pub fn check_model() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[cfg(feature="local-access")]
+    fn local_release_uses_legacy_without_login_but_rejects_other_profile_roots() {
+        let root=base();assert_eq!(startup_root(),root);
+        assert!(require(&root,"bioflow").is_ok());assert!(require(&root,"qa").is_ok());
+        assert!(require(&root.join("accounts/profiles/other"),"qa").is_err());
+        assert_eq!(status(&root)["localAccess"],true);
+        assert!(command_unit("arbitrary_shell").is_err());
+    }
     fn user() -> User { User{id:"761f059b-1111-4111-8111-123456789abc".into(),username:"a".into(),role:"user".into(),authorizations:vec!["qa".into()] } }
     #[test]
+    #[cfg(not(feature = "local-access"))]
     fn login_switch_revocation_and_logout_use_isolated_secure_storage() {
         use std::{io::{Read,Write},sync::{Arc,atomic::{AtomicBool,Ordering}}};
         let root=std::env::temp_dir().join(format!("omaax-auth-test-{}",uuid::Uuid::new_v4()));

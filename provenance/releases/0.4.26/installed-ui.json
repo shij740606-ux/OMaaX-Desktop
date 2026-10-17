@@ -1,0 +1,9 @@
+{
+  "checks": [
+    "installed 0.4.26 enters without login",
+    "native SSH bridge loads journal data inside installed WebView",
+    "conference data works in installed app",
+    "existing analysis view remains available"
+  ],
+  "errors": []
+}

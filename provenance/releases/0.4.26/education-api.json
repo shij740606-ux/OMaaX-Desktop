@@ -1,0 +1,109 @@
+[
+  {
+    "name": "international",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "chinese",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "journals",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "calendar",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "reformat",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "compile",
+    "ok": true,
+    "seconds": 0.7,
+    "error": null
+  },
+  {
+    "name": "format-check",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "recommend",
+    "ok": true,
+    "seconds": 3.4,
+    "error": null
+  },
+  {
+    "name": "presubmit",
+    "ok": true,
+    "seconds": 3.8,
+    "error": null
+  },
+  {
+    "name": "rebuttal-create",
+    "ok": true,
+    "seconds": 0.9,
+    "error": null
+  },
+  {
+    "name": "rebuttal-save-c0001",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "rebuttal-draft-c0001",
+    "ok": true,
+    "seconds": 1.0,
+    "error": null
+  },
+  {
+    "name": "rebuttal-confirm-c0001",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "rebuttal-save-c0002",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "rebuttal-draft-c0002",
+    "ok": true,
+    "seconds": 1.4,
+    "error": null
+  },
+  {
+    "name": "rebuttal-confirm-c0002",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "rebuttal-letter",
+    "ok": true,
+    "seconds": 0.1,
+    "error": null
+  },
+  {
+    "name": "direct deletion refused",
+    "ok": true,
+    "fixtureJob": "rbt_2984dd51c9c0"
+  }
+]

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Plug, Plus, Trash2, SlidersHorizontal, Palette, Info, ChevronRight } from 'lucide-react';
 import InfoDot, { useHelp } from '../components/HelpTip';
 export { default as InfoDot } from '../components/HelpTip';
-import { ExternalLink, FolderOpen, KeyRound } from 'lucide-react';
+import AccountView from './AccountView';
+import ModelUsage from '../components/ModelUsage';
+import { ExternalLink, FolderOpen, KeyRound, CreditCard } from 'lucide-react';
 import {hasUnit,useAuth} from '../AuthGate';
 import { useApp } from '../store';
 import type { McpServer } from '@shared/types';
@@ -20,6 +22,7 @@ const PROVIDERS: { id: string; label: string; base: string; model: string }[] = 
 ];
 
 const SETTINGS_PANES = [
+  { id: 'account', label: '账号和用量', detail: '账户信息与模型使用情况', icon: CreditCard },
   { id: 'model', label: '对话模型', detail: '连接方式与访问密钥', icon: KeyRound },
   { id: 'tools', label: '工具与服务', detail: '分析工具使用说明', icon: Plug },
   { id: 'workspace', label: '文件与软件', detail: '保存位置与软件下载', icon: FolderOpen },
@@ -28,11 +31,11 @@ const SETTINGS_PANES = [
 ] as const;
 type SettingsPane = typeof SETTINGS_PANES[number]['id'];
 
-export default function SettingsView() {
+export default function SettingsView({initialPane='model'}:{initialPane?:SettingsPane}={}) {
   const { settings, updateSettings, credential, saveKey, info, restartDsh } = useApp();
   const { t } = useT();
   const bioflow=hasUnit(useAuth().user,'bioflow');
-  const [pane, setPane] = useState<SettingsPane>('model');
+  const [pane, setPane] = useState<SettingsPane>(initialPane);
   const [key, setKey] = useState('');
   const offline = settings?.mode === 'offline';
   const modelHelp = useHelp('model');
@@ -52,6 +55,7 @@ export default function SettingsView() {
           <div className="omaax-settings-nav-note"><SlidersHorizontal size={15}/><span>{t('只配置需要的功能，其余保持默认即可。')}</span></div>
         </nav>
         <div className="omaax-settings-panel">
+          {pane==='account'&&<div className="flex flex-col gap-4 p-5" role="tabpanel" id="settings-pane-account" aria-labelledby="settings-tab-account"><ModelUsage/><AccountView embedded/></div>}
           <div className="omaax-settings-content" data-pane="model" role="tabpanel" id="settings-pane-model" aria-labelledby="settings-tab-model" hidden={pane!=='model'} tabIndex={0}>          <Section title={modelHelp.title} desc={modelHelp.summary} tip={modelHelp.detail} wide>
             <div className="seg">
               {(['online', 'offline'] as const).map((k) => <button key={k} className={(settings.mode ?? 'online') === k ? 'active' : ''} onClick={async () => { await updateSettings({ mode: k }); void restartDsh(); }}>{t({ online: '云端模型', offline: '本地／内网模型' }[k])}</button>)}
