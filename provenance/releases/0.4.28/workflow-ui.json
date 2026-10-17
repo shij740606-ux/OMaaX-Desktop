@@ -1,0 +1,20 @@
+{
+  "checks": [
+    "knowledge entry absent in actual shell",
+    "model handoff preserves selection, no frontend installation",
+    "usage visible; dismiss keeps pause; explicit confirmation renews budget",
+    "server results visible in analysis",
+    "HTML report renders with scripts and network blocked",
+    "table text preview",
+    "image preview",
+    "pagination and download request",
+    "failed results remain inspectable",
+    "resume requires explicit user confirmation and original plan digest",
+    "late result cannot bleed into another server",
+    "polling recovers from failure",
+    "three viewport widths"
+  ],
+  "pageErrors": [],
+  "externalRequests": [],
+  "mode": "real React and Edge; synthetic bridge, no actual model or SSH"
+}

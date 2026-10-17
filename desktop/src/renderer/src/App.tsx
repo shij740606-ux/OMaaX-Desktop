@@ -6,7 +6,6 @@ import Sidebar, { WindowControls } from './components/Sidebar';
 import ChatView from './views/ChatView';
 import StoreView from './views/StoreView';
 import EducationView from './views/EducationView';
-import AccountView from './views/AccountView';
 import DataView from './views/DataView';
 import DatabaseView from './views/DatabaseView';
 import EnvView from './views/EnvView';
@@ -50,7 +49,7 @@ function Shell() {
         {tab === 'store' && bioflow && <StoreView />}
         {tab === 'env' && bioflow && <EnvView />}
         {bioflow && <EducationView active={tab === 'education'} />}
-        {tab === 'account' && <AccountView />}
+        {tab === 'account' && <SettingsView initialPane="account" />}
         {tab === 'settings' && <SettingsView />}
       </main>
       {!settings.onboarded && chat && <Onboarding />}

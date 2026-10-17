@@ -1,0 +1,9 @@
+{
+  "checks": [
+    "installed version and original analysis default",
+    "both remote result sources available",
+    "account and usage moved to settings",
+    "installed research navigation has nine modules and no return button"
+  ],
+  "errors": []
+}

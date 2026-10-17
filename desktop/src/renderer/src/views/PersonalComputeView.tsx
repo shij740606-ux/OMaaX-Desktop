@@ -21,7 +21,7 @@ type Audit = {id:number; at:number; action:string; detail:string};
 const savedResults=new Map<string,{status?:Status;metric?:SshMetrics;jobs?:Job[];audit?:Audit[]}>();
 const call = <T,>(id:string,action:string,body:unknown={}) => window.biodsh.personalCompute(id,action,body) as Promise<T>;
 
-export default function PersonalComputeView({section,onManageEnvironment}:{section:'resources'|'tasks'|'data'|'protection'|'environments'|'files';onManageEnvironment?:()=>void}) {
+export default function PersonalComputeView({section,onManageEnvironment,resultsOnly=false}:{resultsOnly?:boolean;section:'resources'|'tasks'|'data'|'protection'|'environments'|'files';onManageEnvironment?:()=>void}) {
   const {setTab,currentSession}=useApp();
   const [hosts,setHosts]=useState<SshHost[]>([]), [id,setId]=useState(()=>sessionStorage.getItem('omaax.server.selected')||'');
   const currentId=useRef(id);currentId.current=id;const generation=useRef(0);
@@ -54,12 +54,13 @@ export default function PersonalComputeView({section,onManageEnvironment}:{secti
     {notice&&<div role="status" className="card p-4 break-words">{notice}</div>}
     {section==='resources'&&<p className="t-caption">查看服务器有多忙，以及还剩多少可用资源。</p>}
     {section==='resources'&&metric&&<ResourceSummary value={metric}/>}
-    {status&&section==='tasks'&&(!status.protection||status.error)&&<div className="card p-4"><p>服务器环境尚未就绪，请先到“环境管理”检查和配置。</p>{onManageEnvironment&&<button className="btn btn-tint mt-2" onClick={onManageEnvironment}>去环境管理</button>}</div>}
+    {!resultsOnly&&status&&section==='tasks'&&(!status.protection||status.error)&&<div className="card p-4"><p>服务器环境尚未就绪，请先到“环境管理”检查和配置。</p>{onManageEnvironment&&<button className="btn btn-tint mt-2" onClick={onManageEnvironment}>去环境管理</button>}</div>}
     {id&&section==='tasks'&&<>
-      <div className="card p-5 flex flex-col gap-3"><div className="t-headline">安排分析任务</div><p>告诉智能体要分析什么，系统会从你选择的服务器中安排计算。这里查看进度、取消任务和下载结果。</p><button className="btn btn-primary self-start" onClick={()=>setTab('chat')}>去对话</button></div>
+      {!resultsOnly&&<div className="card p-5 flex flex-col gap-3"><div className="t-headline">安排分析任务</div><p>告诉智能体要分析什么，系统会从你选择的服务器中安排计算。这里查看进度、取消任务和下载结果。</p><button className="btn btn-primary self-start" onClick={()=>setTab('chat')}>去对话</button></div>}
       <div className="card p-4"><div className="t-headline">分析任务</div>{jobs.map(job=><div className="py-3 hairline-b" key={job.id}><div>{job.spec.title||('任务 '+job.id.slice(0,8))} · {jobLabels[job.state]||'状态待确认'}</div><div className="t-caption">{job.spec.context&&<>{job.spec.context.projectName} · {job.spec.context.sessionName} · </>}{new Date(job.created*1000).toLocaleString()}</div><details className="t-caption mt-2"><summary>任务详情</summary><div className="break-all">{job.id} · {job.detail?serverError(job.detail):''}</div></details><div className="flex flex-wrap gap-2 mt-2"><button className="btn btn-ghost" disabled={busy} onClick={()=>void run(async()=>setLog((await call<{text:string}>(id,'logs',{id:job.id})).text))}>查看日志</button>{['queued','running'].includes(job.state)?<button className="btn btn-ghost" disabled={busy} onClick={()=>void run(async()=>{await call(id,'cancel',{id:job.id});await refresh();})}>取消任务</button>:<button className="btn btn-ghost" disabled={busy} onClick={()=>void run(async()=>{const result=await call<{path:string}>(id,'transfer',{source:{job:job.id},target:null});setNotice(`结果已下载到 ${result.path}`);})}>下载结果</button>}</div></div>)}{!jobs.length&&<div className="t-caption mt-3">这台服务器还没有任务。开始分析后，进度会显示在这里。</div>}</div>
       {log&&<pre className="card p-4 whitespace-pre-wrap break-all max-h-96 overflow-auto">{log}</pre>}
     </>}
+    {id&&resultsOnly&&<ServerWorkspaceFiles key={id} server={id}/>}
     {id&&section==='protection'&&<><ServerDeleteRequests server={id}/><ServerWorkspaceFiles key={id} server={id}/><ServerWriteRequests key={'write-'+id} server={id}/></>}
     {id&&section==='environments'&&<ServerEnvironments key={id} server={id} label={hosts.find(h=>h.id===id)?.name||id} refreshToken={environmentRefresh}/>}
     {id&&section==='files'&&<ServerFileBrowser key={id} server={id} refreshToken={environmentRefresh}/>}

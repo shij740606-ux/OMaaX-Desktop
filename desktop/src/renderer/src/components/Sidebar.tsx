@@ -1,7 +1,7 @@
 import {useAuth,hasUnit} from '../AuthGate';
 import omaaxIcon from '../assets/omaax-icon.svg';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, Wallet, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, CreditCard, GraduationCap } from 'lucide-react';
+import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, GraduationCap } from 'lucide-react';
 import { useApp, type Tab } from '../store';
 import { Database, Globe } from 'lucide-react';
 import ContextMenu, { type MenuState } from './ContextMenu';
@@ -10,7 +10,6 @@ import { useT } from '../i18n';
 interface Workspace { workspaceId: string; path: string; title: string; sessionIds: string[]; updatedAt: string }
 interface SessionRow { sessionId: string; updatedAt: number; running: boolean; blank: boolean; cwd?: string; projections?: { values: Record<string, unknown> } }
 interface GitInfo { available: boolean; isRepo: boolean; branch?: string; dirty: number; lastCommit?: string }
-interface Balance { total?: string; granted?: string; topped?: string; currency?: string; error?: string }
 
 function sessionTitle(s: SessionRow): string {
   const t = s.projections?.values?.title;
@@ -41,7 +40,6 @@ export default function Sidebar() {
   const { tab, setTab, env, dsh, info, settings, restartDsh, currentSession: current, setCurrentSession: setCurrent } = useApp();
   const {user}=useAuth();
   const bioflow=hasUnit(user,"bioflow"), chat=hasUnit(user,"qa")||bioflow;
-  const offline = settings?.mode === 'offline';
   const { t, lang } = useT();
   const api = window.biodsh;
   const isMac = info?.platform === 'darwin';
@@ -72,12 +70,10 @@ export default function Sidebar() {
   const [git, setGit] = useState<Record<string, GitInfo>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [pins, setPins] = useState<string[]>(loadPins);
-  const [balance, setBalance] = useState<Balance | null>(null);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [usageOpen, setUsageOpen] = useState(false);
   const refreshPending=useRef(false);
 
   const toast = (m: string) => { setNotice(m); setTimeout(() => setNotice(null), 4000); };
@@ -105,13 +101,6 @@ export default function Sidebar() {
   }, [dsh.state, lang, info?.paths.root]);
 
   useEffect(() => { void refresh(); const timer = setInterval(() => { void refresh(); }, 5000); return () => clearInterval(timer); }, [refresh]);
-  useEffect(() => {
-    let alive = true;
-    const load = () => api.deepseekBalance().then((b: { balance_infos?: { currency: string; total_balance: string; granted_balance: string; topped_up_balance: string }[] }) => {
-      if (!alive) return; const i = b.balance_infos?.[0]; setBalance(i ? { total: i.total_balance, granted: i.granted_balance, topped: i.topped_up_balance, currency: i.currency } : { error: t('无数据') });
-    }).catch((e: unknown) => alive && setBalance({ error: String(e).includes('no-key') ? t('未填 API Key') : t('查询失败') }));
-    load(); const timer = setInterval(load, 60_000); return () => { alive = false; clearInterval(timer); };
-  }, [lang]);
 
   const openSession = (id: string) => { setCurrent(id); setTab('chat'); void api.dshOpenSession(id); };
   const newSession = async (workspaceId?: string) => {
@@ -177,15 +166,6 @@ export default function Sidebar() {
     return { w, rows: ordered([...dedup.filter((s) => pins.includes(s.sessionId)), ...dedup.filter((s) => !pins.includes(s.sessionId))], orders["sessions:" + w.workspaceId] || [], s => s.sessionId) };
   }), [workspaces, sessions, archived, pins, orders]);
 
-  // 用量统计（token）：本对话 / 本项目 / 全部
-  const usage = useMemo(() => {
-    const all = Object.values(sessions).reduce((n, s) => n + sessionTokens(s), 0);
-    const cur = current && sessions[current] ? sessionTokens(sessions[current]) : 0;
-    const w = workspaces.find((x) => current && x.sessionIds.includes(current));
-    const proj = w ? w.sessionIds.reduce((n, id) => n + (sessions[id] ? sessionTokens(sessions[id]) : 0), 0) : 0;
-    return { all, cur, proj, projName: w?.title };
-  }, [sessions, workspaces, current]);
-
   const nav = (id: Tab, label: string, Icon: typeof Cpu, right?: React.ReactNode) => (
     <button className={`nav-item no-drag text-left ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}><Icon size={16} strokeWidth={2} /><span className="flex-1">{label}</span>{right}</button>
   );
@@ -210,8 +190,7 @@ export default function Sidebar() {
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
 {id:'store', content: nav('store', t('工具中心'), Store)},
-{id:'education', content: nav('education', t('教育科研'), GraduationCap)},
-{id:'account', content: nav('account', t('账户与用量'), CreditCard)}].filter(item=>item.id==='account'||(item.id==='new'?chat:bioflow)), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store','education','account'], orders.nav || [], id => id))}>{item.content}</div>)}
+{id:'education', content: nav('education', t('教育科研'), GraduationCap)}].filter(item=>item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store','education'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 mt-3">
@@ -252,12 +231,6 @@ export default function Sidebar() {
       </div>
 
       <div className="px-3 pb-3 pt-2 hairline-t flex flex-col gap-1.5 relative">
-        <button className="flex items-center gap-2 px-2 h-[30px] rounded-lg text-left hover:brightness-95" style={{ background: 'var(--fill)' }} onClick={() => setUsageOpen((v) => !v)} title={t('点击查看用量明细')}>
-          <Wallet size={14} style={{ color: 'var(--accent)' }} />
-          <span className="t-body flex-1">{offline ? t('本地／内网模型') : balance?.total != null ? t('余额 {amount}', { amount: `${balance.currency === 'CNY' ? '¥' : '$'}${Number(balance.total).toFixed(2)}` }) : balance?.error ?? t('查询余额…')}</span>
-          <span className="t-caption">{offline ? t('本地/内网') : 'DeepSeek'}</span>
-        </button>
-        {usageOpen && <UsagePanel balance={balance} usage={usage} onClose={() => setUsageOpen(false)} />}
         <div className="flex items-center justify-between px-2">
           <span className="t-caption flex items-center gap-1.5"><span className="inline-block w-[6px] h-[6px] rounded-full" style={{ background: dsh.state === 'running' ? 'var(--green)' : dsh.state === 'starting' ? 'var(--orange)' : 'var(--text-3)' }} />{dsh.state === 'running' ? t('智能体运行中') : dsh.state === 'starting' ? t('启动中') : dsh.state === 'error' ? t('智能体出错') : t('未启动')}</span>
           <button className="p-1 rounded-md hover:bg-[var(--fill)]" title={t('设置')} onClick={() => setTab('settings')}><Settings size={13} style={{ color: 'var(--text-2)' }} /></button>
@@ -267,27 +240,6 @@ export default function Sidebar() {
       {notice && <div className="absolute left-3 right-3 bottom-[76px] z-[65] px-3 py-2 rounded-lg t-caption rise" style={{ background: 'var(--text)', color: 'var(--bg)' }}>{notice}</div>}
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </aside>
-  );
-}
-
-function UsagePanel({ balance, usage, onClose }: { balance: Balance | null; usage: { all: number; cur: number; proj: number; projName?: string }; onClose: () => void }) {
-  const { pushOverlay, popOverlay } = useApp();
-  const { t } = useT();
-  useEffect(() => { pushOverlay(); return () => popOverlay(); }, [pushOverlay, popOverlay]);
-  useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
-  const sym = balance?.currency === 'CNY' ? '¥' : '$';
-  const row = (l: string, v: string, sub?: string) => <div className="flex items-baseline justify-between gap-3"><span className="t-body" style={{ color: 'var(--text-2)' }}>{l}</span><span className="t-body text-right"><span className="t-mono">{v}</span>{sub && <span className="t-caption ml-1">{sub}</span>}</span></div>;
-  return (
-    <div className="absolute left-3 right-3 bottom-[76px] z-[66] card p-3 flex flex-col gap-2 rise" style={{ boxShadow: 'var(--shadow-sheet)' }}>
-      <div className="flex items-center justify-between"><span className="t-headline">{t('用量与额度')}</span><button className="p-1 rounded-md hover:bg-[var(--fill)]" onClick={onClose}><X size={12} /></button></div>
-      <div className="t-caption" style={{ color: 'var(--text-3)' }}>{t('DeepSeek 账户')}</div>
-      {balance?.total != null ? <>{row(t('可用余额'), `${sym}${Number(balance.total).toFixed(2)}`)}{balance.granted != null && row(t('赠送'), `${sym}${Number(balance.granted).toFixed(2)}`)}{balance.topped != null && row(t('充值'), `${sym}${Number(balance.topped).toFixed(2)}`)}</> : <div className="t-body">{balance?.error ?? t('查询中…')}</div>}
-      <div className="t-caption mt-1" style={{ color: 'var(--text-3)' }}>{t('Token 用量（含缓存命中）')}</div>
-      {row(t('本对话'), fmtTokens(usage.cur))}
-      {row(usage.projName ? t('本项目「{project}」', { project: usage.projName }) : t('本项目'), fmtTokens(usage.proj))}
-      {row(t('全部对话'), fmtTokens(usage.all))}
-      <div className="t-caption" style={{ color: 'var(--text-3)' }}>{t('费用按 DeepSeek 官网价目计算，余额每分钟刷新。')}</div>
-    </div>
   );
 }
 

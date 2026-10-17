@@ -10,7 +10,7 @@ const PLAN_ICONS: Record<PlanId, typeof Zap> = { basic: Zap, pro: Rocket, flagsh
 
 type Channel = keyof typeof PAY_COLORS;
 
-export default function AccountView() {
+export default function AccountView({embedded=false}:{embedded?:boolean}={}) {
   const { t } = useT();
   const [data, setData] = useState<AccountOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +45,8 @@ export default function AccountView() {
 
   if (!data) {
     return (
-      <div className="h-full flex flex-col">
-        {header}
+      <div className={embedded?"flex flex-col":"h-full flex flex-col"}>
+        {!embedded&&header}
         <div className="flex-1 flex items-center justify-center">
           {error !== null ? (
             <div className="flex flex-col items-center gap-3">
@@ -68,10 +68,10 @@ export default function AccountView() {
   const rest = Math.max(0, data.usage.quotaTokens - data.usage.usedTokens);
 
   return (
-    <div className="h-full flex flex-col">
-      {header}
+    <div className={embedded?"flex flex-col":"h-full flex flex-col"}>
+      {!embedded&&header}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[840px] mx-auto px-8 py-8 flex flex-col gap-6">
+        <div className={embedded?"flex flex-col gap-6":"max-w-[840px] mx-auto px-8 py-8 flex flex-col gap-6"}>
           <div role="status" className="card p-4 t-body">{t('此页为套餐与用量演示，数据不代表实际账单，支付功能暂未开放。')}</div>
           <section className="card p-5 rise">
             <div className="flex items-center justify-between gap-2 mb-4">

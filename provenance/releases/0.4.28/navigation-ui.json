@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "original workspace cards and recommended actions are the default",
+    "server results download and file listing; cancelled deletion makes no delete request",
+    "account and actual model usage accessible only inside settings",
+    "nine research modules remain, return-to-chat entry removed"
+  ],
+  "errors": [],
+  "mode": "synthetic bridge; real React/Vue and browser"
+}

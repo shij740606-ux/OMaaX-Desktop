@@ -21,7 +21,7 @@ with sync_playwright() as p:
   search=frame.get_by_placeholder('搜索期刊名（如 Nature、Plant Cell）');search.fill('OMaaX-no-such-journal-xyz')
   expect(frame.locator('tbody tr')).to_have_count(0,timeout=10000);search.fill('');expect(frame.locator('tbody tr').first).to_be_visible();checks.append('journal language and search filters')
   frame.get_by_role('button',name='智能投稿推荐',exact=True).click();abstract=frame.locator('textarea');text='This synthetic test manuscript describes plant transcriptome analysis under drought stress. Six simulated samples illustrate an expression workflow without biological claims.'
-  abstract.fill(text);page.get_by_role('button',name='账户与用量',exact=True).click();page.get_by_role('button',name='教育科研',exact=True).click();expect(abstract).to_have_value(text);checks.append('draft persists across desktop navigation')
+  abstract.fill(text);page.get_by_role('button',name='设置',exact=True).click();page.get_by_role('button',name='教育科研',exact=True).click();expect(abstract).to_have_value(text);checks.append('draft persists across desktop navigation')
   frame.get_by_role('button',name='开始推荐',exact=True).click();expect(frame.get_by_role('tablist',name='档位筛选')).to_be_visible(timeout=120000);checks.append('real recommendation through embedded page')
   frame.get_by_role('button',name='论文排版与规范',exact=True).click();frame.locator('input[type=file]').set_input_files(str(ROOT/'validation-local/education-api-live/synthetic.pdf'))
   frame.get_by_role('button',name='开始版式检查',exact=True).click();expect(frame.locator('.fc-summary')).to_be_visible(timeout=30000);checks.append('PDF upload and format inspection')

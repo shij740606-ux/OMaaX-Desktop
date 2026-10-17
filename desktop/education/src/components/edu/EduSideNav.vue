@@ -1,12 +1,6 @@
-<!-- EduSideNav.vue —— 教育科研左侧菜单（步骤4）。
-     7 项与 edu store SECTIONS 一致；顶部「← 返回问答」回 chat 视图
-     （AppShell 含 TopBar 在 edu 视图整体 display:none，此为唯一显式返回入口）。
-     高亮仅用现成 --pa-* 变量；无 icon 组件 → emoji。 -->
 <script setup>
-import { useAppStore } from '../../stores/app.js';
 import { useEduStore } from '../../stores/edu.js';
 
-const app = useAppStore();
 const edu = useEduStore();
 
 const ITEMS = [
@@ -26,9 +20,6 @@ const ITEMS = [
 
 <template>
   <nav class="edu-sidenav">
-    <button class="back-btn" type="button" title="返回问答" @click="app.gotoChat()">
-      ← 返回问答
-    </button>
     <ul class="edu-menu">
       <li v-for="it in ITEMS" :key="it.key">
         <button
@@ -57,22 +48,6 @@ const ITEMS = [
   padding: 14px 10px;
   background: var(--pa-surface-1);
   border-right: 1px solid var(--pa-hairline);
-}
-.back-btn {
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  border: none;
-  border-radius: var(--pa-r-md);
-  background: transparent;
-  color: var(--pa-ink-muted);
-  font-size: 12px;
-  cursor: pointer;
-  transition: color .15s var(--pa-ease), background .15s var(--pa-ease);
-}
-.back-btn:hover {
-  color: var(--pa-ink);
-  background: var(--pa-surface-2);
 }
 .edu-menu {
   list-style: none;

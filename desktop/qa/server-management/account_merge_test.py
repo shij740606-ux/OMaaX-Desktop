@@ -14,13 +14,15 @@ with sync_playwright() as p:
     page.on('pageerror', lambda error: errors.append(str(error)))
     try:
         for role in ['locked', 'qa', 'admin', 'empty']:
-            page.goto('http://127.0.0.1:41740/workflow-preview.html?auth=' + role)
+            page.goto(os.environ.get('OMAAX_QA_URL','http://127.0.0.1:41740')+'/workflow-preview.html?auth=' + role)
             page.wait_for_load_state('networkidle')
-            account = page.get_by_role('button', name='账户与用量', exact=True)
+            account = page.get_by_role('tab', name='账号和用量', exact=False)
             if role == 'locked':
                 expect(account).to_have_count(0)
                 checks.append('account page unavailable before login')
                 continue
+            expect(page.get_by_role('button', name='账户与用量', exact=True)).to_have_count(0)
+            page.get_by_role('button', name='设置', exact=True).click()
             expect(account).to_be_visible()
             account.click()
             expect(page.get_by_role('status')).to_contain_text('数据不代表实际账单')
