@@ -21,6 +21,10 @@ try{
  if(Get-NetTCPConnection -LocalPort 41740 -State Listen -ErrorAction SilentlyContinue){throw '新功能测试端口 41740 已被占用。'}
  & $taskPython -X utf8 -B $skill --server 'node desktop/node_modules/vite/bin/vite.js --config desktop/vite.tauri.config.ts --host 127.0.0.1 --port 41740' --port 41740 -- $taskPython -X utf8 -B desktop/qa/server-management/model_workflow_test.py
  if($LASTEXITCODE -ne 0){throw '模型流程与结果展示验收未通过。'}
+ foreach($script in @('auth_test.py','cloud_test.py','account_merge_test.py')){
+  & $taskPython -X utf8 -B $skill --server 'node desktop/node_modules/vite/bin/vite.js --config desktop/vite.tauri.config.ts --host 127.0.0.1 --port 41740' --port 41740 -- $taskPython -X utf8 -B (Join-Path 'desktop/qa/server-management' $script)
+  if($LASTEXITCODE -ne 0){throw "账号与知识库界面验收未通过：$script"}
+ }
  if($Soak){
   & $taskPython -X utf8 -B $skill --server 'node desktop/node_modules/vite/bin/vite.js --config desktop/qa/server-management/vite.config.ts' --port 41739 -- $taskPython -X utf8 -B desktop/qa/server-management/soak_test.py
   if($LASTEXITCODE -ne 0){throw '持续稳定性测试未通过。'}

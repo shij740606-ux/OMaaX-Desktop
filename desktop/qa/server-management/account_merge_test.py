@@ -29,8 +29,10 @@ with sync_playwright() as p:
             expect(page.get_by_text('本月用量', exact=True)).to_be_visible()
             expect(page.get_by_text('积分（Token）记录', exact=True)).to_be_visible()
             expect(page.get_by_role('button', name='知识库', exact=True)).to_have_count(0)
-            if role != 'admin':
-                expect(page.get_by_role('button', name='分析', exact=True)).to_have_count(0)
+            expect(page.get_by_role('button', name='分析', exact=True)).to_be_visible()
+            expect(page.get_by_role('button', name='教育科研', exact=True)).to_be_visible()
+            if role == 'empty':
+                expect(page.get_by_role('button', name='知识库问答', exact=True)).to_have_count(0)
             checks.append(role + ' retains account UI and entitlement restrictions')
             if role != 'admin':
                 continue

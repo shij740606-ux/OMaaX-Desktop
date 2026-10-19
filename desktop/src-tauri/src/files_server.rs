@@ -18,7 +18,7 @@ impl FilesServer {
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
                 let (roots, token, profile) = (roots.clone(), token.clone(), profile.clone());
-                std::thread::spawn(move || { if crate::hub_auth::require(&profile,"qa").is_err() {let _=respond(stream,401,"text/plain",b"login required");return;} let _ = handle(stream, &roots, &token); });
+                std::thread::spawn(move || { if crate::hub_auth::require(&profile,"").is_err() {let _=respond(stream,401,"text/plain",b"login required");return;} let _ = handle(stream, &roots, &token); });
             }
         });
         Some(srv)

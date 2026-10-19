@@ -12,7 +12,7 @@ async function run(request){
  if(typeof request.destination!=='string'||!/^\/[^\r\n\0]+\/workflow-code\/[a-f0-9]{64}\/kernel\.zip$/.test(request.destination)||request.destination.split('/').includes('..'))throw Error('Invalid workflow destination');
  const conn=new Client();const timer=setTimeout(()=>conn.destroy(),120000);
  try{
-  const sftp=await new Promise((resolve,reject)=>{conn.on('error',reject);conn.on('ready',async()=>{try{await require('./account-policy.cjs')(conn,request.connection.accountOwner);conn.sftp((e,s)=>e?reject(e):resolve(s));}catch(e){reject(e);}});conn.connect({...request.connection,readyTimeout:15000,hostVerifier:k=>k.toString('base64')===request.connection.hostKey});});
+  const sftp=await new Promise((resolve,reject)=>{conn.on('error',reject);conn.on('ready',async()=>{try{conn.sftp((e,s)=>e?reject(e):resolve(s));}catch(e){reject(e);}});conn.connect({...request.connection,readyTimeout:15000,hostVerifier:k=>k.toString('base64')===request.connection.hostKey});});
   const parent=request.destination.slice(0,request.destination.lastIndexOf('/'));
   const info=await new Promise((resolve,reject)=>sftp.lstat(parent,(e,s)=>e?reject(e):resolve(s)));
   if(!info.isDirectory()||info.isSymbolicLink())throw Error('Invalid workflow source directory');

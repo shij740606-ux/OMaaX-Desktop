@@ -6,6 +6,7 @@ import Sidebar, { WindowControls } from './components/Sidebar';
 import ChatView from './views/ChatView';
 import StoreView from './views/StoreView';
 import EducationView from './views/EducationView';
+import CloudKnowledgeView from './views/CloudKnowledgeView';
 import DataView from './views/DataView';
 import DatabaseView from './views/DatabaseView';
 import EnvView from './views/EnvView';
@@ -30,7 +31,7 @@ function useTheme() {
 function Shell() {
   useTheme();
   const {user}=useAuth();
-  const bioflow=hasUnit(user,"bioflow"), chat=hasUnit(user,"qa")||bioflow;
+  const bioflow=!!user, chat=!!user;
   const { ready, settings, tab } = useApp();
   if (!ready || !settings) return <div className="h-full w-full drag" />;
   return (
@@ -41,6 +42,7 @@ function Shell() {
         <div className="absolute right-3 top-[11px] z-40 no-drag"><WindowControls compact /></div>
         {tab === 'chat' && chat && <ChatView />}{tab === 'chat' && !chat && <p className="p-12">账号尚未获得对话或分析权限，请联系管理员授权。</p>}
         {tab === 'data' && bioflow && <DataView />}
+        {hasUnit(user,'qa') && <div className="h-full" hidden={tab !== 'knowledge'}><CloudKnowledgeView /></div>}
         {bioflow && <WorkflowPanel active={tab === 'workflows'}/>}
         {tab === 'db' && bioflow && <DatabaseView />}
         {tab === 'hosts' && bioflow && <ServerManagementView />}
@@ -52,7 +54,7 @@ function Shell() {
         {tab === 'account' && <SettingsView initialPane="account" />}
         {tab === 'settings' && <SettingsView />}
       </main>
-      {!settings.onboarded && chat && <Onboarding />}
+      {!settings.onboarded && bioflow && <Onboarding />}
       {chat && <AskPopover />}
     </div>
     </LangContext.Provider>

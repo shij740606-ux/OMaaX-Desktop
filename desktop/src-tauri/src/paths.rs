@@ -20,6 +20,7 @@ impl AppPaths {
             .map(PathBuf::from)
             .unwrap_or_else(|| { let home = app.path().home_dir().expect("home dir"); let legacy = home.join("BioDSH"); if legacy.exists() { legacy } else { home.join("OMaaX") } }));
         crate::hub_auth::initialize(root);
+        crate::hub_auth::begin_desktop_session().expect("无法初始化安全登录，请检查用户目录权限");
         let root = crate::hub_auth::startup_root();
         let dsh_home = root.join("dsh-home");
         let p = AppPaths {

@@ -131,7 +131,7 @@ pub fn connection(root: &Path, id: &str) -> Result<Value, String> {
     let host = list(root)?.into_iter().find(|h| h.id == id).ok_or("服务器不存在")?;
     if host.host_key.is_none() { return Err("请先确认服务器主机指纹".into()); }
     let credentials = secret(id)?;
-    Ok(json!({"accountOwner":crate::hub_auth::remote_owner(root)?,"host":host.host,"port":host.port,"username":host.username,"hostKey":host.host_key,
+    Ok(json!({"host":host.host,"port":host.port,"username":host.username,"hostKey":host.host_key,
         "password":if host.auth=="password" {Some(credentials.password)}else{None},
         "privateKey":if host.auth=="key"{Some(credentials.private_key)}else{None},"passphrase":credentials.passphrase}))
 }
@@ -143,7 +143,7 @@ pub fn call(root: &Path, node: &Path, script: &Path, id: &str, operation: &str, 
     if operation != "probe" && host.host_key.is_none() { return Err("请在服务器管理页面确认主机指纹".into()); }
     validate_command(command)?;
     let credentials = if operation == "probe" { Secret::default() } else { secret(id)? };
-    let request = json!({"accountOwner":if operation=="probe" {None}else{crate::hub_auth::remote_owner(root)?},"operation": operation, "host": host.host, "port": host.port, "username": host.username,
+    let request = json!({"operation": operation, "host": host.host, "port": host.port, "username": host.username,
         "hostKey": host.host_key, "password": if host.auth == "password" { Some(credentials.password) } else { None },
         "privateKey": if host.auth == "key" { Some(credentials.private_key) } else { None },
         "passphrase": credentials.passphrase, "command": command, "timeoutSeconds": timeout.clamp(5, 900)});
@@ -219,7 +219,7 @@ pub fn run_mcp() {
         let Ok(request) = serde_json::from_str::<Value>(&line) else { continue };
         let Some(id) = request.get("id") else { continue };
         if request["method"] == "tools/call" {
-            let authorization=crate::hub_auth::require(&root,"bioflow");
+            let authorization=crate::hub_auth::require(&root,"");
             if let Ok(user)=authorization.as_ref(){crate::hub_auth::audit(&root,user,request["params"]["name"].as_str().unwrap_or("tool"));}
             if let Err(error)=authorization {
                 println!("{}",json!({"jsonrpc":"2.0","id":id,"error":{"code":-32001,"message":error}})); let _=std::io::stdout().flush(); continue;

@@ -9,11 +9,14 @@ import {serverRequest,invalidateServer} from './serverRequests';
 export function installTauriBridge() {
   const reportDshBounds=dshLayoutQueue((rect,visible)=>invoke('dsh_bounds',{rect,visible}),error=>console.error('Chat layout failed',error));
   const api = {
+    cloudQa: (action:string,body:unknown={}) => invoke<unknown>('cloud_qa',{action,body}),
     educationStart: () => invoke<string>("education_start"),
     educationDelete: (path:string) => invoke("education_delete",{path}),
     hubAdmin: () => invoke<void>("hub_admin"),
     hubStatus: () => invoke<import("./AuthGate").HubStatus>("hub_status"),
-    hubLogin: (hub:string,username:string,password:string) => invoke<void>("hub_login",{hub,username,password}),
+    hubLogin: (hub:string,username:string,password:string,remember=false) => invoke<void>("hub_login",{hub,username,password,remember}),
+    hubRememberedLogin: () => invoke<{username:string;password:string}|null>("hub_remembered_login"),
+    hubForgetLogin: () => invoke<void>("hub_forget_login"),
     hubLogout: () => invoke<void>("hub_logout"),
     personalCompute: (id:string, action:string, body:unknown = {}) => serverRequest(id,action,body,()=>invoke('personal_compute', {id, action, body})),
     platformStorage: (action:string, body:unknown = {}) => invoke('platform_storage', {action, body}),
@@ -111,7 +114,8 @@ export function installTauriBridge() {
     onTheme: (_cb: (dark: boolean) => void) => () => { /* 用 CSS 媒体查询即可 */ },
   };
   (window as unknown as { biodsh: typeof api }).biodsh = api;
-  const log = (m: string) => { void invoke('client_log', { line: `${new Date().toISOString()} ${m}` }); };
+  // Logging can be denied before login; never report a logging failure through itself.
+  const log = (m: string) => { void invoke('client_log', { line: `${new Date().toISOString()} ${m}` }).catch(() => {}); };
   window.addEventListener('error', (e) => log(`error: ${e.message} @${e.filename}:${e.lineno}`));
   window.addEventListener('unhandledrejection', (e) => log(`unhandledrejection: ${String((e as PromiseRejectionEvent).reason)}`));
   log('bridge installed');

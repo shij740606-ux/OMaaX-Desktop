@@ -1,23 +1,25 @@
 import { useState } from 'react';
-import {useAuth,hasUnit} from '../AuthGate';
+import {useAuth} from '../AuthGate';
 import { ArrowRight, Check, ExternalLink, Star } from 'lucide-react';
 import { useApp } from '../store';
-import { Logo } from '../components/Sidebar';
+import { Logo, WindowControls } from '../components/Sidebar';
 import { useT } from '../i18n';
 
-// 首次启动的三步引导：欢迎 → 填 API Key → 安装计算环境。全屏居中卡片，可跳过。
+// 引导覆盖整个应用，内容随窗口缩放，小窗口可滚动。
 export default function Onboarding() {
   const { updateSettings, saveKey, credential, env, installEnv, setTab } = useApp();
   const { t } = useT();
-  const {user}=useAuth();const bioflow=hasUnit(user,"bioflow");
+  const {user}=useAuth();const bioflow=!!user;
   const [step, setStep] = useState(0);
   const [key, setKey] = useState('');
   const installing = ['python', 'venv', 'packages', 'verify'].includes(env.step);
   const finish = async (goStore = true) => { await updateSettings({ onboarded: true }); setTab(goStore ? 'store' : 'chat'); };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center drag" style={{ background: 'var(--bg)' }}>
-      <div className="card w-[520px] p-10 flex flex-col items-center text-center no-drag rise" key={step}>
+    <div data-testid="onboarding" className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--bg)' }}>
+      <div className="sticky top-0 h-12 w-full drag z-10" style={{ background: 'var(--bg)' }}><div className="absolute right-3 top-2 no-drag"><WindowControls compact /></div></div>
+      <div className="min-h-[calc(100%-3rem)] flex items-center justify-center px-6 py-10" style={{ minHeight: 'calc(100% - 3rem)' }}>
+      <div className="w-full max-w-[640px] flex flex-col items-center text-center no-drag rise" key={step}>
         {step === 0 && (
           <>
             <Logo size={72} />
@@ -70,6 +72,7 @@ export default function Onboarding() {
         )}
         {step === 3 && <><Logo size={64}/><div className="t-title1 mt-5">准备开始</div><p className="t-body mt-3">新建项目、添加数据，然后用自然语言描述你的分析目标。</p><button className="btn btn-primary mt-6" onClick={()=>finish(false)}>进入 OMaaX</button></>}
 
+      </div>
       </div>
     </div>
   );

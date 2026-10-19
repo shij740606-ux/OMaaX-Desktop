@@ -9,7 +9,7 @@ assert installer.name==f'OMaaX_{version}_x64-setup.exe'
 out=ROOT/('validation-local/auth-release-extracted-'+version);out.mkdir(exist_ok=True)
 seven=r'C:\Program Files\7-Zip\7z.exe'
 checks=[('dsh/node_modules/@biodsh/'+name+'/index.js','desktop/dsh-plugins/'+name+'/index.js') for name in ['auth-guard','workflow-guard','step-guard']]
-checks += [('ssh/'+name,'desktop/resources/ssh/'+name) for name in ['workflow_environments.py','workflow_engine.py','workflow-dependencies.json','personal_runner.py','server_setup.py','server_delete.py','server_file_ops.py','education.cjs']]
+checks += [('ssh/'+name,'desktop/resources/ssh/'+name) for name in ['workflow_environments.py','workflow_engine.py','workflow-dependencies.json','personal_runner.py','server_setup.py','server_delete.py','server_file_ops.py','education.cjs','client.cjs','relay.cjs','stage-workflows.cjs']]
 subprocess.run([seven,'t',str(installer)],check=True,stdout=subprocess.DEVNULL)
 subprocess.run([seven,'x','-y',str(installer),'-o'+str(out),'OMaaX.exe','education/*',*[x[0] for x in checks]],check=True,stdout=subprocess.DEVNULL)
 checks += [('education/'+str(p.relative_to(ROOT/'desktop/resources/education')).replace('\\','/'),'desktop/resources/education/'+str(p.relative_to(ROOT/'desktop/resources/education')).replace('\\','/')) for p in (ROOT/'desktop/resources/education').rglob('*') if p.is_file()]
@@ -41,6 +41,11 @@ if local_access:
  assert r.returncode==0 and json.loads(r.stdout)=={'ok':True,'userId':'local'}
  r=subprocess.run([str(exe),'--ssh-mcp'],input=json.dumps({'jsonrpc':'2.0','id':9,'method':'tools/call','params':{'name':'server_delete_confirm','arguments':{}}})+'\n',capture_output=True,text=True,encoding='utf-8',env=env,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
  row=json.loads(r.stdout);assert row.get('error') or row.get('result',{}).get('isError')
+else:
+ # Matching the legacy root must not accidentally enable a local-access build.
+ env['BIODSH_HOME']=env['OMAAX_ACCOUNT_HOME']
+ r=subprocess.run([str(exe),'--auth-check'],capture_output=True,text=True,encoding='utf-8',env=env,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
+ assert r.returncode==1 and json.loads(r.stdout)=={'ok':False},'Release unexpectedly permits anonymous local access'
 data={'version':version,'installer':installer.name,'bytes':installer.stat().st_size,'sha256':sha(installer),'executableSha256':sha(exe),'resourceChecks':resources,'packagedMcp':{'toolCount':len(names),'modelEnvironmentTools':True,'mismatchedProfileCallsDenied':True,'localAccess':local_access,'deleteConfirmationDenied':True,'realServersContacted':False},'installedApplicationReplaced':False,'realHubLoginVerified':False}
 report=ROOT/('provenance/releases/'+version);report.mkdir(parents=True,exist_ok=True)
 (report/'release-verification.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

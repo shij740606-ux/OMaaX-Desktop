@@ -10,7 +10,52 @@ static BASE: OnceLock<PathBuf> = OnceLock::new();
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct User { pub id: String, pub username: String, pub role: String, pub authorizations: Vec<String> }
 #[derive(Serialize, Deserialize)]
-struct Session { hub: String, token: String, user: User }
+struct Session { hub: String, token: String, user: User, #[serde(default)] restart_nonce: Option<String> }
+
+#[derive(Serialize, Deserialize)]
+pub struct RememberedLogin { pub username: String, pub password: String }
+fn remembered_entry() -> Result<keyring::Entry,String> {
+    keyring::Entry::new("OMaaX.RememberedLogin", &digest(&format!("{}:{}",base().display(),configured_hub())))
+        .map_err(|_|"系统安全存储不可用".into())
+}
+pub fn remembered_login() -> Result<Option<RememberedLogin>,String> {
+    match remembered_entry()?.get_password() {
+        Ok(value)=>serde_json::from_str(&value).map(Some).map_err(|_|"保存的登录信息无效，请重新输入".into()),
+        Err(keyring::Error::NoEntry)=>Ok(None),
+        Err(_)=>Err("无法读取保存的登录信息，请重新输入".into())
+    }
+}
+pub fn forget_login() -> Result<(),String> {
+    match remembered_entry()?.delete_credential() {Ok(())|Err(keyring::Error::NoEntry)=>Ok(()),Err(_)=>Err("无法清除保存的登录信息，请重试".into())}
+}
+pub fn remember_login(username:&str,password:&str,remember:bool)->Result<(),String>{
+    if !remember {return forget_login();}
+    let value=serde_json::to_string(&RememberedLogin{username:username.trim().into(),password:password.into()}).map_err(|_|"无法保存登录信息")?;
+    let entry=remembered_entry()?;
+    entry.set_password(&value).map_err(|_|"无法安全保存账号和密码")?;
+    if entry.get_password().ok().as_deref()!=Some(&value){return Err("保存的登录信息校验失败".into());} Ok(())
+}
+// Only the internal restart immediately after password verification may resume.
+// The nonce lives in OS secure storage, is consumed once, and is never sent to the renderer.
+pub fn arm_login_restart()->Result<(),String>{
+    let mut session=stored()?;let nonce=uuid::Uuid::new_v4().to_string();session.restart_nonce=Some(nonce.clone());
+    entry()?.set_password(&serde_json::to_string(&session).map_err(|_|"无法完成登录")?).map_err(|_|"无法完成登录")?;
+    std::env::set_var("OMAAX_LOGIN_RESTART",nonce);Ok(())
+}
+pub fn begin_desktop_session()->Result<(),String>{
+    if local_access(){return Ok(());}
+    let nonce=std::env::var("OMAAX_LOGIN_RESTART").ok();std::env::remove_var("OMAAX_LOGIN_RESTART");
+    if let Ok(mut session)=stored(){
+        if nonce.is_some() && session.restart_nonce==nonce {
+            session.restart_nonce=None;
+            entry()?.set_password(&serde_json::to_string(&session).map_err(|_|"无法完成登录")?).map_err(|_|"无法完成登录")?;
+            return Ok(());
+        }
+    }
+    let dir=base().join("accounts");std::fs::create_dir_all(&dir).map_err(|_|"无法初始化登录状态")?;
+    std::fs::write(dir.join("logged-out"),b"password required on startup").map_err(|_|"无法锁定登录状态")?;
+    *CHECKED.lock().unwrap()=None;Ok(())
+}
 
 pub fn initialize(base: PathBuf) { let _ = BASE.set(base); }
 pub fn base() -> PathBuf {
@@ -37,14 +82,17 @@ pub fn normalize(hub: &str) -> Result<String, String> {
     Ok(url.as_str().trim_end_matches('/').to_string())
 }
 pub fn configured_hub() -> String {
-    for file in [base().join("accounts/hub.json"), base().join("settings.json")] {
+    for file in [base().join("accounts/hub.json")] {
         if let Ok(text) = std::fs::read_to_string(file) {
             if let Ok(value) = serde_json::from_str::<Value>(&text) {
-                if let Some(url) = value["platformUrl"].as_str() { return url.to_string(); }
+                if let Some(url) = value["platformUrl"].as_str() {
+                    if matches!(url.trim_end_matches('/'),"http://192.168.0.175:8090"|"https://biodsh.biomino.fun") {return "https://cloud.haiguji.com".into();}
+                    return url.to_string();
+                }
             }
         }
     }
-    String::new()
+    "https://cloud.haiguji.com".into()
 }
 fn request(hub: &str, route: &str, token: Option<&str>, body: Option<Value>) -> Result<Value, String> {
     let hub = normalize(hub)?;
@@ -68,9 +116,9 @@ fn enabled(hub: &str) -> Result<(), String> {
     if request(hub,"status",None,None)?["auth_enabled"] != true { return Err("登录服务尚未开通，请联系管理员".into()); } Ok(())
 }
 fn parse_user(value: &Value) -> Result<User, String> {
-    let mut user: User = serde_json::from_value(value.clone()).map_err(|_|"中枢用户信息不完整")?;
-    user.id = uuid::Uuid::parse_str(&user.id).map_err(|_|"中枢用户标识无效")?.to_string();
-    if !matches!(user.role.as_str(),"user"|"admin") || user.username.trim().is_empty() { return Err("登录信息无效，请重新登录".into()); } Ok(user)
+    let mut user: User = serde_json::from_value(value.clone()).map_err(|_|"账号信息不完整")?;
+    user.id = uuid::Uuid::parse_str(&user.id).map_err(|_|"账号标识无效")?.to_string();
+    if !matches!(user.role.as_str(),"user"|"admin"|"researcher"|"guest") || user.username.trim().is_empty() { return Err("登录信息无效，请重新登录".into()); } Ok(user)
 }
 pub fn profile(base: &Path, hub: &str, user: &User) -> Result<PathBuf, String> {
     let hub = normalize(hub)?;
@@ -78,19 +126,14 @@ pub fn profile(base: &Path, hub: &str, user: &User) -> Result<PathBuf, String> {
     Ok(base.join("accounts/profiles").join(digest(&hub)).join(id.to_string()))
 }
 pub fn local_access() -> bool { cfg!(feature = "local-access") }
-fn local_user() -> User { User { id: "local".into(), username: "本机使用".into(), role: "local".into(), authorizations: vec!["qa".into(), "bioflow".into()] } }
+fn local_user() -> User { User { id: "local".into(), username: "本机使用".into(), role: "local".into(), authorizations: vec!["qa".into(), "bioflow".into(), "docgen".into()] } }
 pub fn startup_root() -> PathBuf {
     if local_access() { return base(); }
     stored().and_then(|s| profile(&base(), &s.hub, &s.user)).unwrap_or_else(|_|base().join("accounts/locked"))
 }
-pub fn has(user: &User, unit: &str) -> bool { unit.is_empty() || user.role == "admin" || user.authorizations.iter().any(|v|v==unit || (unit=="qa" && v=="bioflow")) }
-pub fn remote_owner(root: &Path) -> Result<Option<String>,String> {
-    #[cfg(test)]
-    if !root.starts_with(base().join("accounts/profiles")) { return Ok(None); }
-    if local_access() { require(root,"bioflow")?; return Ok(None); }
-    let user=require(root,"bioflow")?;
-    Ok(Some(format!("{}:{}",digest(&normalize(&configured_hub())?),user.id)))
-}
+// Desktop analysis and shared research are included with every authenticated account.
+// Cloud knowledge alone needs an explicit qa entitlement (or the administrator role).
+pub fn has(user: &User, unit: &str) -> bool { matches!(unit,""|"bioflow"|"docgen") || user.role == "admin" || user.authorizations.iter().any(|v|v==unit) }
 pub fn require(root: &Path, unit: &str) -> Result<User, String> {
     if local_access() {
         if root != base() { return Err("当前数据目录不匹配，请重新打开软件".into()); }
@@ -112,6 +155,14 @@ pub fn require(root: &Path, unit: &str) -> Result<User, String> {
 pub fn status(root: &Path) -> Value {
     match require(root,"") { Ok(user)=>json!({"authenticated":true,"localAccess":local_access(),"hub":configured_hub(),"user":user}), Err(error)=>json!({"authenticated":false,"hub":configured_hub(),"error":error}) }
 }
+// Tokens stay in the native process; cloud QA requires its own entitlement.
+pub fn cloud_session(root: &Path) -> Result<(String,String),String> {
+    let user=require(root,"")?;
+    if user.role!="admin" && !user.authorizations.iter().any(|v|v=="qa") {return Err("FORBIDDEN: 当前账号没有知识库问答权限".into());}
+    let s=stored()?;
+    if profile(&base(),&s.hub,&s.user)?!=root || user.id!=s.user.id {return Err("UNAUTHORIZED: 账号已切换".into());}
+    Ok((s.hub,s.token))
+}
 pub fn login(hub: &str, username: &str, password: &str) -> Result<(), String> {
     let hub = normalize(hub)?;
     if username.trim().is_empty() || password.is_empty() { return Err("请输入用户名和密码".into()); }
@@ -121,7 +172,7 @@ pub fn login(hub: &str, username: &str, password: &str) -> Result<(), String> {
     let user = parse_user(&reply["user"])?;
     let checked = parse_user(&request(&hub,"me",Some(token),None)?["user"])?;
     if user.id != checked.id { return Err("登录信息不一致，请重新登录".into()); }
-    let session = Session { hub:hub.clone(),token:token.into(),user:checked };
+    let session = Session { hub:hub.clone(),token:token.into(),user:checked,restart_nonce:None };
     let _guard=SESSION_WRITE.lock().map_err(|_|"登录存储忙，请重试")?;
     let dir = base().join("accounts"); std::fs::create_dir_all(&dir).map_err(|_|"无法保存服务地址，请重试")?;
     std::fs::write(dir.join("hub.json"),json!({"platformUrl":hub}).to_string()).map_err(|_|"无法保存服务地址，请重试")?;
@@ -145,16 +196,17 @@ pub fn logout() -> Result<(), String> {
 // Explicit allowlist: a newly added command cannot accidentally become public.
 pub fn command_unit(command: &str) -> Result<Option<&'static str>, String> {
     match command {
-        "hub_status"|"hub_login"|"hub_logout"|"window_control" => Ok(None),
+        "cloud_qa" => Ok(Some("qa")),
+        "hub_status"|"hub_login"|"hub_logout"|"hub_remembered_login"|"hub_forget_login"|"window_control" => Ok(None),
         "open_path"|"open_external"|"education_start"|"education_delete"|"hub_admin"|"app_info"|"settings_get"|"settings_set"|"credential_get"|"credential_set"|"env_status"|"dsh_status"|"skills_catalog"|"skills_statuses"|"client_log"|"check_updates"|"dsh_stop"|"dsh_bounds" => Ok(Some("")),
-        "dsh_start"|"dsh_restart"|"dsh_reload"|"dsh_rpc"|"dsh_open_session"|"dsh_new_session"|"dsh_set_context"|"assistant_ask"|"deepseek_balance"|"session_export"|"session_delete"|"ratings_get"|"ratings_set" => Ok(Some("qa")),
-        "personal_compute"|"ssh_hosts_list"|"ssh_hosts_save"|"ssh_hosts_remove"|"ssh_hosts_select"|"ssh_hosts_trust"|"ssh_hosts_test"|"ssh_hosts_metrics"|"ssh_hosts_files"|"env_install"|"env_install_extra"|"skills_readme"|"skills_install"|"skills_uninstall"|"workspace_files"|"read_workspace_image"|"refdata_list"|"refdata_install"|"refdata_remove"|"db_catalog"|"embed_query"|"demos_seed"|"git_status"|"git_init"|"git_commit"|"pick_folder" => Ok(Some("bioflow")),
+        "dsh_start"|"dsh_restart"|"dsh_reload"|"dsh_rpc"|"dsh_open_session"|"dsh_new_session"|"dsh_set_context"|"assistant_ask"|"deepseek_balance"|"session_export"|"session_delete"|"ratings_get"|"ratings_set" => Ok(Some("")),
+        "personal_compute"|"ssh_hosts_list"|"ssh_hosts_save"|"ssh_hosts_remove"|"ssh_hosts_select"|"ssh_hosts_trust"|"ssh_hosts_test"|"ssh_hosts_metrics"|"ssh_hosts_files"|"env_install"|"env_install_extra"|"skills_readme"|"skills_install"|"skills_uninstall"|"workspace_files"|"read_workspace_image"|"refdata_list"|"refdata_install"|"refdata_remove"|"db_catalog"|"embed_query"|"demos_seed"|"git_status"|"git_init"|"git_commit"|"pick_folder" => Ok(Some("")),
         _ => Err("FORBIDDEN: 此功能暂不可用，请联系管理员".into())
     }
 }
 pub fn check_model() {
     let root = PathBuf::from(std::env::var_os("BIODSH_HOME").unwrap_or_default());
-    match require(&root,"bioflow") { Ok(user)=>println!("{}",json!({"ok":true,"userId":user.id})), Err(_)=>{ println!("{}",json!({"ok":false}));std::process::exit(1); } }
+    match require(&root,"") { Ok(user)=>println!("{}",json!({"ok":true,"userId":user.id})), Err(_)=>{ println!("{}",json!({"ok":false}));std::process::exit(1); } }
 }
 
 #[cfg(test)]
@@ -187,7 +239,7 @@ mod tests {
                 if let Some(i)=bytes.windows(4).position(|s|s==b"\r\n\r\n") {let header=String::from_utf8_lossy(&bytes[..i]).to_lowercase();let len=header.lines().find_map(|l|l.strip_prefix("content-length:").and_then(|v|v.trim().parse::<usize>().ok())).unwrap_or(0);if bytes.len()>=i+4+len{break}}
             }
             let request=String::from_utf8_lossy(&bytes);let route=request.lines().next().unwrap_or("");let mut code=200;
-            let is_b=request.contains("token-b")||request.contains("\"username\":\"b\"");let mut u=user();if is_b {u.id="761f059b-1111-4111-8111-123456789abd".into();u.username="b".into();u.authorizations=vec!["bioflow".into()];}
+            let is_b=request.contains("token-b")||request.contains("\"username\":\"b\"");let mut u=user();if is_b {u.id="761f059b-1111-4111-8111-123456789abd".into();u.username="b".into();u.authorizations=vec![];}
             let body=if route.contains("/status "){json!({"ok":true,"auth_enabled":on.load(Ordering::SeqCst)})}
             else if route.contains("/login "){json!({"ok":true,"token":if is_b{"token-b"}else{"token-a"},"user":u})}
             else if route.contains("/me "){if revoke.load(Ordering::SeqCst){code=401;json!({"ok":false})}else{json!({"ok":true,"user":u})}}
@@ -196,10 +248,19 @@ mod tests {
         });
         let result=std::panic::catch_unwind(|| {
             assert!(stored().is_err());assert_eq!(startup_root(),root.join("accounts/locked"));
-            login(&url,"a","test-only-password").unwrap();let a=startup_root();assert!(require(&a,"qa").is_ok());assert!(require(&a,"bioflow").is_err());
+            login(&url,"a","test-only-password").unwrap();let a=startup_root();assert!(require(&a,"qa").is_ok());assert!(require(&a,"bioflow").is_ok());
             std::fs::create_dir_all(&a).unwrap();std::fs::write(a.join("conversation.txt"),"account a conversation").unwrap();
-            login(&url,"b","test-only-password").unwrap();let b=startup_root();assert_ne!(a,b);assert!(require(&a,"qa").is_err());assert!(require(&b,"bioflow").is_ok());assert!(!b.join("conversation.txt").exists());
-            assert_eq!(remote_owner(&b).unwrap(),Some(format!("{}:{}",digest(&normalize(&url).unwrap()),"761f059b-1111-4111-8111-123456789abd")));
+            remember_login("a","test-only-password",true).unwrap();
+            assert_eq!(remembered_login().unwrap().unwrap().username,"a");
+            arm_login_restart().unwrap();begin_desktop_session().unwrap();assert!(require(&a,"bioflow").is_ok());
+            // The internal handoff is one-use; normal reopen requires a password even when remembered.
+            begin_desktop_session().unwrap();assert!(stored().is_err());assert_eq!(startup_root(),root.join("accounts/locked"));
+            assert_eq!(remembered_login().unwrap().unwrap().password,"test-only-password");
+            assert_eq!(std::fs::read_to_string(a.join("conversation.txt")).unwrap(),"account a conversation");
+            std::env::set_var("OMAAX_LOGIN_RESTART","forged");begin_desktop_session().unwrap();assert!(stored().is_err());
+            forget_login().unwrap();assert!(remembered_login().unwrap().is_none());
+            login(&url,"a","test-only-password").unwrap();assert_eq!(startup_root(),a);
+            login(&url,"b","test-only-password").unwrap();let b=startup_root();assert_ne!(a,b);assert!(require(&a,"qa").is_err());assert!(require(&b,"bioflow").is_ok());assert!(!b.join("conversation.txt").exists());assert!(require(&b,command_unit("dsh_start").unwrap().unwrap()).is_ok());assert!(require(&b,"docgen").is_ok());assert!(cloud_session(&b).is_err());
             assert!(!std::fs::read_to_string(root.join("accounts/hub.json")).unwrap().contains("token-"));
             revoked.store(true,Ordering::SeqCst);*CHECKED.lock().unwrap()=None;assert!(require(&b,"bioflow").unwrap_err().contains("UNAUTHORIZED"));revoked.store(false,Ordering::SeqCst);
             enabled_flag.store(false,Ordering::SeqCst);assert!(login(&url,"a","test-only-password").is_err());assert!(require(&b,"").is_err());enabled_flag.store(true,Ordering::SeqCst);
@@ -251,9 +312,47 @@ mod tests {
         assert_eq!(normalize("https://A.test/").unwrap(),"https://a.test");assert!(normalize("http://127.0.0.1:8090").is_ok());
     }
     #[test] fn privileges_fail_closed() {
-        assert!(has(&user(),"qa"));assert!(!has(&user(),"bioflow"));let mut admin=user();admin.role="admin".into();assert!(has(&admin,"bioflow"));
+        assert!(has(&user(),"qa"));assert!(has(&user(),"bioflow"));let mut admin=user();admin.role="admin".into();assert!(has(&admin,"bioflow"));
         assert!(command_unit("new_command").is_err());assert!(command_unit("migrate_import").is_err());assert!(command_unit("platform_login").is_err());
-        assert_eq!(command_unit("personal_compute").unwrap(),Some("bioflow"));assert_eq!(command_unit("hub_login").unwrap(),None);
+        assert_eq!(command_unit("personal_compute").unwrap(),Some(""));assert_eq!(command_unit("hub_login").unwrap(),None);
+    }
+    #[test] fn cloud_roles_and_qa_scope() {
+        let mut ordinary=user();ordinary.authorizations.clear();
+        for role in ["user","researcher","guest"] {
+            ordinary.role=role.into();
+            assert!(has(&ordinary,"bioflow") && has(&ordinary,"docgen"));
+            assert!(!has(&ordinary,"qa"));
+        }
+        ordinary.authorizations=vec!["bioflow".into(),"docgen".into()];assert!(!has(&ordinary,"qa"));
+        ordinary.authorizations.push("qa".into());assert!(has(&ordinary,"qa"));
+        for command in ["dsh_start","assistant_ask","session_delete"] {assert_eq!(command_unit(command).unwrap(),Some(""));}
+        for role in ["user","researcher","guest","admin"] {let mut v=serde_json::to_value(user()).unwrap();v["role"]=json!(role);assert!(parse_user(&v).is_ok());}
+        let mut v=serde_json::to_value(user()).unwrap();v["role"]=json!("superuser");assert!(parse_user(&v).is_err());
+        assert_eq!(command_unit("cloud_qa").unwrap(),Some("qa"));
+    }
+    #[test]
+    #[ignore = "requires an explicitly provisioned disposable cloud account"]
+    #[cfg(not(feature="local-access"))]
+    fn live_cloud_secure_login_and_history() {
+        let root=PathBuf::from(std::env::var("OMAAX_LIVE_TEST_HOME").expect("isolated test home"));
+        assert!(root.file_name().unwrap().to_string_lossy().starts_with("cloud-native-"));
+        std::fs::create_dir_all(&root).unwrap();initialize(root.clone());
+        std::fs::write(root.join("legacy-dialogue.txt"),"preserved legacy").unwrap();
+        let name=std::env::var("OMAAX_LIVE_TEST_USER").unwrap();let password=std::env::var("OMAAX_LIVE_TEST_PASSWORD").unwrap();
+        login("https://cloud.haiguji.com",&name,&password).unwrap();let profile=startup_root();
+        assert_ne!(profile,root);assert!(!profile.join("legacy-dialogue.txt").exists());
+        assert!(require(&profile,"qa").is_ok());assert!(require(&profile,"bioflow").is_ok());
+        *CHECKED.lock().unwrap()=None;assert_eq!(startup_root(),profile);assert!(status(&profile)["authenticated"]==true);
+        let session=crate::cloud_qa::call(&profile,"create",json!({"title":"OMaaX native history acceptance"})).unwrap();
+        let id=session["id"].as_str().unwrap();
+        let blocks=json!([{"type":"sources","items":[{"id":"S1","title":"Acceptance evidence","doi":"10.1/test"}]}]);
+        crate::cloud_qa::call(&profile,"message",json!({"id":id,"role":"assistant","text":"Saved native acceptance evidence","blocks":blocks})).unwrap();
+        let detail=crate::cloud_qa::call(&profile,"detail",json!({"id":id})).unwrap();
+        assert_eq!(detail["messages"][0]["blocks"][0]["items"][0]["doi"],"10.1/test");
+        logout().unwrap();assert!(crate::cloud_qa::call(&profile,"list",json!({})).is_err());
+        login("https://cloud.haiguji.com",&name,&password).unwrap();assert_eq!(startup_root(),profile);
+        let detail=crate::cloud_qa::call(&profile,"detail",json!({"id":id})).unwrap();assert_eq!(detail["messages"][0]["blocks"][0]["items"][0]["doi"],"10.1/test");
+        logout().unwrap();assert_eq!(std::fs::read_to_string(root.join("legacy-dialogue.txt")).unwrap(),"preserved legacy");
     }
 }
 

@@ -2,6 +2,7 @@
 //! 和 "dsh"（dsh web 原版界面，作为子视图贴在对话页的内容区）。
 mod dsh;
 mod hub_auth;
+mod cloud_qa;
 mod education;
 pub use hub_auth::check_model;
 mod files_server;
@@ -1153,18 +1154,44 @@ async fn education_delete(app:AppHandle,state:State<'_,AppState>,path:String)->R
 async fn hub_status(app: AppHandle, state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let root=state.paths.root.clone();
     let value=tauri::async_runtime::spawn_blocking(move || hub_auth::status(&root)).await.map_err(|e|e.to_string())?;
-    if value["authenticated"] != true { state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); } }
+    if value["authenticated"] != true { education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); } }
     Ok(value)
 }
 #[tauri::command]
-async fn hub_login(app: AppHandle, state: State<'_, AppState>, hub: String, username: String, password: String) -> Result<(),String> {
-    state.dsh.stop(&app);
-    tauri::async_runtime::spawn_blocking(move || hub_auth::login(&hub,&username,&password)).await.map_err(|e|e.to_string())??;
+async fn cloud_qa(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+    let root=state.paths.root.clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        cloud_qa::route(&action,&body)?;
+        hub_auth::cloud_session(&root)?;
+        if action=="delete" && !app.dialog().message("删除此知识库会话及全部消息？此操作不可撤销。").title("确认删除").buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancel).blocking_show(){return Err("已取消删除".into());}
+        cloud_qa::call(&root,&action,body)
+    }).await.map_err(|_|"知识库请求未完成".to_string())?
+}
+#[tauri::command]
+async fn hub_login(app: AppHandle, state: State<'_, AppState>, hub: String, username: String, password: String, remember: Option<bool>) -> Result<(),String> {
+    education::stop(); state.dsh.stop(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        hub_auth::login(&hub,&username,&password)?;
+        if let Err(error)=hub_auth::remember_login(&username,&password,remember.unwrap_or(false)).and_then(|_|hub_auth::arm_login_restart()) {
+            let _=hub_auth::logout();return Err(error);
+        }
+        Ok::<(),String>(())
+    }).await.map_err(|e|e.to_string())??;
     app.restart();
 }
 #[tauri::command]
+async fn hub_remembered_login(webview:tauri::Webview)->Result<Option<hub_auth::RememberedLogin>,String>{
+    if webview.label()!="ui" {return Err("FORBIDDEN: 仅登录界面可读取保存的登录信息".into());}
+    tauri::async_runtime::spawn_blocking(hub_auth::remembered_login).await.map_err(|e|e.to_string())?
+}
+#[tauri::command]
+async fn hub_forget_login(webview:tauri::Webview)->Result<(),String>{
+    if webview.label()!="ui" {return Err("FORBIDDEN: 仅登录界面可修改保存的登录信息".into());}
+    tauri::async_runtime::spawn_blocking(hub_auth::forget_login).await.map_err(|e|e.to_string())?
+}
+#[tauri::command]
 async fn hub_logout(app: AppHandle, state: State<'_, AppState>) -> Result<(),String> {
-    state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); }
+    education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); }
     tauri::async_runtime::spawn_blocking(hub_auth::logout).await.map_err(|e|e.to_string())??;
     app.restart();
 }
@@ -1234,7 +1261,7 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 let check=(|| { let unit=hub_auth::command_unit(invoke.message.command())?; if let Some(unit)=unit { let st=app.state::<AppState>();let user=hub_auth::require(&st.paths.root,unit)?;if matches!(invoke.message.command(),"personal_compute"|"ssh_hosts_save"|"ssh_hosts_remove"|"session_delete"|"session_export"){hub_auth::audit(&st.paths.root,&user,invoke.message.command());} } Ok::<(),String>(()) })();
                 if let Err(error)=check { invoke.resolver.reject(error); return; }
-                let handler: Box<dyn Fn(tauri::ipc::Invoke)->bool> = Box::new(tauri::generate_handler![education_start,education_delete,hub_status, hub_login, hub_logout, hub_admin,
+                let handler: Box<dyn Fn(tauri::ipc::Invoke)->bool> = Box::new(tauri::generate_handler![cloud_qa,education_start,education_delete,hub_status, hub_login, hub_remembered_login, hub_forget_login, hub_logout, hub_admin,
             app_info, settings_get, settings_set, credential_get, credential_set, personal_compute, platform_session, platform_login, platform_project_collaboration, platform_storage, platform_logout, platform_nodes, platform_node_metrics, platform_update_node, platform_jobs, platform_job_kinds, platform_create_job, platform_scheduling_nodes, platform_scheduling, ssh_hosts_bind, platform_cancel_job, platform_job_events, platform_job_artifacts, platform_download_job_artifact,
             knowledge_credential, knowledge_set_credential, knowledge_datasets, knowledge_create_dataset, knowledge_documents, knowledge_add_files, knowledge_folders, knowledge_add_folder, knowledge_remove_folder, knowledge_sync_folders, knowledge_search,
             ssh_hosts_list, ssh_hosts_save, ssh_hosts_remove, ssh_hosts_select, ssh_hosts_trust, ssh_hosts_test, ssh_hosts_metrics, ssh_hosts_files,

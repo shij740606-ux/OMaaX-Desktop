@@ -24,7 +24,6 @@ process.stdin.on('end', () => {
   connection.on('error', error => done({ error: request.operation === 'probe' && hostKey ? undefined : (error.level === 'client-authentication' ? 'SSH 认证失败，请检查用户名、密码或私钥' : error.message), phase, fingerprint, hostKey }));
   connection.on('close',()=>{if(!finished)done({error:`SSH 连接意外断开（${phase}）；已提交任务请刷新核对，不要重复提交`,phase});});
   connection.on('ready', async () => {
-    try { await require('./account-policy.cjs')(connection,request.accountOwner); } catch(error) { return done({error:error.message}); }
     phase='执行操作';
     if (request.operation === 'files') {
       phase='读取目录';

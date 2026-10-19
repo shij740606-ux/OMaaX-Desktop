@@ -2,11 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { AppSettings, IpcEvent, Rect, RefPack, DemoInfo, PlatformJob, PlatformJobArtifact, PlatformJobCreate, PlatformJobEvent, PlatformNode, PlatformNodeControlStatus, PlatformNodeMetric, PlatformSession, KnowledgeCitation, KnowledgeCredentialStatus, KnowledgeDataset, KnowledgeDocument, KnowledgeFolder, KnowledgeSyncResult } from '../shared/types';
 
 const api = {
+  cloudQa: (_action:string,_body:unknown={}):Promise<unknown> => Promise.reject(new Error('请使用桌面版知识库问答')),
   hubAdmin: ():Promise<void> => Promise.reject(new Error("需要 Tauri 桌面版")),
   educationStart: (): Promise<string> => Promise.reject(new Error("请使用桌面版打开教育科研")),
   educationDelete: (_path:string): Promise<unknown> => Promise.reject(new Error("请使用桌面版删除")),
   hubStatus: (): Promise<import("../renderer/src/AuthGate").HubStatus> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
-  hubLogin: (_hub:string,_username:string,_password:string):Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
+  hubLogin: (_hub:string,_username:string,_password:string,_remember=false):Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
+  hubRememberedLogin: ():Promise<{username:string;password:string}|null> => Promise.resolve(null),
+  hubForgetLogin: ():Promise<void> => Promise.resolve(),
   hubLogout: ():Promise<void> => Promise.reject(new Error("账号登录需要使用 Tauri 桌面版")),
   personalCompute: (_id:string, _action:string, _body:unknown = {}): Promise<unknown> => Promise.reject(new Error('需要 Tauri 桌面版')),
   platformStorage: (_action:string, _body:unknown = {}): Promise<unknown> => Promise.reject(new Error('需要 Tauri 桌面版')),

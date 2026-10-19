@@ -1,9 +1,20 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,renameSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {createBudgets} from './index.js';
+import {createBudgets,replaceBudgetFile} from './index.js';
+
+test('temporary destination locks retry without deleting the old budget; persistent failures stay closed',()=>{
+ const dir=mkdtempSync(path.join(os.tmpdir(),'omaax-budget-')),source=path.join(dir,'next'),target=path.join(dir,'budget');
+ writeFileSync(source,'new');writeFileSync(target,'old');let tries=0;const waits=[];
+ replaceBudgetFile(source,target,(a,b)=>{assert.equal(readFileSync(target,'utf8'),'old');if(tries++<2)throw Object.assign(Error('locked'),{code:'EPERM'});renameSync(a,b);},ms=>waits.push(ms));
+ assert.equal(readFileSync(target,'utf8'),'new');assert.deepEqual(waits,[25,50]);
+ writeFileSync(source,'newer');tries=0;
+ assert.throws(()=>replaceBudgetFile(source,target,()=>{tries++;throw Object.assign(Error('locked'),{code:'EACCES'});},()=>{}),/locked/);
+ assert.equal(tries,6);assert.equal(readFileSync(target,'utf8'),'new');assert.equal(readFileSync(source,'utf8'),'newer');
+ tries=0;assert.throws(()=>replaceBudgetFile(source,target,()=>{tries++;throw Object.assign(Error('disk full'),{code:'ENOSPC'});},()=>{}),/disk full/);assert.equal(tries,1);
+});
 test('waiting and duplicate failure polls never consume extra retry attempts',()=>{
  const b=createBudgets(mkdtempSync(path.join(os.tmpdir(),'omaax-budget-'))),exec={agent:{id:'s'},name:'mcp__biodsh_ssh__task_list',arguments:{serverId:'a'}};
  for(const id of ['job','job2','job3'])b.result({...exec,name:'mcp__biodsh_ssh__workspace_analysis'},{value:{id,state:'queued'}});

@@ -11,7 +11,7 @@ let plans:MockPlan[]=[];
 const environmentTasks:Record<string,{id:string;state:string;detail:string;log:string;request:{steps:string[]}}>={};
 const scenario=new URLSearchParams(location.search).get('failure');
 window.biodsh={
-  hubStatus:async()=>({authenticated:true,hub:"http://127.0.0.1:8090",user:{id:"fixture",username:"测试账号",role:"admin",authorizations:[]}}),hubLogin:async()=>{},hubLogout:async()=>{},hubAdmin:async()=>{},
+  hubStatus:async()=>({authenticated:true,hub:"http://127.0.0.1:8090",user:{id:"fixture",username:"测试账号",role:"admin",authorizations:[]}}),hubRememberedLogin:async()=>null,hubForgetLogin:async()=>{},hubLogin:async()=>{},hubLogout:async()=>{},hubAdmin:async()=>{},
   appInfo:async()=>({version:'0.4.3',platform:'win32',dark:false,paths:{root:'C:/isolated-ui-preview'}}),
   ratingsGet:async()=>({}),ratingsSet:async()=>({}),getSettings:async()=>settings,setSettings:async()=>settings,getCredential:async()=>({hasKey:true}),
   envStatus:async()=>({ready:true,step:'ready',progress:100,message:'',log:[]}),
@@ -76,7 +76,7 @@ if(new URLSearchParams(location.search).has('model')){
 const authScenario=new URLSearchParams(location.search).get('auth');
 if(authScenario){
  if(authScenario==='qa-new')settings.onboarded=false;
- const qa={businessCalls:0,loginCalls:0,logoutCalls:0,status:{localAccess:authScenario==='local',authenticated:['local','qa','qa-new','admin','empty','load-error'].includes(authScenario),hub:'http://127.0.0.1:8090',user:{id:'fixture-account-a',username:'alice',role:['admin','load-error'].includes(authScenario)?'admin':'user',authorizations:authScenario==='local'?['qa','bioflow']:authScenario.startsWith('qa')?['qa']:[]},error:authScenario==='disabled'?'登录服务尚未开通，请联系管理员':''}};
+ const qa={businessCalls:0,loginCalls:0,logoutCalls:0,status:{localAccess:authScenario==='local',authenticated:['local','qa','qa-new','admin','empty','load-error','team','bio'].includes(authScenario),hub:'http://127.0.0.1:8090',user:{id:'fixture-account-a',username:'alice',role:['admin','load-error'].includes(authScenario)?'admin':'user',authorizations:['local','team'].includes(authScenario)?['qa','bioflow','docgen']:authScenario==='bio'?['bioflow']:authScenario.startsWith('qa')?['qa']:[]},error:authScenario==='disabled'?'登录服务尚未开通，请联系管理员':''}};
  (window as any).__authQa=qa;
  for(const name of ['appInfo','getSettings','getCredential','dshStatus','dshStart','sshHosts','personalCompute']){const old=(window.biodsh as any)[name];(window.biodsh as any)[name]=(...args:any[])=>{qa.businessCalls++;return old?.(...args);};}
  window.biodsh.educationStart=async()=>{const url=new URLSearchParams(location.search).get('eduUrl');if(!url)throw Error('请在服务器管理中连接并选用 175 服务器');return url;};
@@ -84,8 +84,27 @@ if(authScenario){
  window.biodsh.hubStatus=async()=>{if(authScenario==='offline')throw Error('offline');return qa.status;};
  window.biodsh.hubLogin=async(_hub,username,password)=>{qa.loginCalls++;if(authScenario==='disabled')throw Error('登录服务尚未开通，请联系管理员');if(password!=='test-password')throw Error('UNAUTHORIZED: 用户名或密码错误');qa.status={localAccess:false,authenticated:true,hub:qa.status.hub,user:{id:'fixture-account-b',username,role:'user',authorizations:['qa']},error:''};};
  window.biodsh.hubLogout=async()=>{qa.logoutCalls++;qa.status.authenticated=false;};
+ window.biodsh.hubRememberedLogin=async()=>new URLSearchParams(location.search).get('remember')==='1'?{username:'remembered-user',password:'test-password'}:null;
+ window.biodsh.hubForgetLogin=async()=>{(qa as any).forgotten=true;};
+
  window.biodsh.onDebugTab=()=>{};
  if(authScenario==='load-error'){let failures=0;const original=window.biodsh.appInfo;window.biodsh.appInfo=async()=>{if(failures++<2)throw Error('synthetic transient error');return original();};}
  window.biodsh.setSettings=async patch=>Object.assign(settings,patch) as any;
+}
+if(new URLSearchParams(location.search).has('cloud')){
+ const state={sessions:[] as any[],calls:[] as string[],failure:'',deleteAllowed:false,delay:0};
+ (window as any).__cloudQa=state;
+ window.biodsh.cloudQa=async(action,body:any={})=>{
+  state.calls.push(action);if(state.failure===action)throw Error('知识库正在更新或暂不可用，请稍后重试');
+  if(action==='list')return state.sessions;
+  if(action==='create'){const s={id:crypto.randomUUID(),title:body.title,messages:[]};state.sessions.push(s);return s;}
+  const session=state.sessions.find(s=>s.id===body.id);
+  if(action==='detail')return session;
+  if(action==='delete'){if(!state.deleteAllowed)throw Error('已取消删除');state.sessions=state.sessions.filter(s=>s.id!==body.id);return {ok:true};}
+  if(action==='message'){if(state.failure==='save'&&body.role==='assistant')throw Error('save failed');session.messages.push(body);return body;}
+  if(state.delay)await new Promise(resolve=>setTimeout(resolve,state.delay));
+  return {answer:'水稻 SPL 参与株型与开花调控。[DOI:10.1/test]',sources:[{id:'S1',title:'SPL 文献',doi:'10.1/test',snippet:'研究证据摘要',url:'https://doi.org/10.1/test'},{id:'S2',title:'不可信链接',url:'javascript:alert(1)'}]};
+ };
+ window.biodsh.openExternal=async(url:string)=>{(window as any).__openedSource=url;};
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

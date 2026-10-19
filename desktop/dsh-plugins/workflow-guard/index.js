@@ -79,16 +79,25 @@ export function apply(ctx) {
   ctx.effect(()=>()=>clearInterval(timer));
 }
 
+export function replaceBudgetFile(source,target,replace=renameSync,pause=ms=>Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,ms)) {
+  // Windows scanners can briefly lock the destination. Never remove it to force replacement.
+  for(let attempt=0;;attempt++){
+    try{return replace(source,target);}catch(error){
+      if(attempt>=5||!['EPERM','EACCES','EBUSY'].includes(error.code))throw error;
+      pause(25*2**attempt);
+    }
+  }
+}
 export function createBudgets(directory) {
   const file=id=>{if(!/^[A-Za-z0-9_-]{1,128}$/.test(id||''))throw Error('无效对话编号');return path.join(directory,'budget-'+id+'.json');};
   const read=id=>{try{return {failures:0,calls:0,tokens:0,seen:[],owned:[],...JSON.parse(readFileSync(file(id),'utf8'))};}catch(error){if(error.code==='ENOENT')return {failures:0,calls:0,tokens:0,seen:[],owned:[]};throw error;}};
-  const save=(id,value)=>{const target=file(id),temp=target+'.tmp';writeFileSync(temp,JSON.stringify(value),{mode:0o600});renameSync(temp,target);};
+  const save=(id,value)=>{const target=file(id),temp=target+'.tmp';writeFileSync(temp,JSON.stringify(value),{mode:0o600});replaceBudgetFile(temp,target);};
   return {read,
     admit(id){const s=read(id);if(s.calls>=80||s.tokens>=200000){s.paused=true;save(id,s);return false;}s.calls++;save(id,s);return true;},
     usage(id,seq,usage){const s=read(id);if(seq<=(s.lastSeq??-1))return;s.lastSeq=seq;if(usage){const n=usage.totalTokens??((usage.inputTokens||0)+(usage.outputTokens||0)+(usage.cacheReadTokens||0)+(usage.cacheWriteTokens||0));if(Number.isFinite(n)&&n>=0){s.tokens+=n;s.reported=true;}}save(id,s);},
     result(exec,result){
       if(!exec.agent?.id||!exec.name.startsWith('mcp__biodsh_ssh__'))return;
-      const s=read(exec.agent.id),mutating=/__(workflow_prepare|workflow_environment|workflow_plan|workspace_analysis|workspace_index|workspace_script|workspace_config|server_write|server_copy)$/.test(exec.name);
+      const s=read(exec.agent.id),before=JSON.stringify(s),mutating=/__(workflow_prepare|workflow_environment|workflow_plan|workspace_analysis|workspace_index|workspace_script|workspace_config|server_write|server_copy)$/.test(exec.name);
       if(result.isError&&mutating&&!JSON.stringify(result).includes('连续修复失败已暂停'))s.failures++;
       const values=[result.value];for(const block of result.content||[])if(block.type==='text'){try{values.push(JSON.parse(block.text));}catch{}}
       const inspect=value=>{if(!value||typeof value!=='object')return;if(Array.isArray(value)){value.forEach(inspect);return;}
@@ -99,7 +108,7 @@ export function createBudgets(directory) {
           if(!s.seen.includes(key)){s.seen.push(key);s.seen=s.seen.slice(-500);if(['complete','succeeded'].includes(state))s.failures=0;else s.failures++;}
         }
         for(const key of ['result','jobs','items'])inspect(value[key]);
-      };values.forEach(inspect);save(exec.agent.id,s);
+      };values.forEach(inspect);if(JSON.stringify(s)!==before)save(exec.agent.id,s);
     }
   };
 }

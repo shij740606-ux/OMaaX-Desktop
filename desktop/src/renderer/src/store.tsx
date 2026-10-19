@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import {useAuth,hasUnit} from './AuthGate';
 import type { AppSettings, CatalogSkill, CredentialStatus, DshStatus, EnvStatus, PlatformSession, SkillStatus } from '@shared/types';
 
-export type Tab = 'chat' | 'data' | 'workflows' | 'db' | 'hosts' | 'tasks' | 'servers' | 'store' | 'account' | 'education' | 'env' | 'settings';
+export type Tab = 'chat' | 'knowledge' | 'data' | 'workflows' | 'db' | 'hosts' | 'tasks' | 'servers' | 'store' | 'account' | 'education' | 'env' | 'settings';
 
 interface AppState {
   ready: boolean;
@@ -40,6 +41,7 @@ export const useApp = () => useContext(Ctx)!;
 const emptyEnv: EnvStatus = { ready: false, step: 'idle', message: '', progress: 0, log: [] };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const auth=useAuth();
   const api = window.biodsh;
   const [ready, setReady] = useState(false);
   const [loadError,setLoadError]=useState(false);
@@ -52,7 +54,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [catalog, setCatalog] = useState<CatalogSkill[]>([]);
   const [statuses, setStatuses] = useState<Record<string, SkillStatus>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [tab, setTab] = useState<Tab>('chat');
+  const [tab, setTab] = useState<Tab>(hasUnit(auth.user,'qa')&&!hasUnit(auth.user,'bioflow')?'knowledge':'chat');
   const [overlay, setOverlay] = useState(0);
   const pushOverlay = useCallback(() => setOverlay((n) => n + 1), []);
   const popOverlay = useCallback(() => setOverlay((n) => Math.max(0, n - 1)), []);
@@ -84,7 +86,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       else if (ev.type === 'dsh') setDsh(ev.status);
       else if (ev.type === 'skills') setStatuses(toMap(ev.statuses));
     });
-    window.biodsh.onDebugTab((t) => { if (t.startsWith('onboard')) { void api.setSettings({ onboarded: false }).then(setSettings); } else { void api.setSettings({ onboarded: true }).then(setSettings); if (t === 'community') { try { localStorage.setItem('biodsh.storeTier', 'community'); } catch { /* */ } setTab('store'); setTimeout(() => window.dispatchEvent(new CustomEvent('biodsh:tier', { detail: 'community' })), 300); } else setTab(t === 'knowledge' ? 'chat' : t as Tab); } });
+    window.biodsh.onDebugTab((t) => { if (t.startsWith('onboard')) { void api.setSettings({ onboarded: false }).then(setSettings); } else { void api.setSettings({ onboarded: true }).then(setSettings); if (t === 'community') { try { localStorage.setItem('biodsh.storeTier', 'community'); } catch { /* */ } setTab('store'); setTimeout(() => window.dispatchEvent(new CustomEvent('biodsh:tier', { detail: 'community' })), 300); } else setTab(t as Tab); } });
     return off;
   }, [refresh]);
 

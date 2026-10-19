@@ -13,7 +13,7 @@ with sync_playwright() as p:
  try:
   page.goto(os.environ.get('OMAAX_QA_URL','http://127.0.0.1:41740')+'/workflow-preview.html?model=1');page.wait_for_load_state('networkidle')
   (OUT/'initial-dom.html').write_text(page.content(),encoding='utf-8')
-  expect(page.get_by_role('button',name='知识库',exact=True)).to_have_count(0);checks.append('knowledge entry absent in actual shell')
+  expect(page.get_by_role('button',name='知识库问答',exact=True)).to_be_visible();checks.append('cloud knowledge entry is present alongside analysis')
   page.get_by_role('article').filter(has=page.get_by_role('heading',name='RNA-seq 分析',exact=True)).get_by_role('button').click()
   expect(page.get_by_text('由对话模型配置分析环境',exact=True)).to_be_visible()
   expect(page.get_by_role('button',name='检查并配置所选步骤',exact=True)).to_have_count(0)

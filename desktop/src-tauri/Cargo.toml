@@ -1,12 +1,12 @@
 [package]
 name = "biodsh-desktop"
-version = "0.4.28"
+version = "0.4.34"
 description = "OMaaX scientific analysis desktop"
 edition = "2021"
 default-run = "biodsh-desktop"
 
 [features]
-default = ["local-access"]
+default = []
 local-access = []
 
 [lib]

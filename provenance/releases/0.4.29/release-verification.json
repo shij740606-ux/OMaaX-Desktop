@@ -1,0 +1,159 @@
+{
+  "version": "0.4.29",
+  "installer": "OMaaX_0.4.29_x64-setup.exe",
+  "bytes": 111568731,
+  "sha256": "b9d7dfdcf717e8ea3999d73aec3e32e3e44e30a694eb507464589c0d1e557670",
+  "executableSha256": "b7baf5d50cf92b2f1a289438b91bfbdaa9ca30ceeb05aa08ec2f2f87eddd401f",
+  "resourceChecks": [
+    {
+      "file": "dsh/node_modules/@biodsh/auth-guard/index.js",
+      "sha256": "b023f04ac6da21214b16d91270d98bd013b887648d7d726594deb15b8fb5d9ed",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/workflow-guard/index.js",
+      "sha256": "00c8927282ac47b00797032f418ed8890508c8226e041fa6552b7038f1d8a7e1",
+      "matchesSource": true
+    },
+    {
+      "file": "dsh/node_modules/@biodsh/step-guard/index.js",
+      "sha256": "a0d555a3fa42496b57f0d737d63b4797af2fe1550700eb5aa2b7d9e3249df619",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_environments.py",
+      "sha256": "b9b0fd3ab76e55250c00ebdbc26995d6f050b4669796f40dad9e41f08c928ab3",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow_engine.py",
+      "sha256": "9b43a0f7c0a43bc0dbc0d81a6d33878c947f9ace586defac3457dc365ad7ddec",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/workflow-dependencies.json",
+      "sha256": "cf61b8a3b7b862165641475433fcf25eb78b2a8fecfcc137b7f18005ab9905cd",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/personal_runner.py",
+      "sha256": "178e23d3629808c15b05ff5e81538fb0844ac282bf3f7bb057a5f4accdc72c5f",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_setup.py",
+      "sha256": "b5fa1f1e95ddbe66c7f9c6fcb171aa3b008ab3cc9cc9b73de9dada9863801ddd",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_delete.py",
+      "sha256": "b3a11cd7821f17e43a5f8af72f3b4dea758443480c23deff512eba28ef97ef8f",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/server_file_ops.py",
+      "sha256": "8040cc519ac6e7e7c1a1cbfd758282ee459fa30412e3f4da14962361881fbb04",
+      "matchesSource": true
+    },
+    {
+      "file": "ssh/education.cjs",
+      "sha256": "ada380ad04de6c4bde89a100feea825b5e39d45f15e59af14b9a5024b21f8100",
+      "matchesSource": true
+    },
+    {
+      "file": "education/index.html",
+      "sha256": "4918f29bb4d8dc1685800d25dbdc0b704c3b621f1324ad4b60413c78ad76a9cc",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/academic-blue-mHQGtE8k.png",
+      "sha256": "7d0fab80a5a3bb347f6211ad9d474a4c084613ad3b40f7c53d0a521979f7db5e",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/academic-minimal-sB_1d_o4.png",
+      "sha256": "c26aa6471a3917113a2e01396a9be5f5f7a52a30104e7b65251d7afecc1e5470",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/botanic-forest-Ck8he4cr.png",
+      "sha256": "2dc42501414582ce45b0011c14f248724297ad67ebc49dc9c0f2142043f75080",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/classic-defense-Cu0uLd_6.png",
+      "sha256": "ea0d7790ea45ac054683c7e2b65739e2e1e6139fdd537f6abf89e4e3fdd75462",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/domestic-BbWfC-j1.png",
+      "sha256": "58eb618169125d92018da1b9846280bf3d4211e1224581096bda1bb23f1adc57",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/editorial-f7Uxb1tE.png",
+      "sha256": "b17337f06e448040be9ec753ad6ba4278f7364cb33c46caa880c34506e37d616",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/index-CWtvfK4N.css",
+      "sha256": "0054b3d7cdb081ceb2d47026bf4cab20b6ce720d0881f267da63b185d6284e94",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/index-gsbM3bSC.js",
+      "sha256": "721e6472b36b9b45c6201cafe23ba3b1a2b3b18823d56c30d4f659e4e2955ca2",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/international-DUFU_pbu.png",
+      "sha256": "b6a36d07f6c6b49db7e562caed59146c257e3812a3116ac0d69d2d7916e90c18",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/jp-gothic-ALLiFBFk.png",
+      "sha256": "ec72ffe5de13e100961a98b5aaa05fe085ab305f9a8066103fd880eed2323ce4",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/monochrome-C7KoT0mr.png",
+      "sha256": "876304b489744eaef2a4654419172748e1c88c8a0d1f541a9f7b428a0b6728ab",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/nature-green-Da5TOKL8.png",
+      "sha256": "acb7febab776fe68cd551dde49e16f584f1b3d28d5d6935a456c3f4bd48228d8",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/systems-talk-D7MUMgGI.png",
+      "sha256": "057d83a31cb4c7770259ab5d993d890e788da5cd68d0dc807fbb939baea63cd4",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/tech-dark-DPSV8QjA.png",
+      "sha256": "4f62613006efb9dcefa752825e4ccd9a695198ee988a01e06e314d3b0d36e0ef",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/theory-beamer-CY4CnOMD.png",
+      "sha256": "1cb66bd4317ea5a3a01672affc92dc20345aff798ef353289d69718f5fd0b47a",
+      "matchesSource": true
+    },
+    {
+      "file": "education/assets/warm-earth-JnS5jhS5.png",
+      "sha256": "279bdfaefe929c8c95ebcf84daf98c08e9ddd4b3d8ae6cfb9386b0ea6d5dddd4",
+      "matchesSource": true
+    }
+  ],
+  "packagedMcp": {
+    "toolCount": 25,
+    "modelEnvironmentTools": true,
+    "mismatchedProfileCallsDenied": true,
+    "localAccess": false,
+    "deleteConfirmationDenied": true,
+    "realServersContacted": false
+  },
+  "installedApplicationReplaced": false,
+  "realHubLoginVerified": false
+}

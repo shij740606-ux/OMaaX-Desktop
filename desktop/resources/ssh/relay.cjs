@@ -13,7 +13,7 @@ function open(credentials) {
   return new Promise((resolve, reject) => {
     const connection = new Client();
     connection.on('error', reject);
-    connection.on('ready', async () => {try {await require('./account-policy.cjs')(connection,credentials.accountOwner); connection.sftp((error,sftp)=>error?(connection.end(),reject(error)):resolve({connection,sftp}));} catch(error){connection.end();reject(error);}});
+    connection.on('ready', async () => {try {connection.sftp((error,sftp)=>error?(connection.end(),reject(error)):resolve({connection,sftp}));} catch(error){connection.end();reject(error);}});
     connection.connect({ ...credentials, readyTimeout:15000, keepaliveInterval:15000, keepaliveCountMax:4, hostVerifier:key => key.toString('base64') === credentials.hostKey });
   });
 }

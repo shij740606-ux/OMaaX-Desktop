@@ -1,0 +1,26 @@
+{
+  "rollbackKept": "C:\\Users\\13033\\Desktop\\OMaaX_0.4.32_旧版备份.exe",
+  "completed": true,
+  "removed": [
+    {
+      "sha256": "BA2FDFB7D24647D882514D2A994E33E256FE71244CCF1084CD90680B6E88C472",
+      "bytes": 111607503,
+      "path": "C:\\Users\\13033\\Desktop\\OMaaX_0.4.31_旧版备份.exe"
+    },
+    {
+      "sha256": "2452311AE1E785D350578F1D9CCE451885425B5B83E7E7008D892D1F2C6C98E3",
+      "bytes": 111611096,
+      "path": "C:\\Users\\13033\\Desktop\\OMaaX_0.4.32_x64-setup.exe"
+    },
+    {
+      "sha256": "2452311AE1E785D350578F1D9CCE451885425B5B83E7E7008D892D1F2C6C98E3",
+      "bytes": 111611096,
+      "path": "C:\\Users\\13033\\Documents\\ChatGPT\\服务器\\OMaaX-Desktop\\desktop\\release\\OMaaX_0.4.32_x64-setup.exe"
+    },
+    {
+      "sha256": "2452311AE1E785D350578F1D9CCE451885425B5B83E7E7008D892D1F2C6C98E3",
+      "bytes": 111611096,
+      "path": "C:\\Users\\13033\\Documents\\ChatGPT\\服务器\\OMaaX-Desktop\\desktop\\src-tauri\\target\\release\\bundle\\nsis\\OMaaX_0.4.32_x64-setup.exe"
+    }
+  ]
+}

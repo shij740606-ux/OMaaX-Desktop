@@ -39,7 +39,7 @@ function ordered<T>(items: T[], ids: string[], key: (item: T) => string): T[] {
 export default function Sidebar() {
   const { tab, setTab, env, dsh, info, settings, restartDsh, currentSession: current, setCurrentSession: setCurrent } = useApp();
   const {user}=useAuth();
-  const bioflow=hasUnit(user,"bioflow"), chat=hasUnit(user,"qa")||bioflow;
+  const bioflow=!!user, chat=!!user;
   const { t, lang } = useT();
   const api = window.biodsh;
   const isMac = info?.platform === 'darwin';
@@ -184,13 +184,14 @@ export default function Sidebar() {
 
       <nav className="px-3 flex flex-col gap-[2px]">
         {ordered([{id:'new', content: <button className="nav-item no-drag text-left" onClick={() => newSession()} disabled={busy || dsh.state !== 'running'}><SquarePen size={16} strokeWidth={2} /><span className="flex-1">{t('新对话')}</span></button>},
+{id:'knowledge', content: nav('knowledge', '知识库问答', MessageSquare)},
 {id:'data', content: nav('data', t('分析'), Database)},
 {id:'workflows', content: nav('workflows', t('一体化分析流程'), GitBranch)},
 {id:'db', content: nav('db', t('数据资源'), Globe)},
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
 {id:'store', content: nav('store', t('工具中心'), Store)},
-{id:'education', content: nav('education', t('教育科研'), GraduationCap)}].filter(item=>item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','data','workflows','db','hosts','env','store','education'], orders.nav || [], id => id))}>{item.content}</div>)}
+{id:'education', content: nav('education', t('教育科研'), GraduationCap)}].filter(item=>item.id==='education'?bioflow:item.id==='knowledge'?hasUnit(user,'qa'):item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','knowledge','data','workflows','db','hosts','env','store','education'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 mt-3">

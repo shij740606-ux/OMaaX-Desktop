@@ -1,7 +1,7 @@
 {
   "name": "omaax-desktop",
   "productName": "OMaaX",
-  "version": "0.4.28",
+  "version": "0.4.34",
   "description": "OMaaX — One Model, Beyond the Max.",
   "author": "OMaaX contributors",
   "license": "MIT",
@@ -38,6 +38,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^4.3.0",
     "@vitejs/plugin-vue": "5.2.1",
     "@xyflow/react": "^12.10.1",
@@ -57,5 +58,10 @@
   },
   "optionalDependencies": {
     "@tauri-apps/cli-win32-x64-msvc": "^2.11.4"
+  },
+  "dependencies": {
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "turndown": "^7.2.4"
   }
 }

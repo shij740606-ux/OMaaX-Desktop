@@ -75,7 +75,7 @@ if(require.main===module){
       connection.on('error',()=>{process.stdout.write(JSON.stringify({error:'科研服务连接失败，请检查服务器连接'})+'\n');process.exit(1);});
       connection.on('close',()=>process.exit(0));
       connection.on('ready',async()=>{
-        try { await require('./account-policy.cjs')(connection,config.accountOwner);
+        try {
         const result=await start({directory:config.directory,control:config.control,forward:cb=>connection.forwardOut('127.0.0.1',0,'127.0.0.1',8100,cb)});
         process.stdout.write(JSON.stringify({url:result.url})+'\n'); } catch {process.stdout.write(JSON.stringify({error:'科研服务连接失败'})+'\n');process.exit(1);}
       });
