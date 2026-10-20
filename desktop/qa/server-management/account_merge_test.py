@@ -22,14 +22,16 @@ with sync_playwright() as p:
                 checks.append('account page unavailable before login')
                 continue
             expect(page.get_by_role('button', name='账户与用量', exact=True)).to_have_count(0)
+            expect(page.get_by_role('button', name='退出 / 切换账号')).to_have_count(0)
             page.get_by_role('button', name='设置', exact=True).click()
+            expect(page.get_by_text('只配置需要的功能，其余保持默认即可。', exact=True)).to_have_count(0)
             expect(account).to_be_visible()
             account.click()
             expect(page.get_by_role('status')).to_contain_text('数据不代表实际账单')
             expect(page.get_by_text('本月用量', exact=True)).to_be_visible()
             expect(page.get_by_text('积分（Token）记录', exact=True)).to_be_visible()
             expect(page.get_by_role('button', name='知识库', exact=True)).to_have_count(0)
-            expect(page.get_by_role('button', name='分析', exact=True)).to_be_visible()
+            expect(page.get_by_role('button', name='分析结果', exact=True)).to_be_visible()
             expect(page.get_by_role('button', name='教育科研', exact=True)).to_be_visible()
             if role == 'empty':
                 expect(page.get_by_role('button', name='知识库问答', exact=True)).to_have_count(0)

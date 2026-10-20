@@ -23,7 +23,7 @@ impl FilesServer {
         });
         Some(srv)
     }
-    pub fn add_root(&self, p: PathBuf) { let mut r = self.roots.lock().unwrap(); if !r.first().is_some_and(|root|crate::hub_auth::local_path(root,&p.to_string_lossy()).is_ok()) {return;} if !r.iter().any(|x| x == &p) { r.push(p); } }
+    pub fn add_root(&self, p: PathBuf) { let mut r = self.roots.lock().unwrap(); if crate::files::validate_local_path(&p.to_string_lossy()).is_err() {return;} if !r.iter().any(|x| x == &p) { r.push(p); } }
     /// 智能体/页面用的基址，例如 http://127.0.0.1:12345/f/<token>
     pub fn base_url(&self) -> String { format!("http://127.0.0.1:{}/f/{}", self.port, self.token) }
 }

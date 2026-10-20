@@ -1,4 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
+import {BookOpen,MessageSquareText,Search,Send,Plus,RefreshCw,Trash2} from 'lucide-react';
+import './CloudKnowledgeView.css';
 import KnowledgeMarkdown from './KnowledgeMarkdown';
 import {cloudRows,cloudSession,cloudMessages,cloudReply,type Source,type Message,type Session} from './cloud-knowledge-data';
 const call=async <T,>(action:string,body:unknown={}):Promise<T>=>await window.biodsh.cloudQa(action,body) as T;
@@ -11,7 +13,8 @@ export default function CloudKnowledgeView(){
  const [sessions,setSessions]=useState<Session[]>([]),[selected,setSelected]=useState<string|null>(null),[messages,setMessages]=useState<Message[]>([]);
  const [question,setQuestion]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[unsaved,setUnsaved]=useState<{id:string;answer:Message}|null>(null);
  const alive=useRef(true),version=useRef(0),pending=useRef(false),listVersion=useRef(0);
- const questionInput=useRef<HTMLTextAreaElement>(null);
+ const questionInput=useRef<HTMLTextAreaElement>(null),resultArea=useRef<HTMLDivElement>(null);
+ useEffect(()=>{const area=resultArea.current;if(area)area.scrollTop=area.scrollHeight;},[messages,selected]);
  useEffect(()=>{alive.current=true;void refresh();return()=>{alive.current=false;version.current++;};},[]);
  async function refresh(){const request=++listVersion.current;try{const v=await call<unknown>('list');if(alive.current&&request===listVersion.current)setSessions(cloudRows(v));}catch{if(alive.current&&request===listVersion.current)setError('会话列表暂时无法加载，请重试');}}
  async function newSession(){
@@ -24,7 +27,8 @@ export default function CloudKnowledgeView(){
  }
  async function select(id:string){if(pending.current||unsaved)return;const revision=++version.current;setBusy(true);setError('');pending.current=true;try{const d=cloudMessages(await call('detail',{id}));if(alive.current&&revision===version.current){setSelected(id);setMessages(d);}}catch{if(alive.current)setError('会话加载失败，请刷新后重试');}finally{pending.current=false;if(alive.current)setBusy(false);}}
  async function ask(search:boolean){
-  const q=question.trim();if(!q||pending.current||unsaved)return;
+  const q=question.trim();if(pending.current||unsaved)return;
+  if(!q){questionInput.current?.focus();return;}
   pending.current=true;setBusy(true);setError('');const revision=++version.current;
   const valid=()=>alive.current&&version.current===revision;
   try{
@@ -40,7 +44,7 @@ export default function CloudKnowledgeView(){
    try{await call('message',{id,...answer});}catch{if(valid())setUnsaved({id,answer});}
    if(valid())void refresh();
   }catch(e){if(valid()){setQuestion(q);setError(String(e).replace(/^(Error:|UNAUTHORIZED:|FORBIDDEN:)\s*/,'').slice(0,180));}}
-  finally{pending.current=false;if(valid())setBusy(false);}
+  finally{pending.current=false;if(valid()){setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
  }
  async function retrySave(){
   if(!unsaved||pending.current)return;pending.current=true;setBusy(true);setError('');
@@ -55,10 +59,28 @@ export default function CloudKnowledgeView(){
   finally{pending.current=false;if(alive.current)setBusy(false);}
  }
  async function remove(){if(!selected||pending.current)return;pending.current=true;setBusy(true);setError('');try{await call('delete',{id:selected});if(alive.current){setSelected(null);setMessages([]);setUnsaved(null);void refresh();}}catch(e){if(alive.current)setError(String(e).slice(0,160));}finally{pending.current=false;if(alive.current)setBusy(false);}}
- return <section className="h-full overflow-y-auto p-8 pt-14" aria-label="知识库问答"><h1 className="text-2xl font-semibold">文献知识库问答</h1><p className="mt-2 mb-5 text-sm">输入科研问题，查找相关文献与方法依据。阅读回答后，可展开来源核对原文。</p>
- <div className="flex flex-wrap gap-2 mb-4"><select className="field flex-1 min-w-0" aria-label="知识库会话" value={selected||''} disabled={busy||!!unsaved} onChange={e=>e.target.value&&void select(e.target.value)}><option value="">新会话</option>{sessions.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select><button className="btn" disabled={busy||!!unsaved} onClick={()=>void newSession()}>新建问答</button><button className="btn" disabled={busy} onClick={()=>void refresh()}>刷新会话</button><button className="btn" disabled={busy||!selected} onClick={()=>void remove()}>删除会话</button></div>
- <div className="flex flex-col gap-4">{messages.map((m,i)=><article className="card p-5" key={m.id||i}><strong>{m.role==='user'?'我的问题':'知识库回答'}</strong><KnowledgeMarkdown text={m.text||''}/>{m.blocks?.map((b,j)=>{const sources=b.items||[];return sources.length?<details className="mt-3" key={j}><summary>参考文献（{sources.length}）</summary><Sources sources={sources}/></details>:null;})}</article>)}</div>
- {unsaved&&<div className="mt-3"><p role="status">回答已显示，但保存失败。请重试保存，或复制需要的内容后再放弃保存。退出账号或关闭软件会丢失未保存回答。</p><button className="btn" disabled={busy} onClick={()=>void retrySave()}>重试保存</button><button className="btn" disabled={busy} onClick={()=>{if(window.confirm('确认放弃保存这条回答？请先复制需要的内容。'))setUnsaved(null);}}>放弃保存</button></div>}{error&&<p role="alert" className="mt-3 text-red-700">{error}</p>}
- <form className="mt-5" onSubmit={e=>{e.preventDefault();void ask(false);}}><label htmlFor="knowledge-question">科研问题</label><textarea ref={questionInput} id="knowledge-question" className="field w-full mt-2" rows={4} maxLength={8000} value={question} disabled={busy||!!unsaved} onChange={e=>setQuestion(e.target.value)} placeholder="例如：水稻 SPL 基因家族有哪些主要功能？"/><div className="flex gap-3 mt-3"><button className="btn btn-primary" disabled={busy||!!unsaved||!question.trim()}>{busy?'正在处理，请稍候…':'提问'}</button><button type="button" className="btn" disabled={busy||!!unsaved||!question.trim()} onClick={()=>void ask(true)}>仅检索文献</button></div></form>
- <p className="text-xs mt-4">问题独立检索作答，会话用于保存历史。引用前请核对原文，研究结论需结合实验与统计结果判断。</p></section>;
+ return <section className="knowledge-page" aria-label="知识库问答">
+ <header className="knowledge-header">
+  <div className="knowledge-brand"><span className="knowledge-brand-icon"><BookOpen size={23}/></span><div><h1>文献知识库问答</h1><p>查找研究依据，让每个回答都有文献可循。</p></div></div>
+  <div className="knowledge-session-bar"><label className="knowledge-session-picker"><span>历史问答</span><select className="field" aria-label="知识库会话" value={selected||''} disabled={busy||!!unsaved} onChange={e=>e.target.value&&void select(e.target.value)}><option value="">新会话</option>{sessions.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select></label><button className="btn btn-tint" disabled={busy||!!unsaved} onClick={()=>void newSession()}><Plus size={16}/>新建问答</button><button className="btn btn-ghost knowledge-icon-button" aria-label="刷新会话" title="刷新会话" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={16}/></button><button className="btn btn-ghost knowledge-icon-button" aria-label="删除会话" title="删除会话" disabled={busy||!selected} onClick={()=>void remove()}><Trash2 size={16}/></button></div>
+ </header>
+ <div className="knowledge-results" ref={resultArea} role="region" aria-label="问答结果" tabIndex={0}>
+  <div className="knowledge-thread">
+   {!messages.length&&<div className="knowledge-empty"><span className="knowledge-empty-icon"><MessageSquareText size={32}/></span><h2>从一个科研问题开始</h2><p>输入研究问题获取文献支持的回答，或只检索相关文献。</p><div className="knowledge-suggestions">{['水稻 SPL 基因家族有哪些主要功能？','单细胞 RNA-seq 分析常用哪些质控方法？','如何查找植物抗逆相关研究？'].map(example=><button type="button" key={example} disabled={busy||!!unsaved} onClick={()=>{setQuestion(example);setError('');questionInput.current?.focus();}}><Search size={14}/><span>{example}</span></button>)}</div></div>}
+   {messages.map((m,i)=><article className={'knowledge-message '+(m.role==='user'?'knowledge-message-user':'knowledge-message-answer')} key={m.id||i}><div className="knowledge-message-heading">{m.role==='user'?<MessageSquareText size={16}/>:<BookOpen size={16}/>}<strong>{m.role==='user'?'我的问题':'知识库回答'}</strong></div><KnowledgeMarkdown text={m.text||''}/>{m.blocks?.map((b,j)=>{const sources=b.items||[];return sources.length?<details className="knowledge-sources" key={j}><summary>参考文献（{sources.length}）</summary><Sources sources={sources}/></details>:null;})}</article>)}
+  </div>
+ </div>
+ <footer className="knowledge-composer-area">
+  <div className="knowledge-composer-inner">
+   {unsaved&&<div className="knowledge-notice"><p role="status">回答已显示，但保存失败。请重试保存，或复制需要的内容后再放弃保存。退出账号或关闭软件会丢失未保存回答。</p><button className="btn" disabled={busy} onClick={()=>void retrySave()}>重试保存</button><button className="btn" disabled={busy} onClick={()=>{if(window.confirm('确认放弃保存这条回答？请先复制需要的内容。'))setUnsaved(null);}}>放弃保存</button></div>}
+   {error&&<p role="alert" className="knowledge-error">{error}</p>}
+   <form className="knowledge-composer" onSubmit={e=>{e.preventDefault();void ask(false);}}>
+    <label htmlFor="knowledge-question">科研问题</label>
+    <textarea ref={questionInput} id="knowledge-question" rows={2} maxLength={8000} value={question} disabled={busy||!!unsaved} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229){e.preventDefault();void ask(false);}}} placeholder="输入科研问题或文献关键词…"/>
+    <div className="knowledge-composer-actions"><div className="knowledge-submit-buttons"><button type="button" className="btn btn-fill" title="只查找文献来源，不生成问答内容" disabled={busy||!!unsaved||!question.trim()} onClick={()=>void ask(true)}><Search size={15}/>仅检索文献</button><button type="submit" className="btn btn-primary" title="检索文献并生成回答" disabled={busy||!!unsaved||!question.trim()}><Send size={15}/>{busy?'正在处理，请稍候…':'提问'}</button></div></div>
+   </form>
+   <p className="knowledge-footnote">每个问题独立检索，会话保存问答历史。引用前请展开参考文献核对原文。</p>
+  </div>
+ </footer>
+ </section>;
 }

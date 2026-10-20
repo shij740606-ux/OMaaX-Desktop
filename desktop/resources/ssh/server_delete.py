@@ -108,7 +108,7 @@ def execute(r,item):
     r.audit(r.database(),'server.deleted',{'id':item['id'],'paths':item['paths'],'bytes':item['snapshot']['bytes'],'trashIds':item['trashIds']})
     return {'deleted':item['paths'],'trashIds':item['trashIds'],'trashId':item['trashIds'][0] if len(staged)==1 else None,'recoverable':True}
 
-def submit(r,body):
+def submit(r,body,notice=False):
     if set(body)-{'path','recursive','context'}:raise ValueError('删除参数不正确')
     value=body.get('path');recursive=body.get('recursive',False)
     if type(recursive) is not bool or not isinstance(value,str):raise ValueError('请提供路径和是否递归')
@@ -123,14 +123,13 @@ def submit(r,body):
     if wild:reasons.append('使用通配符，将处理所有匹配文件')
     if recursive:reasons.append('递归处理目录及其中所有文件')
     if summary['bytes']>LIMIT:reasons.append('删除数据超过 10 GB')
-    item={'id':str(uuid.uuid4()),'paths':[str(p) for p in paths],'snapshot':summary,'warnings':reasons,'context':workspace_context.normalize(body.get('context')),'created':time.time(),'state':'pending'}
+    item={'id':str(uuid.uuid4()),'paths':[str(p) for p in paths],'snapshot':summary,'warnings':reasons,'context':workspace_context.normalize(body.get('context')),'created':time.time(),'state':'pending','policy':'notice-v1' if notice else 'confirmation'}
     item['digest']=hashlib.sha256(json.dumps(item,sort_keys=True).encode()).hexdigest();save(r,item)
-    if reasons:
-        return {'requiresApproval':True,'id':item['id'],'paths':item['paths'],'bytes':summary['bytes'],'entries':summary['entries'],'warnings':reasons,'message':'尚未删除。请明确告知用户范围和大小，并到服务器管理查看删除提醒后确认；模型不能自行确认。'}
-    return execute(r,item)
+    return {'requiresNotice':notice,'requiresApproval':not notice,'id':item['id'],'paths':item['paths'],'bytes':summary['bytes'],'entries':summary['entries'],'warnings':reasons,'message':'尚未删除。软件必须先展示实际路径、递归范围和字节数，收到界面展示回执后才移入回收站；模型不能自行提交回执。未展示时延期，其他分析可继续。' if notice else '尚未删除，请核对提醒中的范围后移入回收站。'}
+
 
 def dispatch(r,action,body,actor):
-    if action=='server_delete':return submit(r,body)
+    if action=='server_delete':return submit(r,body,notice=actor=='agent')
     if actor!='user':raise ValueError('删除提醒必须由用户确认，模型不能自行确认')
     if action=='server_delete_requests':
         if body:raise ValueError('请求列表不接受参数')
@@ -142,11 +141,24 @@ def dispatch(r,action,body,actor):
         return sorted(items,key=lambda i:-i['created'])[:100]
     if set(body)-{'id','digest'}:raise ValueError('删除确认参数不正确')
     p=folder(r)/(r.identifier(body.get('id'))+'.json')
+    lock_path=p.with_suffix('.lock')
+    if lock_path.is_symlink():raise ValueError('删除请求锁不能是链接')
+    with lock_path.open('a') as lock:
+        if os.name=='posix':
+            import fcntl
+            fcntl.flock(lock,fcntl.LOCK_EX)
+        return process(r,action,body,p)
+
+def process(r,action,body,p):
     if p.is_symlink():raise ValueError('删除请求不能是链接')
     item=json.loads(p.read_text())
     if item['state']!='pending':raise ValueError('请求已处理，请刷新')
     if action=='server_delete_reject':item['state']='rejected';save(r,item);return {'rejected':True}
-    if action!='server_delete_confirm' or body.get('digest')!=item['digest']:raise ValueError('删除请求版本不匹配')
+    if action not in ('server_delete_confirm','server_delete_notified') or body.get('digest')!=item['digest']:raise ValueError('删除请求版本不匹配')
     signed={k:v for k,v in item.items() if k!='digest'}
     if hashlib.sha256(json.dumps(signed,sort_keys=True).encode()).hexdigest()!=item['digest']:raise ValueError('删除请求已变化，请重新预览')
+    if action=='server_delete_notified':
+        if item.get('policy')!='notice-v1':raise ValueError('旧请求仍需原有确认，请重新预览')
+        item['notifiedAt']=time.time()
+        r.audit(r.database(),'server.delete_notice_displayed',{'id':item['id'],'digest':item['digest'],'paths':item['paths'],'bytes':item['snapshot']['bytes']})
     return execute(r,item)

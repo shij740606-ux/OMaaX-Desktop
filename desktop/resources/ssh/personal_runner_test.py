@@ -18,7 +18,7 @@ class RunnerTests(unittest.TestCase):
         self.data = self.temp/'original'; self.data.mkdir()
         (self.data/'original.txt').write_text('never change me')
         self.patches = [patch.object(r,'ROOT',self.control), patch.object(r,'root',lambda:self.control),
-                        patch.object(r.os,'getuid',lambda:1000,create=True), patch.object(r,'launch'),
+                        patch.object(r.os,'getuid',return_value=os.getuid() if hasattr(os,'getuid') else 1000,create=True), patch.object(r,'launch'),
             patch.object(r,'protection',return_value={'rootless':True}), patch.object(r,'command',side_effect=lambda args,**kw:'omaax-isolation-ready\n' if args[:2]==['podman','run'] else '[]')]
         self.active = [p.start() for p in self.patches]
         r.dispatch({'action':'configure','body':{'sources':{'reads':str(self.data)},'images':[IMAGE]}})
@@ -139,32 +139,24 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('another-plan',sources);self.assertIn('import_'+transfer,sources);self.assertIn('reads',sources)
 
     def test_bootstrap_preserves_registered_sources(self):
-        with patch('shutil.which',return_value='/bin/podman'):
+        import server_setup
+        new='conda:'+'c'*64
+        with patch.object(r.user_runtime,'install'),patch.object(r.conda_runtime,'create',return_value=new),patch.object(server_setup,'verify_environment'):
             r.dispatch({'action':'bootstrap'})
         self.assertEqual(r.config(r.database())['sources']['reads'],str(self.data))
-        self.assertTrue((r.workspace_root()/'files/shared').is_dir())
+        self.assertEqual(r.config(r.database())['images'],[new,IMAGE])
 
-    def test_bootstrap_reinstalls_only_a_missing_approved_image(self):
-        calls=[]
-        def command(args,**kwargs):
-            calls.append(args)
-            if args[:3]==['podman','image','exists']:raise ValueError('image missing')
-            if args[:3]==['podman','image','inspect']:return json.dumps([{'RepoDigests':[IMAGE]}])
-            return 'omaax-isolation-ready\n' if args[:2]==['podman','run'] else '[]'
-        with patch('shutil.which',return_value='/bin/podman'),patch.object(r,'command',side_effect=command):r.dispatch({'action':'bootstrap'})
-        self.assertEqual([args for args in calls if args[:2]==['podman','pull']],[['podman','pull',IMAGE]])
-        self.assertEqual(r.config(r.database())['sources']['reads'],str(self.data))
+    def test_bootstrap_reuses_ready_conda_without_podman(self):
+        import server_setup
+        new='conda:'+'c'*64;db=r.database();db.execute('INSERT OR REPLACE INTO config VALUES(?,?)',('images',json.dumps([new])));db.commit()
+        with patch.object(r.user_runtime,'install'),patch.object(r.conda_runtime,'resolve'),patch.object(r.conda_runtime,'create') as create,patch.object(server_setup,'verify_environment'):
+            r.dispatch({'action':'bootstrap'})
+        create.assert_not_called()
 
-    def test_bootstrap_checks_new_image_and_preserves_previous_approval(self):
-        new_image='registry.example/python@sha256:'+'b'*64
-        calls=[]
-        def command(args, **kwargs):
-            calls.append(args)
-            return json.dumps([{'RepoDigests':[new_image]}]) if args[:3]==['podman','image','inspect'] else 'omaax-isolation-ready\n' if args[:2]==['podman','run'] else '[]'
-        with patch('shutil.which',return_value='/bin/podman'), patch.object(r,'command',side_effect=command):
-            r.dispatch({'action':'bootstrap','body':{'image':'registry.example/python:3.12'}})
-        self.assertEqual(r.config(r.database())['images'],[IMAGE,new_image])
-        self.assertIn(new_image,next(args for args in calls if args[:2]==['podman','run']))
+    def test_failed_conda_install_preserves_previous_approval(self):
+        with patch.object(r.user_runtime,'install'),patch.object(r.conda_runtime,'create',side_effect=ValueError('install failed')):
+            with self.assertRaisesRegex(ValueError,'install failed'):r.dispatch({'action':'bootstrap'})
+        self.assertEqual(r.config(r.database())['images'],[IMAGE])
 
     def test_transfer_rejects_insufficient_space_before_creating_destination(self):
         with patch.object(r,'disk_available',return_value=10):

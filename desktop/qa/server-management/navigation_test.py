@@ -34,7 +34,7 @@ with sync_playwright() as p:
     return old(id,action,body);
    };
   }""")
-  page.get_by_role('button',name='分析',exact=True).click()
+  page.get_by_role('button',name='分析结果',exact=True).click()
   expect(page.get_by_text('samples.csv',exact=True)).to_be_visible()
   expect(page.get_by_text('分析产出',exact=False)).to_be_visible()
   expect(page.get_by_role('heading',name='长流程分析结果')).to_have_count(0)

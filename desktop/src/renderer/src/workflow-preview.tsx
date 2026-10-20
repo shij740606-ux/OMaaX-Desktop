@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
 import catalog from '../../../resources/workflows/catalog.json';
+import composerScript from '../../../src-tauri/src/chat_composer.js?raw';
 const settings={onboarded:true,language:'zh',theme:'light',mode:'local'};
 const host={id:'preview-175',name:'175（界面验收）',host:'example.invalid',username:'test',hostKey:'test',selected:true};
 type MockPlan={plan:Record<string,unknown>;digest:string;confirmed:boolean;state:string;detail:string};
@@ -51,11 +52,23 @@ window.biodsh={
 } as unknown as typeof window.biodsh;
 // Extended model-workflow acceptance scenario, still entirely synthetic.
 if(new URLSearchParams(location.search).has('model')){
- const qa={calls:[] as {action:string;body:any}[],failure:false,delay:0,budget:{calls:80,tokens:1500,reported:true,paused:true}};(window as any).__qa=qa;
+ const qa={calls:[] as {action:string;body:any}[],failure:false,delay:0,effort:'high',budget:{calls:81,tokens:250000,reported:true,paused:true}};(window as any).__qa=qa;
  const api=window.biodsh,oldCompute=api.personalCompute;
+ const listeners=new Set<(event:any)=>void>();
+ api.onEvent=cb=>{listeners.add(cb);return()=>{listeners.delete(cb);};};
+ (window as any).__modeRequest=(event:any)=>listeners.forEach(cb=>cb(event));
+ api.dshSetReasoning=async value=>{
+  if(!(value as any)?.sessionId){document.querySelector('[data-composer-card]')?.remove();return;}
+  if(!document.querySelector('[data-composer-card]')){
+   const card=document.createElement('div');card.dataset.composerCard='';card.style.cssText='position:fixed;bottom:30px;left:350px;background:white;padding:15px';
+   card.innerHTML='<div class="fixture_modes"><span>工作区内修改</span></div>';document.body.append(card);
+   if(!(window as any).__composerLoaded){(window as any).__composerLoaded=true;new Function(composerScript)();}
+  }
+  window.dispatchEvent(new CustomEvent('omaax-reasoning',{detail:value}));
+ };
  api.workspaceFiles=async()=>[];
  api.sshHosts=async()=>[host,{...host,id:'preview-b',name:'空服务器'}] as any;
- api.dshRpc=async(method:string,args:any)=>{qa.calls.push({action:method,body:args});if(method==='session.budget')return qa.budget;if(method==='session.budgetReset'){qa.budget={calls:0,tokens:0,reported:false,paused:false};return qa.budget;}if(method==='workspace.list')return {items:[{workspaceId:'preview',path:'C:/isolated-ui-preview/project',title:'界面验收',sessionIds:['preview-session'],updatedAt:''}],archivedSessionIds:[]};if(method==='session.list')return {items:[]};if(method==='server.context')return {projectId:'preview',projectName:'测试项目',sessionId:'preview-session',sessionName:'测试对话'};return {};};
+ api.dshRpc=async(method:string,args:any)=>{qa.calls.push({action:method,body:args});if(new URLSearchParams(location.search).has('reasoning')&&['session.reasoning','session.reasoningSet'].includes(method)){if(method==='session.reasoningSet')qa.effort=args.effort;return {levels:['low','high','max'],selected:qa.effort};}if(method==='session.budget')return qa.budget;if(method==='session.budgetReset'){qa.budget={calls:0,tokens:0,reported:false,paused:false};return qa.budget;}if(method==='workspace.list')return {items:[{workspaceId:'preview',path:'C:/isolated-ui-preview/project',title:'界面验收',sessionIds:['preview-session'],updatedAt:''}],archivedSessionIds:[]};if(method==='session.list')return {items:[]};if(method==='server.context')return {projectId:'preview',projectName:'测试项目',sessionId:'preview-session',sessionName:'测试对话'};return {};};
  const record=(id:string,state:string)=>({confirmed:true,digest:'test-digest',plan:{id,prefix:id,name:'RNA-seq',context:{projectName:'测试项目',sessionName:'测试对话'}},state});
  api.personalCompute=async(id:string,action:string,body:any={})=>{
   qa.calls.push({action,body});if(qa.delay)await new Promise(resolve=>setTimeout(resolve,qa.delay));

@@ -24,7 +24,7 @@ type Plan={plan:{id:string;workflow:string;name:string;version:string;source:str
 type Result={id:string;name:string;state:string;version:string;steps:Progress[];files:{path:string;size:number;sha256:string}[];fileCount:number;nextOffset?:number|null;error?:string};
 type Status={sources:Record<string,string>;images:string[];workflowImages?:Record<string,string>};
 type ModelSelection={source?:string;input?:string;prefix?:string;steps:string[];parameters?:Record<string,Values>;configs?:Record<string,Values>;preferences?:{library_strandness?:string};cpu?:number;memoryMb?:number;timeoutSeconds?:number};
-const labels:Record<string,string>={awaiting_confirmation:'等待确认',queued:'等待资源',running:'正在执行',waiting:'尚未开始',complete:'执行完成',partial:'部分完成',invalid_result:'结果不满足要求',failed:'执行失败',cancelled:'已取消',skipped:'已跳过',interrupted:'已中断'};
+const labels:Record<string,string>={preparing:'准备输入中',preparation_failed:'输入准备失败',awaiting_confirmation:'等待确认',queued:'等待资源',running:'正在执行',waiting:'尚未开始',complete:'执行完成',partial:'部分完成',invalid_result:'结果不满足要求',failed:'执行失败',cancelled:'已取消',skipped:'已跳过',interrupted:'已中断'};
 const call=<T,>(host:string,action:string,body:unknown={})=>window.biodsh.personalCompute(host,action,body) as Promise<T>;
 const describeError=(e:unknown)=>String(e instanceof Error?e.message:e).replace(/^Error:\s*/,'').replace(/\b[a-z][a-z0-9_]+\b/g,key=>parameterNames[key]||key);
 const textValue=(v:unknown)=>v===null||v===undefined?'':typeof v==='string'?v:JSON.stringify(v);

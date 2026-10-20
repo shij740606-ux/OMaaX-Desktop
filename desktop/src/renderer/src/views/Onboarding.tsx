@@ -7,11 +7,10 @@ import { useT } from '../i18n';
 
 // 引导覆盖整个应用，内容随窗口缩放，小窗口可滚动。
 export default function Onboarding() {
-  const { updateSettings, saveKey, credential, env, installEnv, setTab } = useApp();
+  const { updateSettings, env, installEnv, setTab } = useApp();
   const { t } = useT();
   const {user}=useAuth();const bioflow=!!user;
   const [step, setStep] = useState(0);
-  const [key, setKey] = useState('');
   const installing = ['python', 'venv', 'packages', 'verify'].includes(env.step);
   const finish = async (goStore = true) => { await updateSettings({ onboarded: true }); setTab(goStore ? 'store' : 'chat'); };
 
@@ -33,14 +32,9 @@ export default function Onboarding() {
         {step === 1 && (
           <>
             <div className="t-caption">{t('第 1 步 / 共 3 步')}</div>
-            <div className="t-title1 mt-2">{t('连接模型')}</div>
-            <p className="t-body mt-2" style={{ color: 'var(--text-2)' }}>{t('填入 DeepSeek API Key。之后也可以在「设置」里改。')}</p>
-            <input className="field t-mono mt-6 text-center" type="password" autoFocus placeholder={credential.hasKey ? t('已设置 {masked}', { masked: credential.masked ?? '' }) : 'sk-…'} value={key} onChange={(e) => setKey(e.target.value)} />
-            <button className="btn btn-ghost mt-2" onClick={() => window.biodsh.openExternal('https://platform.deepseek.com/api_keys')}><ExternalLink size={13} /> {t('还没有？去 DeepSeek 开放平台申请')}</button>
-            <div className="flex gap-3 mt-6">
-              <button className="btn btn-fill btn-lg" onClick={() => setStep(bioflow?2:3)}>{credential.hasKey ? t('下一步') : t('先跳过')}</button>
-              <button className="btn btn-primary btn-lg" disabled={!key.trim()} onClick={async () => { await saveKey(key); setStep(bioflow?2:3); }}>{t('保存并继续')} <ArrowRight size={15} /></button>
-            </div>
+            <div className="t-title1 mt-2">{t('对话服务')}</div>
+            <p className="t-body mt-2">{t('登录后使用公司提供的对话服务，无需填写访问密钥。')}</p>
+            <button className="btn btn-primary btn-lg mt-6" onClick={() => setStep(bioflow?2:3)}>{t('继续')} <ArrowRight size={15}/></button>
           </>
         )}
         {step === 2 && (

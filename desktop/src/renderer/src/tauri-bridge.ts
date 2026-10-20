@@ -98,6 +98,7 @@ export function installTauriBridge() {
     embedQuery: (text: string) => invoke('embed_query', { text }),
     lightUpdateCheck: () => invoke('light_update_check'),
     lightUpdateApply: (delta: unknown) => invoke('light_update_apply', { delta }),
+    dshSetReasoning: (value: unknown) => invoke<void>('dsh_set_reasoning', { value }),
     dshSetContext: (workspaces: Record<string, string>) => invoke('dsh_set_context', { workspaces }),
     ratingsGet: () => invoke('ratings_get'),
     ratingsSet: (id: string, vote: number, comment: string) => invoke('ratings_set', { id, vote, comment }),

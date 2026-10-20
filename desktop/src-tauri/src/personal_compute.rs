@@ -7,6 +7,11 @@ const SERVER_WORKSPACE: &str = include_str!("../../resources/ssh/server_workspac
 const WORKSPACE_CONTEXT: &str = include_str!("../../resources/ssh/workspace_context.py");
 const SERVER_FILE_OPS: &str = include_str!("../../resources/ssh/server_file_ops.py");
 const SERVER_DELETE: &str = include_str!("../../resources/ssh/server_delete.py");
+const USER_RUNTIME: &str = include_str!("../../resources/ssh/user_runtime.py");
+const WORKFLOW_PREFLIGHT: &str = include_str!("../../resources/ssh/workflow_preflight.py");
+const SCHEDULER_BACKEND: &str = include_str!("../../resources/ssh/scheduler_backend.py");
+const CONDA_RUNTIME: &str = include_str!("../../resources/ssh/conda_runtime.py");
+const USER_RUNTIME_SH: &str = include_str!("../../resources/ssh/user_runtime.sh");
 const SERVER_SETUP: &str = include_str!("../../resources/ssh/server_setup.py");
 const RUNNER: &str = include_str!("../../resources/ssh/personal_runner.py");
 const WORKFLOW_ENGINE: &str = include_str!("../../resources/ssh/workflow_engine.py");
@@ -17,9 +22,19 @@ const WORKFLOW_DEPENDENCIES: &str = include_str!("../../resources/ssh/workflow-d
 const WORKFLOW_BUNDLE: &[u8] = include_bytes!("../../resources/workflows/kernel.zip");
 
 fn runner_source() -> String {
-    let engine_hash=format!("{:x}",sha2::Sha256::digest(format!("{WORKFLOW_ENGINE}\n{RUNNER}\n{WORKFLOW_ADAPTER}\n{WORKFLOW_ENVIRONMENTS}\n{WORKFLOW_DEPENDENCIES}\n{SERVER_WORKSPACE}\n{WORKSPACE_CONTEXT}\n{SERVER_FILE_OPS}").as_bytes()));
+    let source=base_runner_source();
+    #[cfg(test)]
+    if let Ok(root)=std::env::var("OMAAX_ACCEPTANCE_REMOTE_ROOT") {
+        assert_eq!(root,"/jinxianstor/home/liaoshuxin/omaax/diagnostics/engine-modes-20261020/conda-cache");
+        return source.replace("ROOT = LEGACY_ROOT if (LEGACY_ROOT/'state.sqlite').is_file() else DEFAULT_ROOT",&format!("ROOT = Path('{root}')"));
+    }
+    source
+}
+fn base_runner_source() -> String {
+    let engine_hash=format!("{:x}",sha2::Sha256::digest(format!("{WORKFLOW_ENGINE}\n{RUNNER}\n{WORKFLOW_ADAPTER}\n{WORKFLOW_ENVIRONMENTS}\n{WORKFLOW_DEPENDENCIES}\n{CONDA_RUNTIME}\n{USER_RUNTIME}\n{SCHEDULER_BACKEND}\n{WORKFLOW_PREFLIGHT}\n{SERVER_WORKSPACE}\n{WORKSPACE_CONTEXT}\n{SERVER_FILE_OPS}").as_bytes()));
     let mut prefix=String::from("import sys,types,base64,json\n");
-    for (name,source) in [("workspace_context",WORKSPACE_CONTEXT),("server_file_ops",SERVER_FILE_OPS),("server_setup",SERVER_SETUP)] {prefix.push_str(&format!("m=types.ModuleType('{name}')\nexec(compile(base64.b64decode('{}'),'<{name}>','exec'),m.__dict__)\nsys.modules['{name}']=m\n",STANDARD.encode(source)));}
+    for (name,source) in [("scheduler_backend",SCHEDULER_BACKEND),("workflow_preflight",WORKFLOW_PREFLIGHT),("user_runtime",USER_RUNTIME),("conda_runtime",CONDA_RUNTIME),("workspace_context",WORKSPACE_CONTEXT),("server_file_ops",SERVER_FILE_OPS),("server_setup",SERVER_SETUP)] {prefix.push_str(&format!("m=types.ModuleType('{name}')\nexec(compile(base64.b64decode('{}'),'<{name}>','exec'),m.__dict__)\nsys.modules['{name}']=m\n",STANDARD.encode(source)));}
+    prefix.push_str(&format!("sys.modules['user_runtime'].BOOTSTRAP_SOURCE=base64.b64decode('{}').decode()\n",STANDARD.encode(USER_RUNTIME_SH)));
     // Deletion imports storage, so load it after server_workspace has been registered.
     let delete_module=format!("d=types.ModuleType('server_delete')\nexec(compile(base64.b64decode('{}'),'<server_delete>','exec'),d.__dict__)\nsys.modules['server_delete']=d\n",STANDARD.encode(SERVER_DELETE));
     format!("{prefix}import sys,types,base64,json\nt=types.ModuleType('server_workspace')\nexec(compile(base64.b64decode('{}'),'<server_workspace>','exec'),t.__dict__)\nsys.modules['server_workspace']=t\n{delete_module}e=types.ModuleType('workflow_environments')\nexec(compile(base64.b64decode('{}'),'<workflow_environments>','exec'),e.__dict__)\ne.DEPENDENCIES=json.loads(base64.b64decode('{}'))\nsys.modules['workflow_environments']=e\nw=types.ModuleType('workflow_engine')\nexec(compile(base64.b64decode('{}'),'<workflow_engine>','exec'),w.__dict__)\nw.CATALOG=json.loads(base64.b64decode('{}'))\nw.ADAPTER_SOURCE=base64.b64decode('{}').decode()\nw.ENGINE_HASH='{}'\nsys.modules['workflow_engine']=w\n{}",STANDARD.encode(SERVER_WORKSPACE),STANDARD.encode(WORKFLOW_ENVIRONMENTS),STANDARD.encode(WORKFLOW_DEPENDENCIES),STANDARD.encode(WORKFLOW_ENGINE),STANDARD.encode(WORKFLOW_CATALOG),STANDARD.encode(WORKFLOW_ADAPTER),engine_hash,RUNNER)
@@ -40,7 +55,17 @@ fn frozen_runner(node:&Path)->Result<&'static FrozenRunner,String>{
     }).as_ref().map_err(Clone::clone)
 }
 fn runner_command(hash:&str,payload:&str)->String{
-    format!("if ! command -v python3 >/dev/null 2>&1; then echo OMAAX_RUNNER_MISSING >&2; exit 78; fi\npython3 - <<'OMAAX_REQUEST'\nimport base64,hashlib,json,pathlib,platform,runpy,sys\nm=pathlib.Path('/etc/machine-id')\ni=(m.read_text().strip() if m.exists() else '')+':'+platform.node()\nk=hashlib.sha256(i.encode()).hexdigest()[:16]\nold=pathlib.Path.home()/'.local/share/biodsh-personal'/k\nr=old if (old/'state.sqlite').is_file() else pathlib.Path.home()/'omaax'/'.servers'/k\np=r/'runner-{hash}.py'\nif any(x.is_symlink() for x in [p,*p.parents]):raise ValueError('Invalid runner path')\nif not p.is_file():\n print('OMAAX_RUNNER_MISSING',file=sys.stderr);sys.exit(78)\nif hashlib.sha256(p.read_bytes()).hexdigest()!='{hash}':raise ValueError('执行组件校验失败，请重新配置服务器')\ng=runpy.run_path(str(p),run_name='biodsh_runner')\ntry: print(json.dumps({{'result':g['dispatch'](json.loads(base64.b64decode('{payload}')))}}))\nexcept Exception as e: print(json.dumps({{'error':str(e)}}))\nOMAAX_REQUEST")
+    let command=base_runner_command(hash,payload);
+    #[cfg(test)]
+    if let Ok(root)=std::env::var("OMAAX_ACCEPTANCE_REMOTE_ROOT") {
+        assert_eq!(root,"/jinxianstor/home/liaoshuxin/omaax/diagnostics/engine-modes-20261020/conda-cache");
+        return command.replace("r=old if (old/'state.sqlite').is_file() else pathlib.Path.home()/'omaax'/'.servers'/k",&format!("r=pathlib.Path('{root}')"));
+    }
+    command
+}
+fn base_runner_command(hash:&str,payload:&str)->String{
+    let python_finder=USER_RUNTIME_SH.split("omaax_install_runtime()").next().unwrap_or("");
+    format!("{python_finder}\nif ! omaax_find_python; then echo OMAAX_RUNNER_MISSING >&2; exit 78; fi\n\"$OMAAX_PYTHON\" - <<'OMAAX_REQUEST'\nimport base64,hashlib,json,pathlib,platform,runpy,sys\nm=pathlib.Path('/etc/machine-id')\ni=(m.read_text().strip() if m.exists() else '')+':'+platform.node()\nk=hashlib.sha256(i.encode()).hexdigest()[:16]\nold=pathlib.Path.home()/'.local/share/biodsh-personal'/k\nr=old if (old/'state.sqlite').is_file() else pathlib.Path.home()/'omaax'/'.servers'/k\np=r/'runner-{hash}.py'\nif any(x.is_symlink() for x in [p,*p.parents]):raise ValueError('Invalid runner path')\nif not p.is_file():\n print('OMAAX_RUNNER_MISSING',file=sys.stderr);sys.exit(78)\nif hashlib.sha256(p.read_bytes()).hexdigest()!='{hash}':raise ValueError('执行组件校验失败，请重新配置服务器')\ng=runpy.run_path(str(p),run_name='biodsh_runner')\ntry: print(json.dumps({{'result':g['dispatch'](json.loads(base64.b64decode('{payload}')))}}))\nexcept Exception as e: print(json.dumps({{'error':str(e)}}))\nOMAAX_REQUEST")
 }
 
 pub fn tool_catalog(body:&Value)->Result<Value,String> {
@@ -137,7 +162,7 @@ pub fn bind_workflow(home:&Path, payload:&Value) -> Result<Value,String> {
 fn permitted(action:&str,agent:bool)->bool {
     match action {
         "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" | "workflow_prepare" | "workflow_environment" => true,
-        "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_resume" | "workflow_bundle_status" => !agent,
+        "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_notified" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_resume" | "workflow_bundle_status" => !agent,
         _ => false,
     }
 }
@@ -171,15 +196,18 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
             if let Some(error)=result["error"].as_str(){return Err(error.into());}
         }
     }
-    let payload = STANDARD.encode(serde_json::to_vec(&json!({"action":action,"body":body,"actor":if agent{"agent"}else{"user"}})).map_err(|e| e.to_string())?);
+    let intent=if action=="workflow_plan" && agent { execution_intent(root,&body)? } else { None };
+    let remote_action=if action=="workflow_plan" {"workflow_deferred_plan"} else {action};
+    let remote_body=if action=="workflow_plan" {json!({"body":body,"intent":intent,"actor":if agent{"agent"}else{"user"}})} else {body.clone()};
+    let payload = STANDARD.encode(serde_json::to_vec(&json!({"action":remote_action,"body":remote_body,"actor":if action=="workflow_plan" || !agent{"user"}else{"agent"}})).map_err(|e| e.to_string())?);
     // Only bundled code and base64 data enter the shell; no agent-provided shell text.
     let frozen=frozen_runner(node)?;
     let cached=runner_command(&frozen.hash,&payload);
     let mut value=crate::ssh_hosts::call(root,node,script,host,"execute",&cached,if action=="bootstrap"{900}else{120},false)?;
     if value["exitCode"]==78 && value["stderr"].as_str().unwrap_or("").contains("OMAAX_RUNNER_MISSING") {
         // Cache misses happen before dispatch, so this retry cannot duplicate a mutation.
-        let install=format!("if ! command -v python3 >/dev/null 2>&1; then sudo -n apt-get install -y python3 >&2 || exit 1; fi\npython3 - <<'OMAAX_INSTALL'\nimport base64,gzip,os\ns=gzip.decompress(base64.b64decode('{}'))\ng={{'__name__':'biodsh_runner'}}\nexec(compile(s,'<omaax>','exec'),g)\nr=g['root']()\np=r/'runner-{}.py'\nif p.is_symlink():raise ValueError('Invalid runner path')\nt=r/('runner-{}.tmp-'+str(os.getpid()))\nwith t.open('xb') as f:f.write(s)\nt.chmod(0o600)\nt.replace(p)\nOMAAX_INSTALL",frozen.encoded,frozen.hash,frozen.hash);
-        let installed=crate::ssh_hosts::call(root,node,script,host,"execute",&install,120,false)?;
+        let install=format!("{USER_RUNTIME_SH}\nomaax_prepare_python || exit 1\n\"$OMAAX_PYTHON\" - <<'OMAAX_INSTALL'\nimport base64,gzip,os\ns=gzip.decompress(base64.b64decode('{}'))\ng={{'__name__':'biodsh_runner'}}\nexec(compile(s,'<omaax>','exec'),g)\nr=g['root']()\np=r/'runner-{}.py'\nif p.is_symlink():raise ValueError('Invalid runner path')\nt=r/('runner-{}.tmp-'+str(os.getpid()))\nwith t.open('xb') as f:f.write(s)\nt.chmod(0o600)\nt.replace(p)\nOMAAX_INSTALL",frozen.encoded,frozen.hash,frozen.hash);
+        let installed=crate::ssh_hosts::call(root,node,script,host,"execute",&install,900,false)?;
         if installed["exitCode"]!=0{return Err(format!("服务器基础组件准备未完成：{}",installed["stderr"].as_str().unwrap_or("请检查 Python 3 或系统安装权限")));}
         value=crate::ssh_hosts::call(root,node,script,host,"execute",&cached,if action=="bootstrap"{900}else{120},false)?;
     }
@@ -192,14 +220,43 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
         return Err(error.into());
     }
     if agent && action=="workflow_plan" {
-        save_workflow_inbox(root,host,result["result"]["plan"]["id"].as_str().ok_or("计划编号缺失")?,&body,"planned")?;
+        let reply=&result["result"];
+        let id=reply["operationId"].as_str().or_else(||reply["plan"]["id"].as_str()).ok_or("任务编号缺失")?;
+        save_workflow_inbox(root,host,id,&body,if reply["state"]=="preparing" {"preparing"} else if reply["confirmed"]==true {"queued"} else {"planned"})?;
     }
     Ok(result["result"].clone())
+}
+
+fn execution_intent(root:&Path,body:&Value)->Result<Option<Value>,String>{
+    let Some(session)=body.pointer("/context/sessionId").and_then(Value::as_str) else{return Ok(None);};
+    session_context(&root.join("dsh-home"),Some(session))?;
+    let file=root.join("dsh-home/workflow-bindings").join(format!("intent-{session}.json"));
+    if !file.exists(){return Ok(None);}
+    let metadata=std::fs::symlink_metadata(&file).map_err(|e|e.to_string())?;
+    if metadata.file_type().is_symlink()||metadata.len()>1024*1024{return Err("任务指令记录异常".into());}
+    let intent:Value=serde_json::from_slice(&std::fs::read(file).map_err(|e|e.to_string())?).map_err(|_|"任务指令记录无效")?;
+    if intent["schema"]!=1||intent["source"]!="user"||intent["sessionId"]!=session{return Err("任务指令来源无效".into());}
+    Ok((intent["executionRequested"]==true).then_some(intent))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn execution_uses_only_recorded_user_intent_for_this_session(){
+        let root=std::env::current_dir().unwrap().join("target/intent-tests").join(uuid::Uuid::new_v4().to_string());
+        let dir=root.join("dsh-home/workflow-bindings");std::fs::create_dir_all(&dir).unwrap();
+        let body=json!({"context":{"sessionId":"session-a"}});
+        assert!(execution_intent(&root,&body).unwrap().is_none());
+        let file=dir.join("intent-session-a.json");
+        std::fs::write(&file,json!({"schema":1,"source":"user","sessionId":"session-a","executionRequested":true,"text":"开始分析"}).to_string()).unwrap();
+        assert!(execution_intent(&root,&body).unwrap().is_some());
+        assert!(execution_intent(&root,&json!({"context":{"sessionId":"session-b"}})).unwrap().is_none());
+        std::fs::write(&file,json!({"schema":1,"source":"user","sessionId":"session-a","executionRequested":false,"text":"先不要运行"}).to_string()).unwrap();
+        assert!(execution_intent(&root,&body).unwrap().is_none());
+        std::fs::write(&file,json!({"schema":1,"source":"tool","sessionId":"session-a","executionRequested":true}).to_string()).unwrap();
+        assert!(execution_intent(&root,&body).is_err());
+    }
     #[test]
     fn interrupted_preparation_reuses_its_target_transfer_and_conversation() {
         let root=std::env::current_dir().unwrap().join("target/server-dispatch-tests").join(uuid::Uuid::new_v4().to_string());
@@ -219,7 +276,7 @@ mod tests {
         assert!(command.len()<4096);assert!(command.contains("OMAAX_RUNNER_MISSING"));
         assert!(command.contains("hashlib.sha256(p.read_bytes())"));
         assert!(!command.contains("gzip.decompress"));
-        for action in ["server_delete_confirm","server_delete_reject","setup_start","server_environments"]{assert!(!permitted(action,true));assert!(permitted(action,false));}
+        for action in ["server_delete_notified","server_delete_confirm","server_delete_reject","setup_start","server_environments"]{assert!(!permitted(action,true));assert!(permitted(action,false));}
         assert!(permitted("server_delete",true));
     }
     #[test]
@@ -303,6 +360,39 @@ mod tests {
         let saved=bind_workflow(&home,&payload).unwrap();assert_eq!(saved["selection"],payload["selection"]);
         let disk:Value=serde_json::from_slice(&std::fs::read(dir.join("new-session.json")).unwrap()).unwrap();assert_eq!(disk,saved);
         assert!(bind_workflow(&home,&payload).is_err());
+    }
+    #[test]
+    #[ignore = "Explicit opt-in: isolated native-to-cluster acceptance request"]
+    fn live_isolated_workflow_request() {
+        assert!(std::env::var("OMAAX_ACCEPTANCE_REMOTE_ROOT").is_ok());
+        let root=std::path::PathBuf::from(std::env::var("OMAAX_ACCEPTANCE_HOME").unwrap());
+        let resources=std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources");
+        let node=resources.join("node/win32-x64/node.exe");
+        let script=resources.join("ssh/client.cjs");
+        let hosts=crate::ssh_hosts::list(&root).unwrap();
+        let id=if let Some(host)=hosts.first() {host.id.clone()} else {
+            let draft:crate::ssh_hosts::Draft=serde_json::from_value(json!({
+                "name":"Isolated cluster acceptance","host":"10.1.218.163","port":22,
+                "username":"liaoshuxin","auth":"password",
+                "password":std::env::var("OMAAX_CLUSTER_PASSWORD").unwrap()
+            })).unwrap();
+            let hosts=crate::ssh_hosts::save(&root,draft).unwrap();
+            let id=hosts[0].id.clone();
+            let key=crate::ssh_hosts::call(&root,&node,&script,&id,"probe","",15,false).unwrap();
+            assert_eq!(key["fingerprint"],"SHA256:mY5Jd2wykWUhPcRrRv4N5O88o1LIJaRQnFHhs/QfdeI");
+            crate::ssh_hosts::trust(&root,&id,key["hostKey"].as_str().unwrap(),key["fingerprint"].as_str().unwrap()).unwrap();
+            crate::ssh_hosts::select(&root,&id,true).unwrap();
+            id
+        };
+        let input:Value=serde_json::from_slice(&std::fs::read(root.join("request.json")).unwrap()).unwrap();
+        if input["action"]=="cleanup_test_credential" {
+            crate::ssh_hosts::remove(&root,&id).unwrap();
+            return;
+        }
+        let result=request(&root,&node,&script,&id,input["action"].as_str().unwrap(),input["body"].clone(),input["agent"].as_bool().unwrap_or(false));
+        let output=match result {Ok(value)=>json!({"result":value}),Err(error)=>json!({"error":error})};
+        std::fs::write(root.join("response.json"),serde_json::to_vec(&output).unwrap()).unwrap();
+        assert!(output.get("error").is_none(),"{}",output);
     }
     #[test]
     #[ignore = "Explicit opt-in: reads the current user's saved SSH hosts and checks connectivity"]

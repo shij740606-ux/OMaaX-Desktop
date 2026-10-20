@@ -63,6 +63,28 @@ pub struct McpServer {
 }
 fn default_transport() -> String { "stdio".into() }
 
+pub fn validate_mcp(list: &[McpServer]) -> Result<(), String> {
+    let mut names = std::collections::HashSet::new();
+    for m in list {
+        if m.name.is_empty() || m.name.len()>32 || !m.name.chars().all(|c| c.is_ascii_alphanumeric() || c=='_' || c=='-')
+            || m.name.contains("__") || m.name.starts_with("biodsh") || m.name.starts_with("omaax") || !names.insert(&m.name) {
+            return Err("工具名称需唯一，使用 1–32 位字母数字、单下划线或连字符，不能使用系统保留名称".into());
+        }
+        if m.transport=="streamable-http" {
+            let url=reqwest::Url::parse(&m.url).map_err(|_|"工具服务地址无效")?;
+            if !matches!(url.scheme(),"http"|"https") || url.host_str().is_none() || !url.username().is_empty() || url.password().is_some() {
+                return Err("工具服务需使用 HTTP 或 HTTPS 地址，不能包含账号密码".into());
+            }
+        } else if m.transport!="stdio" || m.command.trim().is_empty() {
+            return Err("请选择工具连接方式并填写启动程序".into());
+        }
+        if m.env.keys().any(|k| k.is_empty() || !k.chars().all(|c|c.is_ascii_alphanumeric()||c=='_')) {
+            return Err("环境变量名称只能包含字母数字和下划线".into());
+        }
+    }
+    Ok(())
+}
+
 fn default_language() -> String { "system".into() }
 fn default_mode() -> String { "online".into() }
 fn default_ragflow_mode() -> String { "local".into() }
@@ -166,4 +188,24 @@ pub fn migrate_credentials(p: &AppPaths) {
     let Ok(txt) = fs::read_to_string(&f) else { return };
     if txt.contains("version:") || txt.trim().is_empty() { return; }
     if let Some(k) = parse_key(&txt) { let _ = fs::write(&f, render(Some(&k))); }
+}
+
+#[cfg(test)]
+mod mcp_validation_tests {
+    use super::*;
+    #[test]
+    fn reserved_duplicate_and_injected_names_are_rejected() {
+        let good=McpServer {name:"papers".into(),transport:"streamable-http".into(),url:"http://127.0.0.1:3000/mcp".into(),..Default::default()};
+        assert!(validate_mcp(&[good.clone()]).is_ok());
+        assert!(validate_mcp(&[good.clone(),good.clone()]).is_err());
+        for name in ["biodsh_ssh","omaax_image","papers__delete","bad\nname",""] {
+            let mut bad=good.clone();bad.name=name.into();assert!(validate_mcp(&[bad]).is_err());
+        }
+        for url in ["file:///tmp/test","https://user:pass@example.com/mcp","invalid"] {
+            let mut bad=good.clone();bad.url=url.into();assert!(validate_mcp(&[bad]).is_err());
+        }
+        let mut local=McpServer{name:"local".into(),transport:"stdio".into(),command:"node".into(),args:vec!["C:/a b/server.js".into()],..Default::default()};
+        assert!(validate_mcp(&[local.clone()]).is_ok());
+        local.env.insert("BAD\nKEY".into(),"x".into());assert!(validate_mcp(&[local]).is_err());
+    }
 }

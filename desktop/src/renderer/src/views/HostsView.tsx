@@ -110,7 +110,7 @@ export default function HostsView(_props:{active?:boolean}={}) {
   const ask = () => run(async () => {
     if (!currentSession) throw new Error(t('请先新建或打开一个对话'));
     const selected = hosts.filter(host => host.selected);
-    const content = `用户在服务器管理中选择了以下 SSH 服务器：${selected.map(host => `${host.name}（编号 ${host.id}）`).join('、')}。请使用 mcp__biodsh_ssh__list_servers 确认当前选择，通过 mcp__biodsh_ssh__get_resources 按服务器编号查询资源。任意 SSH 命令已禁用；分析工具使用 mcp__biodsh_ssh__workspace_analysis，已有流程使用 workflow_catalog 和 workflow_plan，生成计划后由用户在一体化分析流程确认运行，不得改用其他终端绕过。不要读取、询问或输出密码和私钥。请先说明这些服务器可用于哪些工作，等待我的具体任务。`;
+    const content = `请使用我已选择的服务器：${selected.map(host => host.name).join('、')}。先介绍可用资源和适合开展的分析，等待我的具体任务。`;
     await api.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text: content }] }); setTab('chat');
   });
   return <div className="h-full flex flex-col">
@@ -129,7 +129,7 @@ export default function HostsView(_props:{active?:boolean}={}) {
             <div className="text-sm">基础环境：{connections[host.id].setup?.detail||'登录验证后自动准备'}</div>
             {connections[host.id].setup?.errorDetail&&<details className="t-caption"><summary>技术详情</summary><pre className="whitespace-pre-wrap break-all mt-2">{connections[host.id].setup?.errorDetail}</pre></details>}
             {connections[host.id].workspace&&<div className="t-caption break-all">专属工作目录：{connections[host.id].workspace}</div>}
-            {connections[host.id].setup&&['failed','interrupted'].includes(connections[host.id].setup!.state)&&<div className="flex flex-wrap gap-2"><button className="btn btn-tint" disabled={cardBusy} onClick={()=>void bootstrap(host,true)}>重试环境准备</button><button className="btn btn-ghost" disabled={cardBusy} onClick={()=>patchHost(host.id,{install:true})}>需要管理员权限时安装</button></div>}
+            {connections[host.id].setup&&['failed','interrupted'].includes(connections[host.id].setup!.state)&&<div className="flex flex-wrap gap-2"><button className="btn btn-tint" disabled={cardBusy} onClick={()=>void bootstrap(host,true)}>重试环境准备</button><button className="btn btn-ghost" disabled={cardBusy} onClick={()=>patchHost(host.id,{install:true})}>准备用户环境</button></div>}
           </section>}
           {pending && <div className="card p-4 flex flex-col gap-3"><div className="t-headline">{pending.host.hostKey ? t('服务器主机指纹已变化') : t('首次连接：确认主机指纹')}</div><div>{pending.host.name} · {pending.host.host}:{pending.host.port}</div><code className="break-all">{pending.probe.fingerprint}</code><div className="t-caption">{t('请与服务器管理员核对指纹。确认后才会发送登录凭据。')}</div><div className="flex gap-2"><button className="btn btn-primary" disabled={cardBusy} onClick={() => void trust(host.id)}>{t('信任此主机并测试连接')}</button><button className="btn btn-ghost" disabled={cardBusy} onClick={() => {patchHost(host.id,{pending:null});updateConnection(host.id,{authentication:'unknown',error:''});}}>{t('取消')}</button></div></div>}
           {state.install&&<SudoInstall id={host.id} label={`${host.name} · ${host.username}@${host.host}`}/>}

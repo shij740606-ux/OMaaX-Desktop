@@ -30,7 +30,7 @@ writeFileSync(fixture,[
  "  try {",
  "   const {sessionId}=JSON.parse(readFileSync(path.join(dir,'request.json'),'utf8'));const agent=ctx.agents.get(sessionId);",
  "   if(!agent)throw Error('Agent unavailable');",
- "   const run=name=>ctx.tools.execute({agent,name,arguments:{},callId:Math.random().toString(36),signal:new AbortController().signal});",
+ "   const run=(name,args={})=>ctx.tools.execute({agent,name,arguments:args,callId:Math.random().toString(36),signal:new AbortController().signal});",
  "   const ordinary=await run('workflow_probe_forbidden');const before=bodies;",
  "   const provenance=await ctx.tools.execute({agent,name:'mcp__biodsh_ssh__server_write',arguments:{path:'/test/new',content:'test',_sessionId:'forged'},callId:'provenance',signal:new AbortController().signal});",
  "   const selection={workflow:'rnaseq',version:'20261014.1',serverId:'selected-server',source:'shared',input:'.',prefix:'omaax',steps:['rnaseq_qc','rnaseq_de'],parameters:{rnaseq_qc:{adapter_r1:'AGATCGGAAGAGC'},rnaseq_de:{padj:0.05,config:'literal-{{sample}}.json'}},configs:{},cpu:2,memoryMb:2048,timeoutSeconds:3600};",
@@ -43,16 +43,16 @@ writeFileSync(fixture,[
  "   const prompt=renderPrompt(await ctx.systemPrompt.assemble({agent,scope:agent}));",
  "   const denied=await run('workflow_probe_forbidden');const allowed=await run('mcp__biodsh_ssh__workflow_catalog');",
  "   let authenticated=true;ctx.tools.guard(createGuard(()=>({ok:authenticated})));",
- "   const authAllowed=await run('mcp__biodsh_ssh__workflow_prepare');authenticated=false;const authDenied=await run('mcp__biodsh_ssh__workflow_prepare');",
+ "   const authAllowed=await run('mcp__biodsh_ssh__workflow_prepare');const research={};for(const [name,args] of [['read',{file_path:path.join(dir,'workspace','environment-guide.txt')}],['grep',{pattern:'ENV_REPAIR_PROBE',path:path.join(dir,'workspace')}],['glob',{pattern:'*.txt',path:path.join(dir,'workspace')}]])research[name]=await run(name,args);authenticated=false;const deniedRead=await run('read',{file_path:path.join(dir,'workspace','environment-guide.txt')});const authDenied=await run('mcp__biodsh_ssh__workflow_prepare');",
  "   const budgetFile=path.join(dir,'workflow-bindings','budget-'+sessionId+'.json');const savedBudget=JSON.parse(readFileSync(budgetFile,'utf8'));writeFileSync(budgetFile,JSON.stringify({...savedBudget,tokens:200000}));const budgetStopped=await preStep();",
- "   writeFileSync(path.join(dir,'result.json'),JSON.stringify({ordinary,denied,allowed,provenance,sessionId,before,after:bodies,selection,beforePrompt,prompt,ordinaryBudget,workflowBudget,environmentTools,authAllowed,authDenied,budgetStopped}));",
+ "   writeFileSync(path.join(dir,'result.json'),JSON.stringify({ordinary,denied,allowed,provenance,sessionId,before,after:bodies,selection,beforePrompt,prompt,ordinaryBudget,workflowBudget,environmentTools,authAllowed,authDenied,budgetStopped,research,deniedRead}));",
  "  } catch(e){writeFileSync(path.join(dir,'result.json'),JSON.stringify({error:String(e)}));}",
  " },100);",
  " ctx.effect(()=>()=>clearInterval(timer));",
  "}"
 ].join('\n'));
 writeFileSync(path.join(home,'cordis.patch.yml'),'- insert:\n    - id: omaax-workflow-guard\n      name: '+JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/workflow-guard/index.js')).href)+'\n    - id: biodsh-step-guard\n      name: '+JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/step-guard/index.js')).href)+'\n    - id: workflow-sdk-probe\n      name: '+JSON.stringify(pathToFileURL(fixture).href)+'\n');
-const workspace=path.join(home,'workspace');mkdirSync(workspace);
+const workspace=path.join(home,'workspace');mkdirSync(workspace);writeFileSync(path.join(workspace,'environment-guide.txt'),'ENV_REPAIR_PROBE: use Conda packages and inspect logs.');
 const child=spawn(process.execPath,['--expose-internals',path.join(sdk,'lib/bin.js'),'web','--port','0','--no-open'],{cwd:workspace,windowsHide:true,env:{...process.env,DSH_HOME:home,DSH_TELEMETRY_DISABLED:'1',OMAAX_WORKFLOW_GUARD_DIR:bindings,DEEPSEEK_API_KEY:'',OPENAI_API_KEY:''}});
 let log='';
 const url=await new Promise((resolve,reject)=>{
@@ -74,6 +74,9 @@ try {
  const result=JSON.parse(readFileSync(path.join(home,'result.json'),'utf8'));
  assert.ok(!result.error,JSON.stringify(result));
  assert.equal(result.budgetStopped.kind,"reject","Token ceiling must stop the real SDK before another model request");
+ for(const name of ['read','grep'])assert.ok(JSON.stringify(result.research[name]).includes('ENV_REPAIR_PROBE'),JSON.stringify(result.research[name]));
+ assert.ok(JSON.stringify(result.research.glob).includes('environment-guide.txt'));
+ assert.ok(JSON.stringify(result.deniedRead).includes('账号未登录'));
  assert.ok(JSON.stringify(result.authAllowed).includes("ENV_ALLOWED_workflow_prepare"));
  assert.ok(!JSON.stringify(result.authDenied).includes("ENV_ALLOWED_"));
  assert.ok(JSON.stringify(result.authDenied).includes("账号未登录"));
@@ -90,7 +93,7 @@ try {
  assert.ok(!result.beforePrompt.includes('OMaaX 内部流程选择'));
  assert.ok(result.prompt.includes(JSON.stringify(result.selection)),'Real model prompt must keep exact selection including resources and literal braces');
  assert.ok(result.prompt.includes('workflow_catalog')&&result.prompt.includes('workflow_plan'));
- assert.ok(result.prompt.includes('HOME=/tmp')&&result.prompt.includes('临时安装和分析应放在同一次任务中'));
+ assert.ok(result.prompt.includes('普通用户的新 Conda 环境')&&result.prompt.includes('临时安装和分析应放在同一次任务中')&&result.prompt.includes('read、grep、glob'));
  assert.ok(!result.prompt.includes('脚本只能写 /output'));
  writeFileSync(path.join(base,'latest.json'),JSON.stringify({home,sdkGuardVerified:true,result},null,2));
  console.log(JSON.stringify({sdkGuardVerified:true,bodiesBefore:result.before,bodiesAfter:result.after,home}));

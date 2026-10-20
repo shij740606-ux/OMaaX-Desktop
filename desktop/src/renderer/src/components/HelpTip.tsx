@@ -2,10 +2,10 @@ import { Info } from 'lucide-react';
 import { useT } from '../i18n';
 
 export const HELP = {
-  model: ['模型连接', '选择对话使用的模型，不改变分析任务的运行位置。', '云端模型需要联网和对应的密钥。本地／内网模型需要你先部署可用的模型服务，再填写接口地址和模型名称；OMaaX 不会自动下载大模型。此模式关闭余额和更新查询，但不等于切断所有外网连接：工具下载、外部服务仍取决于各自的配置。'],
-  image: ['图像服务', '连接图像模型，在对话中制作示意图和插图。', '先选择服务商，再填写该服务的接口地址、图像模型名称和密钥。保存后，可在对话中说“帮我画一张示意图”；需已添加相应的图像工具。不配置也能做数据分析，散点图、热图等数据图表由分析软件绘制。发送给图像服务的提示和素材会交由该服务处理，费用以服务商计费为准。'],
+  model: ['对话服务', '登录后使用公司提供的对话服务。', '无需填写访问密钥。如提示尚未开通，请联系管理员。'],
+  image: ['图像服务', '连接图像模型，在对话中制作示意图和插图。', '先选择服务商，再填写该服务的接口地址、图像模型名称和密钥。保存后，可在对话中说“帮我画一张示意图”；使用内置图像生成工具，无需开启终端。不配置也能做数据分析，散点图、热图等数据图表由分析软件绘制。发送给图像服务的提示和素材会交由该服务处理，费用以服务商计费为准。'],
   mcp: ['外部工具连接', '把文献库、检索服务或其他应用接到 OMaaX 对话中。', 'MCP 是连接外部工具的一种方式。选择预设后，按该服务的说明填写连接信息，保存并重启助手。预设只是配置起点，不表示服务已经安装或可用。本机方式在这台电脑启动服务，首次可能下载组件；服务地址方式连接已有服务。它与 SSH 分析服务器是两种连接，权限和数据去向取决于所连接的服务。'],
-  env: ['本机分析环境', '在这台电脑准备分析软件；服务器环境单独管理。', '基础环境包含 Python 和常用单细胞分析软件，安装到 OMaaX 自己的环境目录，不会替换系统的 Python。只有在本机运行相关分析时才需要安装；使用 SSH 服务器分析时，到服务器管理或对应流程中准备环境。本页的扩展组件只在你点击安装时添加，不会安装全部社区工具。'],
+  env: ['本机分析环境', '在这台电脑准备分析软件；服务器环境单独管理。', '基础环境包含 Python 和常用单细胞分析软件，安装到 OMaaX 自己的环境目录，不会替换系统的 Python。只有在本机运行相关分析时才需要安装；使用 SSH 服务器分析时，到服务器管理或对应流程中准备环境。本页的扩展组件只在你点击安装时添加，不会安装全部扩展工具。'],
   tools: ['工具怎么使用', '先选需要的工具，再把分析需求交给对话助手。', '“添加”获取的是工具说明及其附带文件，不代表所有分析软件都已安装。只浏览目录不会下载全部工具。运行前还要按工具要求准备环境、数据和必要的服务密钥；本机工具在电脑执行，服务器分析使用你选定的 SSH 服务器。具体支持范围和来源可在工具详情查看。'],
   resources: ['服务器资源', '这里是整台服务器的实时使用情况，不是本次任务的配额。', 'CPU、内存和磁盘数据来自当前服务器的最近一次查询，其他用户的任务也会影响这些数值。任务可用多少资源，在提交计划时单独设置；资源概览不会为你预留资源。遇到旧数据可刷新，连接失败时请查看页面给出的原因。'],
   cpu: ['CPU 使用率', '表示整台服务器正在忙于计算的比例。', '占用率越高，可用于新任务的余量通常越小。逻辑核数是系统可调度的线程数，可能多于物理核数；任务设置中的 CPU 数是该任务的使用上限，不表示独占这些核心。'],
@@ -15,7 +15,7 @@ export const HELP = {
 } as const;
 
 const EN: Record<keyof typeof HELP, readonly [string, string, string]> = {
-  model: ['Model connection', 'Choose the conversation model; analysis still runs at the selected location.', 'Cloud models require network access and a provider key. A local or intranet model must already be deployed: enter its endpoint and model name. OMaaX does not download a model for you. Balance and update checks are disabled in this mode, but tool downloads and external services are not blocked globally.'],
+  model: ['Conversation service', 'Use the company-provided service after signing in.', 'No personal API key is needed. Contact your administrator if access is unavailable.'],
   image: ['Image service', 'Connect an image model to create illustrations in conversation.', 'Select a provider and enter its endpoint, image model and key. Save, add the relevant image tool, then ask for an illustration in chat. Data plots such as heatmaps do not require this service. Prompts and supplied material are processed by the provider, whose charges apply.'],
   mcp: ['External tool connections', 'Connect a reference library, search service or another application to chat.', 'MCP connects external tools to OMaaX. A preset is a starting configuration, not an installed or verified service. Configure it, save and restart the assistant. Local services run on this computer and may download dependencies on first use; address-based connections use an existing service. This is separate from SSH analysis. Access and data handling depend on that service.'],
   env: ['Local analysis environment', 'Prepare software on this computer; SSH server environments are separate.', 'The base environment contains Python and common single-cell packages in an OMaaX-specific directory, without replacing system Python. Install it for local analyses that need it. Prepare SSH environments in Server Management or the workflow. Extensions are added only when selected, not with the entire community catalog.'],

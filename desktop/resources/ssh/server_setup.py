@@ -13,6 +13,7 @@ def status(r):
     p=path(r)
     if p.is_symlink():raise ValueError('环境配置记录不能是链接')
     item=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {'state':'idle','detail':'尚未准备基础环境'}
+    if item.get('state')=='complete' and item.get('execution')!='direct-v1':item={**item,'state':'idle','detail':'请准备普通用户分析环境；现有数据与任务保留'}
     detail=item.get('detail','')
     if item.get('state')=='failed' and detail.startswith('Command ') and 'podman' in detail and 'timed out' in detail:
         item={**item,'detail':'上次环境检查超时。请重新检查，已配置的环境会继续使用。','errorDetail':detail}
@@ -34,8 +35,7 @@ def environments(r,body):
     if set(body)-{'conda'} or type(body.get('conda',False)) is not bool:raise ValueError('环境查询参数不正确')
     db=r.database();cfg=r.config(db);approved=cfg.get('images',[]);rows=[];error=''
     try:
-        if not shutil.which('podman'):raise ValueError('尚未安装服务器运行组件，请先准备基础环境。')
-        rows=json.loads(r.command(['podman','images','--no-trunc','--format','json'],timeout=30))
+        if shutil.which('podman'):rows=json.loads(r.command(['podman','images','--no-trunc','--format','json'],timeout=30))
         if not isinstance(rows,list):raise ValueError('服务器返回的环境清单格式不正确')
     except (ValueError,OSError,subprocess.TimeoutExpired) as reason:rows=[];error=str(reason)[-2000:]
     images={};aliases={}
@@ -52,6 +52,12 @@ def environments(r,body):
         images[identity]={'id':identity,'tags':tags,'size':size,'installed':True,'approved':bool(references.intersection(approved)),'bindings':[],'activeJobs':0}
         for ref in references:aliases[ref]=identity
     for ref in approved:
+        if ref.startswith('conda:'):
+            import conda_runtime
+            try:conda_runtime.resolve(r,ref);installed=True
+            except (ValueError,OSError):installed=False
+            images[ref]={'id':ref,'tags':['Conda 分析环境'],'size':None,'installed':installed,'approved':True,'bindings':[],'activeJobs':0}
+            aliases[ref]=ref;continue
         if not r.immutable_image(ref):continue
         key=aliases.get(ref,ref)
         images.setdefault(key,{'id':key,'tags':[],'size':None,'installed':False,'approved':True,'bindings':[],'activeJobs':0})
@@ -75,6 +81,10 @@ def conda_environments():
     # Conda's env-list command may rewrite its registry; read metadata directly instead.
     home=Path.home();prefixes=[home/name for name in ('miniconda3','anaconda3','miniforge3','mambaforge')]
     executable=shutil.which('conda')
+    if not executable:
+        import user_runtime
+        manager=user_runtime.manager()
+        if manager and manager[0]=='conda':executable=manager[1]
     if executable:prefixes.append(Path(executable).resolve().parent.parent)
     candidates=list(prefixes);notes=[];record=home/'.conda/environments.txt'
     try:
@@ -115,6 +125,10 @@ class ProbeFailure(ValueError):
         super().__init__(message);self.diagnostics=diagnostics
 
 def verify_environment(r,image):
+    if image.startswith('conda:'):
+        output=r.command(r.image_command(image,['python3','-c','print("omaax-isolation-ready")']),timeout=30)
+        if output.strip()!='omaax-isolation-ready':raise ValueError('分析环境自检失败')
+        return
     token=uuid.uuid4().hex;name='omaax-envcheck-'+token
     # The same rootless, read-only, no-network constraints apply as in actual analysis jobs.
     args=['podman','run','--rm','--name',name,'--label','org.omaax.environment-check='+token,'--pull=never',
@@ -148,7 +162,7 @@ def run(r,token):
         os.environ['OMAAX_SETUP']='1'
         try:
             r.dispatch({'action':'bootstrap','body':item.get('request',{})})
-            item.update(state='complete',detail='基础环境已就绪；分析工具在使用时按需配置')
+            item.update(state='complete',execution='direct-v1',detail='基础环境已就绪；分析工具在使用时按需配置')
         except Exception as error:
             if isinstance(error,subprocess.TimeoutExpired):
                 item.update(state='failed',detail='基础环境配置超时，SSH 登录正常；请重试或查看技术详情。',errorDetail=str(error)[-2000:])
@@ -167,7 +181,8 @@ def dispatch(r,action,body):
     with (r.root()/'setup-start.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         item=status(r)
-        if item['state']=='running' or item['state']=='complete' and not body.get('retry') and shutil.which('podman') and 0<=time.time()-item.get('updated',0)<21600:return item
+        import user_runtime
+        if item['state']=='running' or item['state']=='complete' and not body.get('retry') and user_runtime.manager() and 0<=time.time()-item.get('updated',0)<21600:return item
         token=str(uuid.uuid4());item={'id':token,'state':'running','detail':'正在准备基础环境，可以切换页面','updated':time.time(),'request':{'image':body['image']} if body.get('image') else {}}
         save(r,item)
         try:subprocess.Popen([sys.executable,r.__file__,'--setup',token],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)

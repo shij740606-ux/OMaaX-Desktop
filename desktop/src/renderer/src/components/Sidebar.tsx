@@ -1,5 +1,5 @@
 import {useAuth,hasUnit} from '../AuthGate';
-import omaaxIcon from '../assets/omaax-icon.svg';
+import omaaxIcon from '../assets/omaax-icon.png';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, GraduationCap } from 'lucide-react';
 import { useApp, type Tab } from '../store';
@@ -185,7 +185,7 @@ export default function Sidebar() {
       <nav className="px-3 flex flex-col gap-[2px]">
         {ordered([{id:'new', content: <button className="nav-item no-drag text-left" onClick={() => newSession()} disabled={busy || dsh.state !== 'running'}><SquarePen size={16} strokeWidth={2} /><span className="flex-1">{t('新对话')}</span></button>},
 {id:'knowledge', content: nav('knowledge', '知识库问答', MessageSquare)},
-{id:'data', content: nav('data', t('分析'), Database)},
+{id:'data', content: nav('data', t('分析结果'), Database)},
 {id:'workflows', content: nav('workflows', t('一体化分析流程'), GitBranch)},
 {id:'db', content: nav('db', t('数据资源'), Globe)},
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},

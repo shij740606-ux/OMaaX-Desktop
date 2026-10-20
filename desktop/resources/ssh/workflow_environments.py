@@ -1,5 +1,5 @@
 """Prepare only requested fixed steps, in new rootless images; never alter host environments."""
-import hashlib,json,os,platform,re,shlex,shutil,subprocess,sys,tarfile,time,urllib.request,zipfile
+import hashlib,json,os,platform,re,shlex,shutil,subprocess,sys,tarfile,time,urllib.request,zipfile,uuid
 from pathlib import Path
 
 DEPENDENCIES=json.loads(Path(__file__).with_name('workflow-dependencies.json').read_text(encoding='utf-8')) if '__file__' in globals() and Path(__file__).with_name('workflow-dependencies.json').is_file() else {}
@@ -118,7 +118,21 @@ def status(r,workflow):
     if not row:return {'state':'idle','workflow':workflow,'detail':'选择步骤后，检查并配置所需环境。'}
     result=dict(row);result['request']=json.loads(result['request'])
     pid=result['request'].get('_pid')
-    if row['state'] in ('queued','running') and type(pid) is int and time.time()-row['updated']>6:
+    directory=r.root()/'workflow-environments'/r.identifier(row['id'])
+    scheduler=directory/'scheduler.json'
+    if row['state'] in ('queued','running') and scheduler.exists():
+        import scheduler_backend
+        record=scheduler_backend.recover(directory)
+        if record.get('jobId'):
+            placement=scheduler_backend.status(record);result['scheduler']=placement
+            if placement['state'] in ('COMPLETED','FAILED','CANCELLED','TIMEOUT','NODE_FAIL','OUT_OF_MEMORY','PREEMPTED','BOOT_FAIL','DEADLINE'):
+                current=db.execute('SELECT state,detail FROM workflow_environment_tasks WHERE id=?',(row['id'],)).fetchone()
+                if current['state'] in ('queued','running'):
+                    detail='计算节点环境准备已停止，原有环境保留：'+placement['state']
+                    update(db,row['id'],'failed',detail);result.update(state='failed',detail=detail)
+                else:result.update(dict(current))
+        else:result['detail']='正在核实环境任务的调度提交，未重复启动'
+    elif row['state'] in ('queued','running') and type(pid) is int and time.time()-row['updated']>6:
         try:alive=(b'--prepare\0'+row['id'].encode()) in Path('/proc/'+str(pid)+'/cmdline').read_bytes()
         except OSError:alive=False
         if not alive:
@@ -166,13 +180,21 @@ def start(r,body):
     except Exception as error:
         detail="环境安装进程启动失败："+str(error)
         (directory/"install.log").write_text(detail,encoding="utf-8")
-        update(db,job,"failed",detail)
+        # A lost sbatch acknowledgement is not permission to launch a second installer.
+        update(db,job,"queued" if (directory/'scheduler.json').exists() else "failed",detail)
         return status(r,flow["id"])
-    if child is not None and type(child.pid) is int:
+    if child is not None and type(getattr(child,'pid',None)) is int:
         request['_pid']=child.pid;db.execute('UPDATE workflow_environment_tasks SET request=? WHERE id=?',(json.dumps(request),job));db.commit()
     return status(r,flow['id'])
 
 def launch(r,job):
+    import scheduler_backend
+    cluster=scheduler_backend.cluster()
+    if cluster:
+        scheduler_backend.submit(r.root()/'workflow-environments'/r.identifier(job),
+            [sys.executable,str(Path(r.__file__).resolve()),'--prepare',job],
+            {'cpu':2,'memoryMb':4096,'timeoutSeconds':7200},r.SERVER_KEY,cluster)
+        return None
     return subprocess.Popen([sys.executable,str(Path(r.__file__).resolve()),'--prepare',job],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,close_fds=True)
 
 def update(db,job,state,detail):
@@ -269,7 +291,10 @@ def install(normalized,pip,key):
  if key not in seen:
   normalized=compatible_dependencies(normalized)
   if pip:normalized+=['python=3.11','pip']
-  subprocess.run(['micromamba','create','-y','-p',destination,'--override-channels','-c','conda-forge','-c','bioconda',*normalized],check=True)
+  manager=os.environ.get('OMAAX_CONDA_EXE','micromamba')
+  args=[manager,'create','-y','-p',destination,'--override-channels','-c','conda-forge','-c','bioconda',*normalized]
+  cached=subprocess.run([*args,'--offline','--dry-run']).returncode==0
+  subprocess.run([*args,*(['--offline'] if cached else [])],check=True)
   if pip:subprocess.run([destination+'/bin/python','-m','pip','install',*pip],check=True)
   if any(value in ('deeptools=3.5.1','deeptools=3.5.*') for value in normalized):subprocess.run([destination+'/bin/bamCoverage','--version'],check=True)
   if 'multiqc=1.13' in normalized:subprocess.run([destination+'/bin/multiqc','--version'],check=True)
@@ -303,7 +328,7 @@ for file in base.rglob('*.config'):
 os.environ['NXF_HOME']='/opt/omaax/nxf'
 for plugin in sorted(plugins):subprocess.run(['nextflow','plugin','install',plugin],check=True)
 pathlib.Path('/opt/omaax/nextflow-environments.json').write_text(json.dumps({'upstream':UPSTREAM_ID,'processKey':PROCESS_KEY,'environments':records,'plugins':sorted(plugins),'defaultEnvironment':records.get('dev/docker/master_local_module_image/environment.yml'),'runtimeVersion':'micromamba-2.3.3-minimal-v5'}))
-subprocess.run(['micromamba','clean','--all','--yes'],check=True)
+# Keep cached dependencies for reuse; never clean a shared site package cache.
 '''
 
 def run(r,job):
@@ -328,7 +353,7 @@ def run(r,job):
                 for step in steps:
                     spec=requirements(step,request['parameters'].get(step['id'],{}),request['configs'].get(step['id'],{}))
                     if spec.get('services'):raise ValueError(step['name']+'需要外部在线服务，安装软件不能解除该限制。请取消此步骤或使用已有结果。')
-                    candidates=list(dict.fromkeys(filter(None,[env.get('stageImages',{}).get(step['id']),env.get('image'),found.get(flow['id']),*cfg.get('images',[])])))
+                    candidates=list(dict.fromkeys(filter(lambda x:isinstance(x,str) and x.startswith('conda:'),[env.get('stageImages',{}).get(step['id']),env.get('image'),found.get(flow['id']),*cfg.get('images',[])])))
                     image=None;unchecked=[]
                     model_recipe=request.get('recipes',{}).get(step['id'],{})
                     for candidate in ([] if model_recipe else candidates):
@@ -343,23 +368,14 @@ def run(r,job):
                     else:
                         if unchecked:raise ValueError(step['name']+'的软件检查未完成：'+unchecked[0]+'；请重新检查，原有环境未更改。')
                         fingerprint=hashlib.sha256(w.canonical({'requirements':spec,'upstream':step.get('nextflowSource'),'base':RUNTIME_VERSION,'installer':4,'recipe':model_recipe})).hexdigest()
-                        tag='localhost/omaax-auto-'+fingerprint[:24]+':1'
+                        import conda_runtime
                         image=built.get(fingerprint)
                         if not image:
-                            try:
-                                cached=json.loads(r.command(['podman','image','inspect',tag],timeout=20))[0];image=cached.get('Id') or cached.get('ID')
-                            except Exception:image=None
-                        if not image:
-                            context=directory/fingerprint;context.mkdir(mode=0o700)
+                            context=directory/(fingerprint+'-'+str(uuid.uuid4()));context.mkdir(mode=0o700)
                             build_context(w,r,context,{**step,'environmentSelection':upstream_selection(step,request['configs'].get(step['id'],{}))},spec,model_recipe)
-                            update(db,job,'running',step['name']+'：正在准备所需软件，不依赖镜像仓库')
-                            prepare_rootfs(context)
-                            update(db,job,'running',step['name']+'：正在安装缺少的软件，日志保留在服务器')
-                            direct={k:v for k,v in os.environ.items() if k.lower() not in ('http_proxy','https_proxy','all_proxy','no_proxy')}
-                            process=subprocess.run(['podman','build','--isolation=rootless','--cap-drop=ALL','--http-proxy=false','--label','org.omaax.environment='+fingerprint,'--tag',tag,'--file',str(context/'Containerfile'),str(context)],stdout=log,stderr=subprocess.STDOUT,timeout=14400,env=direct)
-                            if process.returncode:raise ValueError(step['name']+'的软件安装失败，请查看安装日志并检查服务器下载连接；原有环境保持不变。')
-                            info=json.loads(r.command(['podman','image','inspect',tag],timeout=20))[0];image=info.get('Id') or info.get('ID')
-                        if not image.startswith('sha256:'):image='sha256:'+image
+                            update(db,job,'running',step['name']+'：正在配置 Conda 环境，日志保留在服务器')
+                            requested=json.loads((context/'requirements.json').read_text())['packages']
+                            image=conda_runtime.create(r,requested,model_recipe.get('channels') or ['conda-forge','bioconda'],log,context)
                         probe=w.software_probe(r,image,spec)
                         state=w.readiness_for(step,probe,spec)
                         if state['state']!='ready':raise ValueError(step['name']+'安装后检查未通过：'+state['detail'])
@@ -369,7 +385,7 @@ def run(r,job):
                 db.execute('BEGIN IMMEDIATE');latest=r.config(db)
                 (directory/'previous-environments.json').write_text(json.dumps({key:latest.get(key) for key in ['workflowEnvironments','images']},indent=2),encoding='utf-8')
                 environments=latest.get('workflowEnvironments',{});entry=environments.setdefault(flow['id'],{'stageImages':{}})
-                entry.setdefault('stageImages',{}).update(assigned);entry.setdefault('image',next(iter(assigned.values())))
+                entry.setdefault('stageImages',{}).update(assigned);entry['image']=next(iter(assigned.values()))
                 entry['versions']={s:probes[i] for s,i in assigned.items()};entry['preparedSteps']=request['steps']
                 images=list(dict.fromkeys([*latest.get('images',[]),*assigned.values()]))
                 for key,value in [('workflowEnvironments',environments),('images',images)]:db.execute('INSERT OR REPLACE INTO config VALUES(?,?)',(key,json.dumps(value)))

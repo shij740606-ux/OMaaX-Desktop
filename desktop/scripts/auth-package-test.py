@@ -9,7 +9,9 @@ assert installer.name==f'OMaaX_{version}_x64-setup.exe'
 out=ROOT/('validation-local/auth-release-extracted-'+version);out.mkdir(exist_ok=True)
 seven=r'C:\Program Files\7-Zip\7z.exe'
 checks=[('dsh/node_modules/@biodsh/'+name+'/index.js','desktop/dsh-plugins/'+name+'/index.js') for name in ['auth-guard','workflow-guard','step-guard']]
-checks += [('ssh/'+name,'desktop/resources/ssh/'+name) for name in ['workflow_environments.py','workflow_engine.py','workflow-dependencies.json','personal_runner.py','server_setup.py','server_delete.py','server_file_ops.py','education.cjs','client.cjs','relay.cjs','stage-workflows.cjs']]
+checks.append(('scripts/company-llm.mjs','desktop/resources/scripts/company-llm.mjs'))
+checks.append(('dsh/node_modules/@biodsh/auth-guard/image.js','desktop/dsh-plugins/auth-guard/image.js'))
+checks += [('ssh/'+name,'desktop/resources/ssh/'+name) for name in ['workflow_environments.py','workflow_engine.py','workflow-dependencies.json','personal_runner.py','conda_runtime.py','workflow_adapter.py','server_workspace.py','user_runtime.py','user_runtime.sh','server_setup.py','server_delete.py','server_file_ops.py','education.cjs','client.cjs','relay.cjs','stage-workflows.cjs']]
 subprocess.run([seven,'t',str(installer)],check=True,stdout=subprocess.DEVNULL)
 subprocess.run([seven,'x','-y',str(installer),'-o'+str(out),'OMaaX.exe','education/*',*[x[0] for x in checks]],check=True,stdout=subprocess.DEVNULL)
 checks += [('education/'+str(p.relative_to(ROOT/'desktop/resources/education')).replace('\\','/'),'desktop/resources/education/'+str(p.relative_to(ROOT/'desktop/resources/education')).replace('\\','/')) for p in (ROOT/'desktop/resources/education').rglob('*') if p.is_file()]
@@ -29,7 +31,8 @@ rows=[json.loads(x) for x in r.stdout.splitlines() if x.startswith('{')]
 assert r.returncode==0 and len(rows)==3 and [row.get('id') for row in rows]==[1,2,3],(r.returncode,rows,r.stderr)
 names={t['name'] for t in rows[0]['result']['tools']}
 analysis=next(t for t in rows[0]['result']['tools'] if t['name']=='workspace_analysis')
-assert 'private runtime layer is writable' in analysis['description'] and 'Each task starts fresh' in analysis['description']
+assert 'without sudo, Podman or mandatory isolation' in analysis['description'] and 'never perform deletion through a script' in analysis['description']
+assert 'Every deletion' in next(t for t in rows[0]['result']['tools'] if t['name']=='server_delete')['description']
 assert {'workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment'}<=names
 assert 'server_delete_confirm' not in names
 assert all(row['error']['code']==-32001 for row in rows[1:]),rows

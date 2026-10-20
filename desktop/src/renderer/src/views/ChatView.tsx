@@ -1,15 +1,44 @@
+import ServerDeleteRequests from '../components/ServerDeleteRequests';
 import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Play, AlertTriangle } from 'lucide-react';
 import { useApp } from '../store';
 import {analysisContext,openAnalysisFiles} from './analysisContext';
-import {hasUnit,useAuth} from '../AuthGate';
 import { useT } from '../i18n';
+
+function reasoningResponse(value:unknown):{levels:string[];selected?:string} {
+  const data=value as {levels?:unknown;selected?:unknown}|null;
+  if(!data||!Array.isArray(data.levels)||!data.levels.every(v=>['low','high','max'].includes(v))
+    ||(data.selected!==undefined&&(typeof data.selected!=='string'||!data.levels.includes(data.selected))))throw Error('Invalid reasoning modes');
+  return {levels:data.levels,selected:data.selected as string|undefined};
+}
 
 // 对话页本身不渲染聊天：它只留出一块区域，主进程把 dsh 的网页视图贴在这块区域上。
 export default function ChatView() {
   const { dsh, startDsh, restartDsh, credential, setTab, env, settings, overlay, currentSession } = useApp();
   const { t } = useT();
-  const bioflow=hasUnit(useAuth().user,'bioflow');
+  const [reasoning,setReasoning]=useState<{levels:string[];selected?:string}>({levels:[]});
+  const modeSession=useRef(currentSession);modeSession.current=currentSession;
+  const [modeBusy,setModeBusy]=useState(false),[modeError,setModeError]=useState('');
+  useEffect(()=>{
+    let active=true;setReasoning({levels:[]});setModeError('');
+    if(currentSession&&dsh.state==='running')void window.biodsh.dshRpc('session.reasoning',{sessionId:currentSession})
+      .then(v=>{if(active)setReasoning(reasoningResponse(v));}).catch(()=>{if(active)setModeError('推理模式暂不可用');});
+    return()=>{active=false;};
+  },[currentSession,dsh.state]);
+  const changeMode=async(effort:string)=>{
+    const sid=currentSession;setModeBusy(true);setModeError('');
+    try{const value=await window.biodsh.dshRpc('session.reasoningSet',{sessionId:sid,effort});if(sid===modeSession.current)setReasoning(reasoningResponse(value));}
+    catch{if(sid===modeSession.current)setModeError('模式切换未完成，请重试');}finally{setModeBusy(false);}
+  };
+  useEffect(()=>window.biodsh.onEvent(event=>{
+    if(event.type==='reasoning-request'&&event.sessionId===currentSession&&!modeBusy&&reasoning.levels.includes(event.effort))void changeMode(event.effort);
+  }),[currentSession,modeBusy,reasoning]);
+  useEffect(()=>{
+    const send=()=>void window.biodsh.dshSetReasoning?.({sessionId:currentSession,levels:reasoning.levels,selected:reasoning.selected,busy:modeBusy,error:modeError}).catch(()=>{});
+    send();const timer=setInterval(send,1000);return()=>{clearInterval(timer);void window.biodsh.dshSetReasoning?.({sessionId:null});};
+  },[currentSession,reasoning,modeBusy,modeError]);
+  const [deleteServers,setDeleteServers]=useState<string[]>([]);
+  useEffect(()=>{let active=true;setDeleteServers([]);const load=()=>{if(currentSession)void window.biodsh.dshRpc('server.files',{sessionId:currentSession}).then(value=>{if(active)setDeleteServers(value as string[]);}).catch(()=>{});};load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};},[currentSession]);
   const [budget,setBudget]=useState<{calls?:number;tokens?:number;reported?:boolean;failures?:number;paused?:boolean}>({});
   useEffect(()=>{let active=true;const refresh=()=>{if(currentSession)void window.biodsh.dshRpc('session.budget',{sessionId:currentSession}).then(v=>{if(active)setBudget(v as typeof budget);}).catch(()=>{});};setBudget({});refresh();const timer=setInterval(refresh,5000);return()=>{active=false;clearInterval(timer);};},[currentSession]);
   const overlayOpen = !settings?.onboarded || overlay > 0;
@@ -40,17 +69,15 @@ export default function ChatView() {
     <div className="h-full flex flex-col">
       <header className="drag h-[52px] flex items-center justify-between pl-5 pr-0 hairline-b" style={{ background: 'var(--bg)' }}>
         <div className="flex items-center gap-3">
-          <span className="t-title2">{t('对话')}</span>{bioflow&&<button className="btn btn-ghost no-drag" disabled={!currentSession} onClick={()=>void(async()=>{const servers=await window.biodsh.dshRpc('server.files',{sessionId:currentSession}) as string[];openAnalysisFiles(currentSession,servers[0]||workflow?.serverId);setTab('hosts');})().catch(()=>{openAnalysisFiles(currentSession,workflow?.serverId);setTab('hosts');})}>本次分析文件</button>}
-          {settings?.mode !== 'offline' && !credential.hasKey && (
-            <button className="no-drag badge" style={{ color: 'var(--orange)', background: 'rgba(255,159,10,.14)' }} onClick={() => setTab('settings')}><AlertTriangle size={12} /> {t('还没填 API Key')}</button>
-          )}
-          {bioflow && !env.ready && (
+          <span className="t-title2">{t('对话')}</span>{<button className="btn btn-ghost no-drag" disabled={!currentSession} onClick={()=>void(async()=>{const servers=await window.biodsh.dshRpc('server.files',{sessionId:currentSession}) as string[];openAnalysisFiles(currentSession,servers[0]||workflow?.serverId);setTab('hosts');})().catch(()=>{openAnalysisFiles(currentSession,workflow?.serverId);setTab('hosts');})}>本次分析文件</button>}
+          {!env.ready && (
             <button className="no-drag badge" onClick={() => setTab('env')}>{t('计算环境未就绪')}</button>
           )}
         </div>
       </header>
-      {currentSession&&<div className="px-5 py-2 hairline-b t-caption">本段已调用 {budget.calls||0} 次 · {budget.reported?`${budget.tokens||0} tokens`:'用量待服务商返回'}；达到 80 次或 200,000 tokens 后暂停下一次请求，费用以服务商账单为准。{((budget.failures||0)>=3||budget.paused)&&<span> 已暂停自动重试或模型调用。<button className="btn btn-tint" onClick={()=>{if(window.confirm('继续将开启新一段调用额度，可能产生费用。是否继续？'))void window.biodsh.dshRpc('session.budgetReset',{sessionId:currentSession}).then(v=>setBudget(v as typeof budget));}}>确认继续</button></span>}</div>}
+      {currentSession&&<div className="px-5 py-2 hairline-b t-caption">本段已调用 {budget.calls||0} 次 · {budget.reported?`${budget.tokens||0} tokens`:'用量待服务商返回'}；费用以服务商账单为准。{(budget.failures||0)>=3&&<span> 连续修复失败，已暂停自动重试。<button className="btn btn-tint" onClick={()=>{if(window.confirm('继续尝试修复可能产生费用。是否继续？'))void window.biodsh.dshRpc('session.budgetReset',{sessionId:currentSession}).then(v=>setBudget(v as typeof budget));}}>继续修复</button></span>}</div>}
       {workflow&&<div className="flex items-center justify-between px-5 py-2 hairline-b" style={{background:'var(--accent-soft)'}}><span>已选择一体化分析流程：{workflow.name}</span><button className="btn btn-ghost" onClick={()=>setTab('workflows')}>查看流程与确认计划</button></div>}
+      {deleteServers.length>0&&<div className="max-h-[35vh] overflow-auto">{deleteServers.map(server=><ServerDeleteRequests key={server} server={server} sessionId={currentSession||undefined}/>)}</div>}
       <div ref={areaRef} className="flex-1 min-h-0 relative" style={{ background: 'var(--surface)' }}>
         {dsh.state !== 'running' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 rise">

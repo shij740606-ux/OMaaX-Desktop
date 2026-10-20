@@ -8,7 +8,7 @@ class ReliabilityTests(unittest.TestCase):
     def setUp(self):
         self.root=Path(tempfile.mkdtemp(prefix='resume-'))
         self.job=self.root/'job';self.job.mkdir();(self.job/'output').mkdir()
-        self.spec={'id':'job','cpu':1,'memoryMb':128,'timeoutSeconds':10,'pipeline':[{'step':'a','image':'unused'},{'step':'b','image':'unused'}]}
+        self.spec={'id':'job','image':'unused','cpu':1,'memoryMb':128,'timeoutSeconds':10,'pipeline':[{'step':'a','image':'unused'},{'step':'b','image':'unused'}]}
         self.patches=[patch.object(r,'root',return_value=self.root),patch.object(r,'jobdir',return_value=self.job),patch.object(r,'disk_available',return_value=10**12),patch.object(r,'validate_job'),patch.object(r,'launch'),patch.object(r,'command',return_value='[]')]
         for p in self.patches:p.start()
         db=r.database();db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?)',('job',json.dumps(self.spec),'failed',0,0,''));db.commit()
@@ -17,6 +17,15 @@ class ReliabilityTests(unittest.TestCase):
     def snapshot(self):
         (self.job/'output/result.txt').write_text('completed a')
         r.checkpoint(self.job,self.spec,['a'])
+    def test_rotated_logs_preserve_every_byte_and_are_readable(self):
+        path=self.job/'log.txt';content=b'0123456789'*13
+        with path.open('ab') as log:r.append_task_log(log,content,limit=30)
+        pieces=sorted(self.job.glob('log-*.txt'))+[path]
+        self.assertEqual(b''.join(p.read_bytes() for p in pieces),content)
+        result=r.dispatch({'action':'logs','body':{'id':'job','segment':pieces[0].name,'offset':0}})
+        self.assertEqual(result['text'],'0123456789'*3);self.assertEqual(result['nextOffset'],30)
+        self.assertEqual(len(result['segments']),5)
+        with self.assertRaises(ValueError):r.dispatch({'action':'logs','body':{'id':'job','segment':'../outside'}})
     @unittest.skipUnless(os.name=='posix','Linux supervisor locking')
     def test_resume_restores_verified_snapshot_and_preserves_failed_output(self):
         self.snapshot();(self.job/'output/result.txt').write_text('failed overwritten output');(self.job/'cancel').touch()

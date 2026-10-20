@@ -59,14 +59,10 @@ server.listen(0, '127.0.0.1', async () => {
     const longResult=await request({operation:'execute',command:longCommand,hostKey:probe.hostKey});
     assert.equal(longResult.exitCode,0);assert.equal(JSON.parse(longResult.stdout).text,longCommand+'\n');
     assert.ok((await request({operation:'execute',command:null,hostKey:probe.hostKey})).error);
-    const install = await request({operation:'install_environment',hostKey:probe.hostKey,sudoPassword:'private-sudo-$(echo nope)',command:'UNTRUSTED_COMMAND'});
-    assert.equal(install.exitCode,0);assert.equal(install.stdout,'');assert.equal(install.stderr,'');
-    assert.equal((await request({operation:'install_environment',hostKey:probe.hostKey,sudoPassword:'wrong'})).exitCode,1);
-    assert.ok((await request({operation:'install_environment',hostKey:probe.hostKey,sudoPassword:'bad\npassword'})).error);
-    assert.ok((await request({operation:'install_environment',hostKey:'wrong',sudoPassword:'private-sudo'})).error);
+    assert.match((await request({operation:'install_environment',hostKey:probe.hostKey,sudoPassword:'ignored'})).error,/不支持/);
     assert.ok((await request({operation:'execute',command:'disconnect',hostKey:probe.hostKey})).error);
     assert.match((await request({operation:'execute',command:'timeout',hostKey:probe.hostKey})).error,/超时/);
-    console.log('SSH probe, host-key rejection, authentication, execution and sudo installation stdin/redaction/failure checks passed');
+    console.log('SSH probe, host-key rejection, authentication, execution and privileged installation rejection checks passed');
   } catch (error) { console.error(error); process.exitCode = 1; }
   finally { server.close(); }
 });

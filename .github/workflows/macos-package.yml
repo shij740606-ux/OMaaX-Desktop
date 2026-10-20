@@ -1,0 +1,52 @@
+name: macOS installer
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: desktop
+    env:
+      CI: "true"
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm run setup
+      - name: Check and build
+        run: |
+          npm run typecheck
+          npx tauri build --bundles app,dmg
+      - name: Inspect native runtime and application
+        run: |
+          file src-tauri/target/release/bundle/macos/OMaaX.app/Contents/MacOS/OMaaX
+          resources/node/darwin-current/bin/node --version
+          shasum -a 256 src-tauri/target/release/bundle/dmg/*.dmg > installer-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OMaaX-macOS-${{ matrix.arch }}
+          path: |
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/installer-sha256.txt
+          if-no-files-found: error
+          retention-days: 14

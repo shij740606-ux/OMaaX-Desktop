@@ -15,7 +15,7 @@ def file_hash(p):
     return h.hexdigest()
 def tables(db):
     db.execute('CREATE TABLE IF NOT EXISTS workflow_plans(id TEXT PRIMARY KEY,digest TEXT NOT NULL,plan TEXT NOT NULL,confirmed INTEGER NOT NULL DEFAULT 0,created REAL NOT NULL)');db.commit()
-def identity(r):return {'uid':os.getuid(),'server':r._identity,'root':str(r.ROOT)}
+def identity(r):return {'uid':os.getuid(),'server':r.SERVER_KEY,'root':str(r.ROOT)}
 def no_extra(v,keys):
     if not isinstance(v,dict) or set(v)-keys:raise ValueError('存在未允许的执行参数；不能传入命令、脚本或自定义运行配置')
 def flow_for(name):
@@ -172,7 +172,7 @@ def external_inputs(r,values,configs,folder,image):
                 document=yaml.safe_load(text)
             except ImportError:
                 code='import json,sys,yaml\nv=yaml.safe_load(sys.stdin.read())\nn=[0]\ndef check(x,d=0):\n n[0]+=1\n if d>32 or n[0]>20000:raise ValueError("Configuration too large")\n if isinstance(x,dict):\n  for y in x.values():check(y,d+1)\n elif isinstance(x,list):\n  for y in x:check(y,d+1)\ncheck(v)\ns=json.dumps(v)\nif len(s)>2097152:raise ValueError("Configuration too large")\nprint(s)'
-                result=subprocess.run(['podman','run','--rm','-i','--pull=never','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--cpus=1','--memory=512m',image,'python3','-c',code],input=text,text=True,capture_output=True,timeout=40)
+                result=subprocess.run(r.image_command(image,['python3','-c',code]),input=text,text=True,capture_output=True,timeout=40)
                 if result.returncode:raise ValueError('配置文件无法解析，请用工作文件夹的配置表功能重新生成')
                 document=json.loads(result.stdout)
         safe_values(document);documents[name]=document;visit(document)
@@ -216,6 +216,7 @@ def ready_bundle(r):
     return p
 def available_images(r):
     found={}
+    if not shutil.which('podman'):return found
     for flow in ['gene_family','rnaseq','singlecell']:
         try:
             info=json.loads(r.command(['podman','image','inspect','localhost/omaax-workflow-'+flow+':0.4.0'],timeout=15))[0]
@@ -289,7 +290,7 @@ if packages and result['tools']['Rscript']:
                 name,value=line[8:].split('=',1);result['r'][name]=value=='TRUE'
 print(json.dumps(result))
 """.replace('MODULES',repr(modules)).replace('TOOLS',repr(tools)).replace('PACKAGES',repr(packages)).replace('UPSTREAM',repr(upstream))
-    return json.loads(r.command(['podman','run','--rm','--pull=never','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--pids-limit=256','--cpus=1','--memory=2048m','--memory-swap=2048m','--tmpfs=/tmp:rw,nosuid,nodev,size=64m','--env','PYTHONDONTWRITEBYTECODE=1','--env','HOME=/tmp','--env','XDG_CACHE_HOME=/tmp/.cache',image,'python3','-c',code],timeout=120))
+    return json.loads(r.command(r.image_command(image,['python3','-c',code]),timeout=120))
 
 def readiness_for(step,probe,required=None):
     if not step['entryPresent']:return {'state':'missing_source','missing':[],'detail':'此步骤暂不可用，请选择其他分析步骤。'}
@@ -326,7 +327,7 @@ def load_plan(r,db,body):
     if file_hash(r.contained(snapshot,'plan.json'))!=row['digest'] or file_hash(r.contained(snapshot,'kernel.zip'))!=p['bundleHash'] or file_hash(r.contained(snapshot,'adapter.py'))!=p['adapterHash']:raise ValueError('固定计划或源码内容变化，禁止执行')
     recheck(r,p,cfg);return row,p
 def job_spec(p):
-    code='import sys,runpy; runpy.run_path("/input/"+sys.argv[1]+"/adapter.py",run_name="__main__")'
+    code='import sys,runpy,os,json; source=json.loads(os.environ.get("OMAAX_PATH_MAP","{}" )).get("/input/"+sys.argv[1],"/input/"+sys.argv[1]); runpy.run_path(source+"/adapter.py",run_name="__main__")'
     return {'id':p['id'],'context':p.get('context'),'title':p.get('prefix','')+' · '+p.get('name','分析任务'),'workflow':{'id':p['id'],'digest':digest(p)},'image':p['image'],'argv':['python3','-c',code,p['planSource'],digest(p)],'sources':[p['source'],p['planSource']],**({'files':p['externalFiles']} if p.get('externalFiles') else {}),
             'pipeline':[{'step':sid,'image':p['stageImages'].get(sid,p['image'])} for sid in p['steps']],**{k:p['resources'][k] for k in ('cpu','memoryMb','timeoutSeconds')}}
 def validate_bound_job(r,spec):
@@ -402,6 +403,10 @@ def validate_sample_documents(flow,steps,values,documents,folder,configs=None):
 def dispatch(r,action,body,actor='user'):
     db=r.database();tables(db);cfg=r.config(db)
     if actor=='agent' and action in ('workflow_confirm','workflow_bundle_status'):raise ValueError('模型只能提出计划，不能自行确认运行')
+    if action=='workflow_deferred_plan':
+        if actor!='user':raise ValueError('流程准备只接受桌面可信请求')
+        import workflow_preflight
+        return workflow_preflight.start(r,body)
     if action in ('workflow_prepare','workflow_prepare_status'):
         import workflow_environments as environments
         if action=='workflow_prepare':return environments.start(r,body)
@@ -437,6 +442,7 @@ def dispatch(r,action,body,actor='user'):
         no_extra(body,{'workflow','image','step'});flow=flow_for(body.get('workflow'));image=body.get('image')
         if not r.immutable_image(image):raise ValueError('请选择具有固定摘要的本地镜像')
         if body.get('step'):select_steps(flow,[body['step']])
+        if image not in cfg.get('images',[]) and image.startswith('conda:'):raise ValueError('请选择已配置的 Conda 环境')
         if image not in cfg.get('images',[]):
             info=json.loads(r.command(['podman','image','inspect',image],timeout=15))
             if not info:raise ValueError('此镜像尚未安装到当前账号，请先配置环境')
@@ -444,7 +450,7 @@ def dispatch(r,action,body,actor='user'):
             r.audit(db,'workflow.image_approved_by_user',{'workflow':flow['id'],'image':image})
         ready_bundle(r);r.protection()
         code="import sys,json,importlib.util,shutil; print(json.dumps({'python':sys.version.split()[0],'modules':{n:importlib.util.find_spec(n) is not None for n in ['numpy','pandas','yaml','Bio','scanpy','anndata','squidpy']},'tools':{n:bool(shutil.which(n)) for n in ['Rscript','hmmsearch','blastp','mafft','iqtree','meme','fastp','hisat2','samtools','featureCounts','nextflow','java']}}))"
-        v=json.loads(r.command(['podman','run','--rm','--pull=never','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--pids-limit=256','--cpus=1','--memory=512m','--memory-swap=512m',image,'python3','-c',code],timeout=60))
+        v=json.loads(r.command(r.image_command(image,['python3','-c',code]),timeout=60))
         envs=cfg.get('workflowEnvironments',{});entry=envs.setdefault(flow['id'],{'image':image,'versions':v,'stageImages':{}})
         if body.get('step'):entry.setdefault('stageImages',{})[body['step']]=image
         else:entry.update(image=image,versions=v)
@@ -500,19 +506,30 @@ def dispatch(r,action,body,actor='user'):
         return {'plan':p,'digest':sha,'confirmed':False,'state':'awaiting_confirmation'}
     if action=='workflow_resume':
         if actor!='user':raise ValueError('续跑需要用户在分析页面确认')
+        import scheduler_backend,workflow_preflight
+        cluster=scheduler_backend.cluster()
+        if cluster and not scheduler_backend.allocation():
+            return workflow_preflight.resume(r,body,cluster)
         row,p=load_plan(r,db,body)
         if not row['confirmed']:raise ValueError('请先确认执行计划')
         return r.resume_job(p['id'])
     if action=='workflow_confirm':
-        row,p=load_plan(r,db,body)
+        intent=body.get('intent')
+        if intent is not None:
+            no_extra(body,{'id','digest','intent'})
+            if not isinstance(intent,dict) or intent.get('source')!='user' or intent.get('executionRequested') is not True:raise ValueError('缺少真实用户任务指令')
+        row,p=load_plan(r,db,{k:v for k,v in body.items() if k!='intent'})
         if cfg.get('workflowEnvironments',{}).get(p['workflow'],{}).get('image')!=p['image']:raise ValueError('运行环境已变化，请重新生成计划')
         current=cfg.get('workflowEnvironments',{}).get(p['workflow'],{}).get('stageImages',{})
         if {k:v for k,v in current.items() if k in p['steps']}!=p['stageImages']:raise ValueError('步骤环境已变化，请重新生成计划')
-        db.execute('UPDATE workflow_plans SET confirmed=1 WHERE id=?',(p['id'],));r.audit(db,'workflow.confirmed',{'id':p['id'],'digest':row['digest']})
-        return r.dispatch({'action':'submit','body':job_spec(p)})
+        db.execute('UPDATE workflow_plans SET confirmed=1 WHERE id=?',(p['id'],));r.audit(db,'workflow.confirmed',{'id':p['id'],'digest':row['digest'],'intent':intent})
+        result=r.dispatch({'action':'submit','body':job_spec(p)})
+        if intent is not None:(r.jobdir(p['id'])/'task-intent.json').write_text(json.dumps(intent,ensure_ascii=False),encoding='utf-8')
+        return result
     if action=='workflow_plans':
         no_extra(body,set())
-        return [{'plan':json.loads(row['plan']),'digest':row['digest'],'confirmed':bool(row['confirmed']),'state':row['state'] or 'awaiting_confirmation','detail':row['detail'] or '', 'progress':progress(r,row['id'],row['state'])} for row in db.execute('SELECT p.*,j.state,j.detail FROM workflow_plans p LEFT JOIN jobs j ON p.id=j.id ORDER BY p.created DESC LIMIT 30')]
+        import workflow_preflight
+        return workflow_preflight.pending(r)+[{'plan':json.loads(row['plan']),'digest':row['digest'],'confirmed':bool(row['confirmed']),'state':row['state'] or 'awaiting_confirmation','detail':row['detail'] or '', 'progress':progress(r,row['id'],row['state'])} for row in db.execute('SELECT p.*,j.state,j.detail FROM workflow_plans p LEFT JOIN jobs j ON p.id=j.id ORDER BY p.created DESC LIMIT 30')]
     if action=='workflow_result':
         no_extra(body,{'id','file','offset'});offset=body.get('offset',0)
         if type(offset) is not int or offset<0:raise ValueError('结果列表位置无效')

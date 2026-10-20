@@ -16,7 +16,7 @@ class ContractTests(unittest.TestCase):
   fixtures=Path(os.environ.get('OMAAX_TEST_ROOT',tempfile.gettempdir()))/'omaax-ws-tests';fixtures.mkdir(parents=True,exist_ok=True)
   self.base=Path(tempfile.mkdtemp(prefix='contract-',dir=fixtures));self.control=self.base/'control';self.control.mkdir();self.data=self.base/'data';self.data.mkdir();(self.data/'input.txt').write_text('raw input')
   (self.data/'samples.yaml').write_text(json.dumps({'groups':{'C1':'control','T1':'treated'},'compare':[['control','treated']]}))
-  self.patches=[patch.object(r,'ROOT',self.control),patch.object(r,'root',lambda:self.control),patch.object(r.os,'getuid',return_value=1000,create=True),patch.object(r,'protection',return_value={'rootless':True}),patch.object(r,'launch'),patch.object(r,'disk_available',return_value=10**12),patch.object(r,'command',return_value=json.dumps({'python':'3.12'}))]
+  self.patches=[patch.object(r,'ROOT',self.control),patch.object(r,'root',lambda:self.control),patch.object(r.os,'getuid',return_value=os.getuid() if hasattr(os,'getuid') else 1000,create=True),patch.object(r,'protection',return_value={'rootless':True}),patch.object(r,'launch'),patch.object(r,'disk_available',return_value=10**12),patch.object(r,'command',return_value=json.dumps({'python':'3.12'}))]
   for p in self.patches:p.start()
   probe={kind:{name:True for spec in list(environments.DEPENDENCIES.values())+list(w.STEP_SOFTWARE.values()) for name in spec.get(kind,[])} for kind in ['modules','tools','r','services','processEnvironments']};probe['tools']['Rscript']=True
   self.patches.append(patch.object(w,'software_probe',return_value=probe));self.patches[-1].start()
@@ -96,6 +96,13 @@ class ContractTests(unittest.TestCase):
  def test_agent_cannot_approve_install_or_submit(self):
   for action in ['workflow_environment','workflow_bundle_status','workflow_confirm']:
    with self.assertRaises(ValueError):w.dispatch(r,action,{},actor='agent')
+ def test_native_user_intent_is_recorded_and_model_cannot_submit_it(self):
+  record=self.make();job=record['plan']['id']
+  intent={'schema':1,'source':'user','sessionId':'test-session','executionRequested':True,'text':'开始分析'}
+  body={'id':job,'digest':record['digest'],'intent':intent}
+  with self.assertRaises(ValueError):w.dispatch(r,'workflow_confirm',body,actor='agent')
+  w.dispatch(r,'workflow_confirm',body,actor='user')
+  self.assertEqual(json.loads((r.jobdir(job)/'task-intent.json').read_text()),intent)
  def test_no_custom_command_image_or_environment(self):
   for key in ['argv','image','script','command','environment']:
    request=self.request('gene_family');request[key]='danger'
@@ -304,7 +311,7 @@ class ContractTests(unittest.TestCase):
  def test_workspace_delete_restore_and_active_job_protection(self):
   import server_workspace as storage
   file=Path(storage.write_config(r,{'path':'configs/safe.json','format':'json','content':{'sample':'A'}})['path'])
-  deleted=storage.manage(r,{'operation':'delete','path':'configs/safe.json'});self.assertFalse(file.exists())
+  pending=storage.manage(r,{'operation':'delete','path':'configs/safe.json'});self.assertTrue(file.exists());row=r.dispatch({'action':'server_delete_requests','actor':'user','body':{}})[0];deleted=r.dispatch({'action':'server_delete_confirm','actor':'user','body':{'id':row['id'],'digest':row['digest']}});self.assertFalse(file.exists())
   self.assertEqual(storage.manage(r,{'operation':'trash'})['files'][0]['trashId'],deleted['trashId'])
   storage.restore(r,{'trashId':deleted['trashId']});self.assertEqual(json.loads(file.read_text()),{'sample':'A'})
   job=r.dispatch({'action':'submit','body':{'id':'active-job','image':IMAGE,'argv':['python3','--version'],'sources':[],'files':[{'source':str(file),'target':'/input/refs/'+'b'*20+'/safe.json'}],'cpu':1,'memoryMb':128,'timeoutSeconds':10}})
@@ -325,7 +332,7 @@ class ContractTests(unittest.TestCase):
  def test_trash_renames_links_without_touching_external_targets(self):
   import server_workspace as storage
   base=storage.workspace(r);link=base/'files/link';link.symlink_to(self.data/'input.txt')
-  deleted=storage.manage(r,{'operation':'delete','path':'files/link'});self.assertEqual((self.data/'input.txt').read_text(),'raw input')
+  pending=storage.manage(r,{'operation':'delete','path':'files/link'});row=r.dispatch({'action':'server_delete_requests','actor':'user','body':{}})[0];deleted=r.dispatch({'action':'server_delete_confirm','actor':'user','body':{'id':row['id'],'digest':row['digest']}});self.assertEqual((self.data/'input.txt').read_text(),'raw input')
   storage.restore(r,{'trashId':deleted['trashId']});self.assertTrue(link.is_symlink())
   linked=base/'files/redirect';linked.symlink_to(self.data,target_is_directory=True)
   with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':'files/redirect/input.txt'})

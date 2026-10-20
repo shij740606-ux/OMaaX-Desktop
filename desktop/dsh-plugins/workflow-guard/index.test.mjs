@@ -3,9 +3,25 @@ import assert from 'node:assert/strict';
 import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,unlinkSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createGuard,apply,bindingReader,selectionContext} from './index.js';
+import {createGuard,apply,bindingReader,selectionContext,recordTaskIntent} from './index.js';
 const fixtures=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../../deploy/local/fixed-workflows-20261013/guard-tests');
 mkdirSync(fixtures,{recursive:true});
+test('task intent comes only from actual user events and explicit stop supersedes execution',()=>{
+ const dir=mkdtempSync(path.join(fixtures,'intent-')),session={id:'test'};
+ const event=(seq,text,kind='user')=>({type:'user/message',seq,data:{source:{kind},content:[{type:'text',text}]}});
+ recordTaskIntent(dir,session,event(1,'开始分析这批数据'));
+ const file=path.join(dir,'intent-test.json');
+ assert.equal(JSON.parse(readFileSync(file)).executionRequested,true);
+ recordTaskIntent(dir,session,event(2,'先不要运行，先讨论分析方案'));
+ assert.equal(JSON.parse(readFileSync(file)).executionRequested,false);
+ recordTaskIntent(dir,session,event(3,'开始执行','tool'));
+ recordTaskIntent(dir,session,event(1,'开始执行'));
+ assert.equal(JSON.parse(readFileSync(file)).executionRequested,false);
+ recordTaskIntent(dir,session,event(4,'按方案继续执行'));
+ assert.equal(JSON.parse(readFileSync(file)).executionRequested,true);
+ recordTaskIntent(dir,session,event(5,'给我一个分析方案'));
+ assert.equal(JSON.parse(readFileSync(file)).executionRequested,false);
+});
 function bound() {
  const dir=mkdtempSync(path.join(fixtures,'policy-'));const agent={id:'workflow-session'};
  const file=path.join(dir,agent.id+'.json');
@@ -61,4 +77,19 @@ test('model environment tools are allowed while delete approval and host executi
  const {dir,agent}=bound(),guard=createGuard(dir);
  for(const name of ['workflow_prepare','workflow_prepare_status','workflow_readiness','workflow_environment'])assert.equal(guard({agent,name:'mcp__biodsh_ssh__'+name,arguments:{workflow:'rnaseq'}}),undefined);
  for(const name of ['server_delete_confirm','workflow_resume','execute'])assert.ok(guard({agent,name:'mcp__biodsh_ssh__'+name}));
+});
+
+test('workflow and account guards allow research but retain execution and deletion boundaries',async()=>{
+ const {createGuard:accountGuard}=await import('../auth-guard/index.js');
+ const {agent,guard}=bound(),account=accountGuard(()=>({ok:true}));
+ for(const name of ['read','grep','glob','read_image','web_fetch','web_search','skill','ask_user_question']){
+  const exec={agent,name,arguments:{}};assert.equal(guard(exec),undefined);assert.equal(account(exec),undefined);
+  assert.match(accountGuard(()=>({ok:false}))(exec),/账号未登录/);
+ }
+ for(const name of ['pwsh','bash','write','edit','subagent','mcp__biodsh_ssh__server_delete_confirm','mcp__biodsh_ssh__server_write_confirm']){
+  const exec={agent,name,arguments:{}};assert.ok(guard(exec));assert.ok(account(exec));
+ }
+ const install={agent,name:'mcp__biodsh_ssh__workflow_prepare',arguments:{workflow:'rnaseq',recipes:{rnaseq_de:{packages:['r-base=4.4','r-biocmanager'],channels:['conda-forge','bioconda'],script:'Rscript -e "library(BiocManager)"'}}}};
+ assert.equal(guard(install),undefined);assert.equal(account(install),undefined);
+ assert.ok(guard({agent,name:'mcp__biodsh_ssh__workflow_plan',arguments:{workflow:'gene_family'}}));
 });

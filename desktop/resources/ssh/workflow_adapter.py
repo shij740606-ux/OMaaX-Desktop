@@ -2,6 +2,11 @@
 import ast,csv,gzip,hashlib,json,math,os,re,shlex,shutil,stat,subprocess,sys,time,zipfile
 from pathlib import Path,PurePosixPath
 
+def runtime_path(value):
+    for target,source in sorted(json.loads(os.environ.get('OMAAX_PATH_MAP','{}')).items(),key=lambda pair:-len(pair[0])):
+        if value==target or value.startswith(target+'/'):return source+value[len(target):]
+    return value
+
 def sha(p):
     h=hashlib.sha256()
     with Path(p).open('rb') as f:
@@ -157,15 +162,15 @@ def install_nextflow_shim(kernel,project,plan):
             if not re.search(r'(?m)^plots_force_interactive:',text):text+='\nplots_force_interactive: true\n'
             qc.write_text(text)
         default_environment=metadata.get('defaultEnvironment')
-        if default_environment and (not default_environment.startswith('/opt/omaax/envs/') or not Path(default_environment).is_dir()):raise ValueError('Fixed default process environment is unavailable')
+        if default_environment and (not default_environment.startswith(os.environ.get('OMAAX_OPT','/opt')+'/omaax/envs/') or not Path(default_environment).is_dir()):raise ValueError('Fixed default process environment is unavailable')
         for environment,destination in mapping.items():
-            if not destination.startswith('/opt/omaax/envs/') or not Path(destination).is_dir():raise ValueError('Fixed Nextflow process environment is unavailable')
+            if not destination.startswith(os.environ.get('OMAAX_OPT','/opt')+'/omaax/envs/') or not Path(destination).is_dir():raise ValueError('Fixed Nextflow process environment is unavailable')
             modules=[kernel/metadata['upstream']/environment] if environment.endswith('.nf') else (kernel/'upstream_sources').glob('*/'+str(Path(environment).parent)+'/*.nf')
             for module in modules:
                 text=module.read_text()
                 text=re.sub(r'''(?m)^(\s*conda\s+)(["'])([^\n]*?)\2\s*$''',lambda m:m.group(1)+json.dumps(destination),text)
                 module.write_text(text)
-        cached=Path('/opt/omaax/nxf')
+        cached=Path(os.environ.get('OMAAX_OPT','/opt'))/'omaax/nxf'
         if cached.is_dir():shutil.copytree(cached,Path(os.environ['NXF_HOME']),dirs_exist_ok=True)
     cfg=project/'omaax-nextflow.config'
     # Nextflow runs as local child processes INSIDE the already constrained task container.
@@ -259,7 +264,7 @@ def command(step,plan,kernel,input_dir,workspace,config_dir,original):
     return cmd
 
 def main():
-    source=Path('/input')/sys.argv[1];expected=sys.argv[2];out=Path('/output')
+    source=Path(runtime_path('/input/'+sys.argv[1]));expected=sys.argv[2];out=Path(os.environ.get('OMAAX_OUTPUT','/output'))
     p=source/'plan.json'
     if sha(p)!=expected:raise ValueError('Plan fingerprint mismatch')
     plan=json.loads(p.read_text());bundle=source/'kernel.zip'
@@ -273,17 +278,18 @@ def main():
         first=only is None or only==plan['steps'][0]
         if first:
             unpack(bundle,kernel);workspace.mkdir(parents=True,exist_ok=False);input_dir.mkdir(parents=True,exist_ok=False);configs.mkdir();(workspace/'final').mkdir()
-            if (kernel/'scripts').is_dir():(project/'scripts').symlink_to(kernel/'scripts',target_is_directory=True)
-            mounted=contained(Path('/input')/plan['source'],plan['input']);copied=[]
+            if (kernel/'scripts').is_dir():(project/'scripts').symlink_to(os.path.relpath(kernel/'scripts',project),target_is_directory=True)
+            mounted=contained(Path(runtime_path('/input/'+plan['source'])),plan['input']);copied=[]
             manifest['steps']=[{'id':sid,'state':'waiting'} for sid in plan['steps']];save(progress,manifest)
             for name,s in plan['inputs'].items():
-                source=Path(s['readPath']) if s.get('readPath') else None
+                source=Path(runtime_path(s['readPath'])) if s.get('readPath') else None
                 copied.append(copy_input(source.parent if source else mounted,source.name if source else name,contained(input_dir,name),s)|{'path':name})
             save(out/'input-fingerprints.json',copied)
         else:
             manifest=json.loads(progress.read_text())
             if manifest.get('planDigest')!=expected or any(row['state']!='complete' for row in manifest['steps'][:plan['steps'].index(only)]):raise ValueError('Earlier workflow steps are not complete')
-        os.environ.update(PLANTAI_PROJECT_ROOT=str(project),BBAV5_PROJECT_ROOT=str(project),PYTHONUNBUFFERED='1',PYTHONDONTWRITEBYTECODE='1',MPLBACKEND='Agg',MPLCONFIGDIR='/tmp/omaax-mpl',NUMBA_CACHE_DIR='/tmp/omaax-numba',XDG_CACHE_HOME='/tmp/omaax-cache',NXF_HOME='/tmp/omaax-nxf',NXF_OFFLINE='true')
+        task_tmp=Path(os.environ.get('TMPDIR','/tmp'));task_tmp.mkdir(parents=True,exist_ok=True)
+        os.environ.update(PLANTAI_PROJECT_ROOT=str(project),BBAV5_PROJECT_ROOT=str(project),PYTHONUNBUFFERED='1',PYTHONDONTWRITEBYTECODE='1',MPLBACKEND='Agg',MPLCONFIGDIR=str(task_tmp/'omaax-mpl'),NUMBA_CACHE_DIR=str(task_tmp/'omaax-numba'),XDG_CACHE_HOME=str(task_tmp/'omaax-cache'),NXF_HOME=str(task_tmp/'omaax-nxf'),NXF_OFFLINE='true')
         for variable in ('OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','MKL_NUM_THREADS','NUMEXPR_NUM_THREADS','NUMBA_NUM_THREADS','VECLIB_MAXIMUM_THREADS'):os.environ[variable]=str(plan['resources']['cpu'])
         os.environ['NXF_OPTS']='-XX:ActiveProcessorCount='+str(plan['resources']['cpu'])
         # Source CLI paths follow this step's approved image, never a host conda installation.
@@ -291,7 +297,7 @@ def main():
         interproscan=shutil.which('interproscan.sh') or shutil.which('interproscan')
         if interproscan:os.environ['INTERPROSCAN_BIN']=interproscan
         original=str(Path(plan['sourceBase'])/plan['input'])
-        PATH_MAP.update(plan.get('pathMap',{}))
+        PATH_MAP.update({key:runtime_path(value) for key,value in plan.get('pathMap',{}).items()})
         prepare_documents(plan,configs,input_dir,workspace,original,first)
         if first:rewrite_sheets(input_dir,workspace,original)
         by_id={s['id']:s for f in json.loads((kernel/'omaax/catalog.json').read_text())['workflows'] for s in f['nodes']+f['extraNodes']}

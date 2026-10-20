@@ -7,14 +7,15 @@ sys.path.insert(0,str(HERE))
 import workflow_engine as w
 import workflow_environments as e
 import personal_runner as r
+import conda_runtime as c
 w.CATALOG=json.loads((HERE.parent/'workflows/catalog.json').read_text(encoding='utf-8'))
-IMAGE='sha256:'+'a'*64
+IMAGE='conda:'+'a'*64
 
 class EnvironmentTests(unittest.TestCase):
  def setUp(self):
   parent=Path(os.environ.get('OMAAX_TEST_ROOT',tempfile.gettempdir()))/'omaax-env-tests';parent.mkdir(parents=True,exist_ok=True)
   self.base=Path(tempfile.mkdtemp(dir=parent));self.control=self.base/'control';self.control.mkdir()
-  self.patches=[patch.object(r,'ROOT',self.control),patch.object(r,'root',return_value=self.control),patch.object(r,'protection',return_value={}),patch.object(r.os,'getuid',return_value=1000,create=True),patch.object(w,'ready_bundle',return_value=HERE.parent/'workflows/kernel.zip'),patch.object(w,'bundle_path',return_value=HERE.parent/'workflows/kernel.zip')]
+  self.patches=[patch.object(r,'ROOT',self.control),patch.object(r,'root',return_value=self.control),patch.object(r,'protection',return_value={}),patch.object(r.os,'getuid',return_value=os.getuid() if hasattr(os,'getuid') else 1000,create=True),patch.object(w,'ready_bundle',return_value=HERE.parent/'workflows/kernel.zip'),patch.object(w,'bundle_path',return_value=HERE.parent/'workflows/kernel.zip')]
   if sys.platform=='win32':self.patches.append(patch.dict(sys.modules,{'fcntl':types.SimpleNamespace(flock=lambda *args:None,LOCK_EX=2,LOCK_NB=4)}))
   for p in self.patches:p.start()
  def tearDown(self):
@@ -65,7 +66,7 @@ class EnvironmentTests(unittest.TestCase):
    cfg=r.config(r.database());self.assertEqual(cfg['workflowEnvironments']['metagenome']['stageImages'],{sid:IMAGE})
  def test_failed_install_keeps_existing_mapping(self):
   db=r.database();previous={'rnaseq':{'image':IMAGE,'stageImages':{'rnaseq_de':IMAGE}}};db.execute('INSERT INTO config VALUES(?,?)',('workflowEnvironments',json.dumps(previous)));db.commit()
-  with patch.object(e,'launch'),patch.object(w,'available_images',return_value={}),patch.object(w,'software_probe',return_value={}),patch.object(r,'command',side_effect=ValueError('no image')),patch.object(e.subprocess,'run',return_value=types.SimpleNamespace(returncode=1)),patch.object(e,'prepare_rootfs'):
+  with patch.object(e,'launch'),patch.object(w,'available_images',return_value={}),patch.object(w,'software_probe',return_value={}),patch.object(r,'command',side_effect=ValueError('no image')),patch.object(e.subprocess,'run',return_value=types.SimpleNamespace(returncode=1)),patch.object(c,'create',side_effect=ValueError('软件安装失败')):
    task=e.start(r,{'workflow':'rnaseq','steps':['rnaseq_wgcna']});e.run(r,task['id'])
   self.assertEqual(e.status(r,'rnaseq')['state'],'failed');self.assertIn('软件安装失败',e.status(r,'rnaseq')['detail']);self.assertEqual(r.config(db)['workflowEnvironments'],previous)
  def test_r_check_timeout_does_not_trigger_reinstallation(self):

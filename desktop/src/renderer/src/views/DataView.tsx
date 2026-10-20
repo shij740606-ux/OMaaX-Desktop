@@ -195,7 +195,7 @@ export default function DataView() {
     <div className="h-full flex flex-col">
       <header className="drag h-[52px] flex items-center justify-between pl-5 pr-3 hairline-b" style={{ background: 'var(--bg)' }}>
         <div className="flex items-center gap-3 min-w-0">
-          <span className="t-title2">{t('分析')}</span>
+          <span className="t-title2">{t('分析结果')}</span>
           {workspaces.length > 0 ? (
             <select className="field !w-auto !h-[30px] !rounded-full !pr-7 no-drag" value={workspace} onChange={(e) => setWsPath(e.target.value)}>
               {workspaces.map((w) => <option key={w.workspaceId} value={w.path}>{w.title || w.path}</option>)}

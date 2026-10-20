@@ -13,7 +13,7 @@ with sync_playwright() as p:
   page.goto('http://127.0.0.1:41740/workflow-preview.html?auth=qa&cloud=1');page.wait_for_load_state('networkidle')
   page.get_by_role('button',name='知识库问答',exact=True).click()
   expect(page.get_by_role('heading',name='文献知识库问答')).to_be_visible()
-  expect(page.get_by_role('button',name='分析',exact=True)).to_be_visible()
+  expect(page.get_by_role('button',name='分析结果',exact=True)).to_be_visible()
   expect(page.get_by_role('button',name='教育科研',exact=True)).to_be_visible()
   checks.append('ordinary account with qa can open knowledge and standard analysis/research')
   q=page.get_by_label('科研问题',exact=True);q.fill('水稻 SPL 功能');page.get_by_role('button',name='提问',exact=True).click()
@@ -129,6 +129,7 @@ with sync_playwright() as p:
    page.set_viewport_size({'width':width,'height':900});expect(page.get_by_label('科研问题',exact=True)).to_be_visible()
    assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')
   page.screenshot(path=str(out/'knowledge.png'),full_page=True)
+  page.get_by_role('button',name='设置',exact=True).click();page.get_by_role('tab',name='账号和用量').click()
   page.get_by_role('button',name='退出 / 切换账号').click();expect(page.get_by_role('heading',name='登录 OMaaX')).to_be_visible();expect(page.get_by_text('研究证据摘要')).to_have_count(0)
   checks.append('logout removes account knowledge content')
   assert not errors,errors

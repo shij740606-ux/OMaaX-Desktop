@@ -3,7 +3,7 @@ import type {SshHost} from '@shared/types';
 
 type Plan={confirmed?:boolean;digest?:string;plan:{id:string;prefix:string;name:string;context?:{projectName?:string;sessionName?:string}};state:string;detail?:string};
 type Result={id:string;state:string;error?:string;steps:{id:string;state:string}[];files:{path:string;size:number}[];fileCount:number;nextOffset?:number|null;content?:string;contentFile?:string;contentBase64?:string;mime?:string;truncated?:boolean};
-const states:Record<string,string>={awaiting_confirmation:'等待确认',queued:'排队中',running:'运行中',complete:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消',invalid_result:'结果不满足要求',interrupted:'已中断'};
+const states:Record<string,string>={preparing:'准备输入中',preparation_failed:'输入准备失败',awaiting_confirmation:'等待确认',queued:'排队中',running:'运行中',complete:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消',invalid_result:'结果不满足要求',interrupted:'已中断'};
 const finished=new Set(['complete','partial','failed','cancelled','invalid_result','interrupted']);
 export default function WorkflowResults(){
  const [hosts,setHosts]=useState<SshHost[]>([]),[host,setHost]=useState(''),[plans,setPlans]=useState<Plan[]>([]),[result,setResult]=useState<Result|null>(null),[preview,setPreview]=useState<Result|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);

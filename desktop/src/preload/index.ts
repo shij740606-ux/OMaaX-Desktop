@@ -90,6 +90,7 @@ const api = {
   embedQuery: (_text: string): Promise<number[]> => Promise.reject(new Error('数据库检索需要使用 Tauri 桌面版')),
   lightUpdateCheck: (): Promise<unknown> => Promise.reject(new Error('轻量更新需要使用 Tauri 桌面版')),
   lightUpdateApply: (_delta: unknown): Promise<unknown> => Promise.reject(new Error('轻量更新需要使用 Tauri 桌面版')),
+  dshSetReasoning: async (_value: unknown): Promise<void> => {},
   dshSetContext: (workspaces: Record<string, string>): Promise<void> => ipcRenderer.invoke('dsh:setContext', workspaces),
   ratingsGet: () => ipcRenderer.invoke('ratings:get'),
   ratingsSet: (id: string, vote: number, comment: string) => ipcRenderer.invoke('ratings:set', id, vote, comment),

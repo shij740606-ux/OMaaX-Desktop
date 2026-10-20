@@ -65,7 +65,7 @@ export default function StoreView() {
   return (
     <div className="h-full flex flex-col omaax-page omaax-tools">
       <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>工具中心 <HelpTip topic="tools"/></h1><p>{help.summary}</p><div className="omaax-tool-search"><Search size={18}/><input aria-label="搜索工具" value={q} onChange={e=>setQ(e.target.value)} placeholder={`搜索 ${catalog.length} 个工具`}/></div></header>
-      <nav className="omaax-filter" aria-label="工具来源"><button className={tier==='official'?'selected':''} onClick={()=>setTier('official')}>精选工具</button><button className={tier==='community'?'selected':''} onClick={()=>setTier('community')}>社区工具 · {communityCount}</button><button className={tier==='installed'?'selected':''} onClick={()=>setTier('installed')}>已添加</button></nav>
+      <nav className="omaax-filter" aria-label="工具来源"><button className={tier==='official'?'selected':''} onClick={()=>setTier('official')}>精选工具</button><button className={tier==='community'?'selected':''} onClick={()=>setTier('community')}>扩展工具 · {communityCount}</button><button className={tier==='installed'?'selected':''} onClick={()=>setTier('installed')}>已添加</button></nav>
       <div className="flex-1 min-h-0 flex">
         {/* 左侧分类栏 */}
         <nav className="w-[196px] shrink-0 overflow-y-auto py-3 px-2 hairline-r" style={{ background: 'var(--surface-2)', borderRight: '0.5px solid var(--border)' }}>
@@ -91,7 +91,7 @@ export default function StoreView() {
 
             {tier === 'official' && domain === 'all' && !q && featuredCommunity.length > 0 && (
               <section>
-                <div className="flex items-center justify-between mb-2"><div className="t-headline">{t('社区精选')} <span className="t-caption">{featuredCommunity.length}</span></div></div>
+                <div className="flex items-center justify-between mb-2"><div className="t-headline">{t('推荐工具')} <span className="t-caption">{featuredCommunity.length}</span></div></div>
                 <section className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
                   {featuredCommunity.map((s) => <SkillCard key={s.id} skill={s} onOpen={() => setOpen(s)} />)}
                 </section>
@@ -109,7 +109,7 @@ export default function StoreView() {
             ) : null}
 
             {list.length === 0 ? (
-              <div className="py-16 text-center t-body" style={{ color: 'var(--text-2)' }}>{tier === 'installed' ? t('还没有安装任何技能，去「精选工具」或「社区工具」挑一个吧') : t('没有匹配的技能')}</div>
+              <div className="py-16 text-center t-body" style={{ color: 'var(--text-2)' }}>{tier === 'installed' ? t('还没有安装任何技能，去「精选工具」或「扩展工具」挑一个吧') : t('没有匹配的技能')}</div>
             ) : (
               <>
                 <section className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
@@ -125,7 +125,7 @@ export default function StoreView() {
             <div className="hairline-t pt-3 mt-1 flex items-center flex-wrap gap-x-3 gap-y-2">
               <button className="btn btn-ghost !h-[26px] !px-2" onClick={() => setScoreInfo(true)} title={t('评分说明')}><Award size={13} /> {t('评分说明')}</button>
               <span className="t-caption">{t('{n} 个', { n: list.length })} · {t('适用范围与验证记录见工具详情')}</span>
-              <span className="t-caption ml-auto" style={{ color: 'var(--text-3)' }}>{t('按需添加工具，再到对话中使用。社区工具在添加时下载，运行环境按需配置。')}</span>
+              <span className="t-caption ml-auto" style={{ color: 'var(--text-3)' }}>{t('按需添加工具，再到对话中使用。扩展工具在添加时下载，运行环境按需配置。')}</span>
             </div>
           </div>
         </div>
@@ -267,7 +267,7 @@ function DetailSheet({ skill, onClose, rating, onRate }: { skill: CatalogSkill; 
           <Icon skill={skill} size={64} />
           <div className="flex-1 min-w-0">
             <div className="t-title1 truncate">{skillName(skill, lang)}</div>
-            <div className="t-caption mt-1 truncate">{community ? `${t('社区')} · ${skill.origin?.repo}` : t('OMaaX 官方')} · {skill.id}{st?.installedVersion ? ` · ${t('已安装 v{v}', { v: st.installedVersion })}` : ''}</div>
+            <div className="t-caption mt-1 truncate">{community ? `${t('扩展工具')} · ${skill.origin?.repo}` : t('OMaaX 官方')} · {skill.id}{st?.installedVersion ? ` · ${t('已安装 v{v}', { v: st.installedVersion })}` : ''}</div>
             <div className="flex flex-wrap gap-1.5 mt-3"><Badges skill={skill} /></div>
           </div>
           <div className="flex flex-col items-end gap-2">

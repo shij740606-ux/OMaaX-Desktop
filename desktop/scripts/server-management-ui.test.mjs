@@ -306,11 +306,11 @@ test('completed installation clears stale missing-software labels without launch
  state='complete';await act(async()=>{for(const tick of h.timers)tick();await settle();});
  assert.doesNotMatch(text(row()),/缺少环境/);assert.match(text(row()),/尚未检查/);assert.equal(calls.filter(a=>a==='workflow_readiness').length,1);await act(async()=>view.unmount());
 });
-test('failed privileged installation can be dismissed and no longer blocks closing',async()=>{
+test('failed user environment preparation can be dismissed and no longer blocks closing',async()=>{
  const h=harness({personalCompute:async()=>{throw Error('sudo denied');}}),{default:Install,SudoInstallProvider}=h.load('components/SudoInstall.tsx');
  let view;await act(async()=>{view=create(React.createElement(SudoInstallProvider,null,React.createElement(Install,{id:'test-server',label:'测试服务器'})));await settle();});
- await act(async()=>view.root.findAllByType('button').find(b=>text(b)==='授权安装').props.onClick());
- await act(async()=>view.root.findByType('input').props.onChange({target:{value:'temporary-test-password'}}));
+ await act(async()=>view.root.findAllByType('button').find(b=>text(b)==='准备用户环境').props.onClick());
+ assert.equal(view.root.findAllByType('input').length,0);
  await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});await settle();});
  assert.match(text(view.root),/安装未完成/);const closeEvent=new Event('beforeunload',{cancelable:true});h.events.dispatchEvent(closeEvent);assert.equal(closeEvent.defaultPrevented,false);
  await act(async()=>view.root.findAllByType('button').find(b=>text(b)==='确认结果并关闭').props.onClick());
@@ -341,4 +341,18 @@ test('cached resources from a previous endpoint are not shown after connection e
  await act(async()=>view.unmount());h.load('serverConnections.ts').resetConnection(host.id);
  await act(async()=>{view=create(React.createElement(View,{section:'resources'}));await settle();});assert.doesNotMatch(text(view.root),/OLD_ENDPOINT_CPU/);
  await act(async()=>{finish({...metric,cpuModel:'NEW_ENDPOINT_CPU'});await settle();});assert.match(text(view.root),/NEW_ENDPOINT_CPU/);await act(async()=>view.unmount());
+});
+
+test('system isolation policy errors do not ask for sudo or repeated setup',()=>{
+ const {serverError}=harness({}).load('serverErrors.ts');const message=serverError('服务器系统策略未开放普通账号的隔离运行能力；软件不会请求 sudo 密码。','environment');assert.match(message,/系统未开放/);assert.doesNotMatch(message,/重试|重新配置|密码/);
+});
+
+test('chat deletion card shows exact bytes and requires explicit scoped confirmation',async()=>{
+ const calls=[];let pending=[{id:'one',digest:'fixed-digest',paths:['/data/small.txt'],snapshot:{bytes:7,entries:1},warnings:[],context:{sessionId:'test-dialogue',projectName:'项目',sessionName:'对话'}},{id:'other',digest:'other-digest',paths:['/data/other.txt'],snapshot:{bytes:99,entries:1},warnings:[],context:{sessionId:'other-dialogue'}}];
+ const h=harness({personalCompute:async(server,action,body)=>{calls.push({server,action,body});if(action==='server_delete_confirm')pending=pending.filter(r=>r.id!==body.id);return pending;}});
+ const Component=h.load('components/ServerDeleteRequests.tsx').default;let view;
+ await act(async()=>{view=create(React.createElement(Component,{server:host.id,sessionId:'test-dialogue'}));await settle();});
+ assert.match(text(view.toJSON()),/7 字节/);assert.match(text(view.toJSON()),/small.txt/);assert.doesNotMatch(text(view.toJSON()),/other.txt/);assert.equal(calls.filter(c=>c.action==='server_delete_confirm').length,0);
+ await act(async()=>{button(view,'已知悉范围，确认移入回收站').props.onClick();await settle();});
+ assert.deepEqual(calls.find(c=>c.action==='server_delete_confirm').body,{id:'one',digest:'fixed-digest'});assert.equal(view.toJSON(),null);act(()=>view.unmount());
 });

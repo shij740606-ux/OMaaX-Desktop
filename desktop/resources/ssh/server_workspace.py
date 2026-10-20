@@ -121,7 +121,7 @@ def manage(r,body):
     if operation=='info':
         context=body.get('context');base=workspace_context.base(r,context) if context else workspace(r)
         old=r.root()/'workspace'
-        return {'path':str(base),'workspaceRoot':str(workspace(r)),'legacyRoot':str(old) if old!=workspace(r) and old.is_dir() else None,'folders':['configs','references','files','tasks'] if context else ['projects','configs','references','files','results'],'context':context,'originalDataReadOnly':True}
+        return {'path':str(base),'workspaceRoot':str(workspace(r)),'legacyRoot':str(old) if old!=workspace(r) and old.is_dir() else None,'folders':['configs','references','files','tasks'] if context else ['projects','configs','references','files','results'],'context':context,'originalDataReadOnly':not r.conda_runtime.is_ref(image),'inputPolicy':'preserve-originals'}
     if operation=='trash':
         rows=[]
         for p in (workspace(r)/'.trash').iterdir():
@@ -200,13 +200,14 @@ def script(r,body):
     p.parent.mkdir(parents=True,exist_ok=True)
     with p.open('x',encoding='utf-8') as f:f.write(text)
     r.audit(r.database(),'workspace.script_created',{'path':str(p)})
-    return {'path':str(p),'message':'脚本已保存；只允许在受保护的分析容器内执行。'}
+    return {'path':str(p),'message':'脚本已保存；使用已配置的分析环境运行，保留原始输入并将结果另存。'}
 
 def analysis(r,body):
     cfg=r.config(r.database());image=body.get('image')
     if not image:
         env=cfg.get('workflowEnvironments',{}).get(body.get('workflow','rnaseq'),{})
-        image=env.get('stageImages',{}).get(body.get('step')) or env.get('image') or next(iter(cfg.get('images',[])),None)
+        image=env.get('stageImages',{}).get(body.get('step')) or env.get('image')
+        if not r.conda_runtime.is_ref(image):image=next((value for value in cfg.get('images',[]) if r.conda_runtime.is_ref(value)),image or next(iter(cfg.get('images',[])),None))
     if image not in cfg.get('images',[]) or not r.immutable_image(image):raise ValueError('请先准备分析所需的计算环境')
     inputs=body.get('inputs',[]);argv=body.get('argv')
     if not isinstance(inputs,list) or len(inputs)>32 or not isinstance(argv,list) or not argv or not all(isinstance(s,str) for s in argv):raise ValueError('请提供输入路径列表和分析程序参数')
@@ -229,7 +230,7 @@ def analysis(r,body):
         return value
     job=str(uuid.uuid4());spec={'id':job,'image':image,'argv':[argument(v) for v in argv],'sources':list(dict.fromkeys(sources)),'mounts':mounts,'files':file_mounts,'cpu':body.get('cpu',20),'memoryMb':body.get('memoryMb',51200),'timeoutSeconds':body.get('timeoutSeconds',86400),'context':body.get('context'),'title':body.get('title','工具分析')}
     result=r.dispatch({'action':'submit','body':spec});r.audit(r.database(),'workspace.analysis_submitted',{'id':job,'inputs':inputs,'image':image})
-    return {'id':job,'job':result,'state':'queued','output':str(r.jobdir(job)/'output'),'inputMounts':bindings,'writablePath':'/output','originalDataReadOnly':True}
+    return {'id':job,'job':result,'state':'queued','output':str(r.jobdir(job)/'output'),'inputMounts':bindings,'writablePath':'/output','originalDataReadOnly':not r.conda_runtime.is_ref(image),'inputPolicy':'preserve-originals'}
 
 def index(r,body):
     kind=body.get('kind','hisat2');recipes={'hisat2':('rnaseq','rnaseq_align','hisat2-build'),'salmon':('rnaseq','rnaseq_quant','salmon'),'star':('singlecell','singlecell_analyze','STAR'),'bowtie2':('rnaseq','rnaseq_align','bowtie2-build'),'bwa':('rnaseq','rnaseq_align','bwa')}

@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    if std::env::args().any(|arg| arg == "--company-llm-session") { biodsh_desktop_lib::company_session_cli(); return; }
     if std::env::args().any(|arg| arg == "--auth-check") { biodsh_desktop_lib::check_model(); return; }
     if std::env::args().any(|arg| arg == "--platform-mcp") { biodsh_desktop_lib::run_platform_mcp(); return; }
     if std::env::args().any(|arg| arg == "--ssh-mcp") { biodsh_desktop_lib::run_mcp(); return; }

@@ -17,7 +17,7 @@ function harness({ state = {}, api = {}, lang = 'zh' } = {}) {
   const modules = new Map(), events = new EventTarget(), data = new Map();
   globalThis.localStorage = { getItem: k => data.get(k) || null, setItem: (k, v) => data.set(k, v), removeItem: k => data.delete(k) };
   globalThis.window = { biodsh: { migrateScan: async () => [], ratingsGet: async () => ({}), ...api }, addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events) };
-  const app = { settings: { mode: 'online', mcpServers: [], workspace: 'test-workspace' }, credential: {}, info: { version: '0.4.16', paths: { root: 'test-root' } }, refresh: async () => {}, updateSettings: async () => {}, restartDsh: () => {}, env: { ready: false, step: 'idle', log: [] }, catalog: [], statuses: {}, ...state };
+  const app = { settings: { mode: 'online', mcpServers: [], workspace: 'test-workspace' }, credential: {}, info: { version: '0.4.16', paths: { root: 'test-root' } }, refresh: async () => {}, updateSettings: async () => {}, restartDsh: () => {}, env: { ready: false, step: 'idle', log: [] }, catalog: [], statuses: {}, dsh:{state:"stopped"}, ...state };
   const load = file => {
     if (modules.has(file)) return modules.get(file).exports;
     const module = { exports: {} }; modules.set(file, module);
@@ -41,7 +41,7 @@ function harness({ state = {}, api = {}, lang = 'zh' } = {}) {
 
 test('help explains model, execution location, on-demand tools and shared resource limits', () => {
   const { HELP } = harness().load('components/HelpTip.tsx');
-  assert.match(HELP.model[2], /不会自动下载大模型.*不等于切断所有外网/);
+  assert.match(HELP.model[2], /无需填写访问密钥/);
   assert.match(HELP.mcp[2], /预设只是配置起点.*与 SSH 分析服务器是两种/);
   assert.match(HELP.env[2], /只在你点击安装时添加/);
   assert.match(HELP.tools[2], /不代表所有分析软件都已安装/);
@@ -71,23 +71,20 @@ test('English help does not expose untranslated feature tips', async () => {
   }
 });
 
-test('account settings do not advertise disabled connectors or import legacy data',async()=>{
+test('account settings expose restored connectors without importing legacy data',async()=>{
   const calls=[];const View=harness({api:{migrateScan:async()=>{calls.push('scan');return [];}}}).load('views/SettingsView.tsx').default;
   let view;await act(async()=>{view=create(React.createElement(View));await settle();});
-  assert.match(text(view.root),/图像生成与外部应用连接暂不可用/);
-  assert.doesNotMatch(text(view.root),/保存工具连接|保存图像连接|已有助手服务地址|MCP|中枢|旧版|新版/);
+  assert.match(text(view.root),/图像服务/); assert.match(text(view.root),/外部工具连接（MCP）/);
+  assert.doesNotMatch(text(view.root),/已有助手服务地址|中枢|旧版|新版/);
   assert.deepEqual(calls,[]);await act(async()=>view.unmount());
 });
 
-test('local-model labels retain the offline setting value and saved endpoint', async () => {
-  const writes = [];
-  const View = harness({ state: { settings: { mode: 'offline', offlineBaseUrl: 'http://127.0.0.1:8000/v1', offlineModel: 'test-model', mcpServers: [], workspace: 'test' }, updateSettings: async value => writes.push(value) } }).load('views/SettingsView.tsx').default;
-  let view; await act(async () => { view = create(React.createElement(View)); await settle(); });
-  assert.match(text(view.root), /本地／内网模型/);
-  assert.doesNotMatch(text(view.root), /纯离线模式|不发起任何外网请求/);
-  assert(view.root.findAllByType('input').some(i => i.props.value === 'http://127.0.0.1:8000/v1'));
-  await act(async () => { await view.root.findAllByType('button').find(b => text(b) === '本地／内网模型').props.onClick(); });
-  assert.deepEqual(writes, [{ mode: 'offline' }]); await act(async () => view.unmount());
+test('company conversation hides personal key and endpoint without deleting saved settings', async () => {
+  const writes=[];const View=harness({state:{settings:{mode:'offline',offlineBaseUrl:'http://127.0.0.1:8000/v1',offlineApiKey:'old-key',workspace:'test'},updateSettings:async v=>writes.push(v)}}).load('views/SettingsView.tsx').default;
+  let view;await act(async()=>{view=create(React.createElement(View));await settle();});
+  assert.equal(view.root.findAllByProps({id:'settings-pane-model'}).length,0);
+  assert.equal(view.root.findAllByProps({id:'settings-tab-model'}).length,0);assert.deepEqual(writes,[]);
+  await act(async()=>view.unmount());
 });
 
 test('settings navigation shows one category and preserves unsaved connection edits', async () => {
@@ -95,14 +92,13 @@ test('settings navigation shows one category and preserves unsaved connection ed
   let view;await act(async()=>{view=create(React.createElement(View));await settle();});
   const panel=id=>view.root.findByProps({id:'settings-pane-'+id});
   const tab=id=>view.root.findByProps({id:'settings-tab-'+id});
-  assert.equal(panel('model').props.hidden,false);assert.equal(panel('tools').props.hidden,true);
+  assert.equal(!!panel('account').props.hidden,false);assert.equal(panel('tools').props.hidden,true);
   await act(async()=>tab('tools').props.onClick());
-  assert.equal(panel('model').props.hidden,true);assert.equal(panel('tools').props.hidden,false);
-  await act(async()=>tab('model').props.onClick());
-  const endpoint=panel('model').findAllByType('input').find(n=>n.props.placeholder==='http://192.168.1.10:8000/v1');
-  await act(async()=>endpoint.props.onChange({target:{value:'http://127.0.0.1:8123/v1'}}));
-  await act(async()=>tab('workspace').props.onClick());await act(async()=>tab('model').props.onClick());
-  assert.equal(endpoint.props.value,'http://127.0.0.1:8123/v1');
+  assert.equal(view.root.findAllByProps({id:'settings-pane-account'}).length,0);assert.equal(panel('tools').props.hidden,false);
+  await act(async()=>tab('account').props.onClick());
+  assert.equal(panel('account').findAllByType('input').length,0);
+  await act(async()=>tab('workspace').props.onClick());await act(async()=>tab('account').props.onClick());
+  assert.equal(view.root.findAllByProps({id:'settings-tab-model'}).length,0);
   assert.equal(view.root.findAllByProps({role:'tabpanel'}).filter(n=>!n.props.hidden).length,1);
   await act(async()=>view.unmount());
 });
@@ -153,7 +149,7 @@ test('settings model usage retains current, project and total counts including c
     dshRpc:async method=>method==='workspace.list'?{items:[{sessionIds:['a','b']}]}:{items:[session('a',10,20,30),session('b',1,2,3),session('c',100,200,300)]},
   }}).load('components/ModelUsage.tsx').default;
   let view;await act(async()=>{view=create(React.createElement(View));await settle();});
-  assert.match(text(view.root),/CNY 12.50/);
+  assert.doesNotMatch(text(view.root),/DeepSeek|CNY 12.50/);assert.match(text(view.root),/本机保存的对话用量/);
   assert.deepEqual(view.root.findAllByType('dd').map(text),['60 tokens','66 tokens','666 tokens']);
   await act(async()=>view.unmount());
 });

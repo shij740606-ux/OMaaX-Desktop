@@ -63,7 +63,7 @@ with sync_playwright() as p:
     target=page.get_by_label('服务器 私钥 QA',exact=True);expect(target).to_contain_text('首次连接：确认主机指纹');target.get_by_role('button',name='取消',exact=True).click();expect(target).not_to_contain_text('首次连接：确认主机指纹')
     target.get_by_label('允许智能体使用 私钥 QA',exact=True).click();expect(target.get_by_label('允许智能体使用 私钥 QA',exact=True)).not_to_be_checked();target.get_by_role('button',name='信任此主机并测试连接',exact=True).click();expect(target.get_by_label('允许智能体使用 私钥 QA',exact=True)).to_be_checked()
     page.once('dialog',lambda dialog:dialog.accept());target.get_by_label('删除服务器',exact=True).click();expect(target).to_have_count(0)
-    click('在对话中使用所选服务器');assert page.evaluate('window.__qa.navigation')=='chat';assert calls('session.prompt');assert 'synthetic-key' not in json.dumps(calls('save'))
+    click('在对话中使用所选服务器');assert page.evaluate('window.__qa.navigation')=='chat';assert calls('session.prompt');assert not any(token in json.dumps(calls('session.prompt')) for token in ['mcp__','workflow_catalog','workflow_plan','编号','不得改用']);assert 'synthetic-key' not in json.dumps(calls('save'))
    run('私钥文件导入、口令草稿、取消指纹、再授权及模型交接',key_auth_and_handoff)
    def directory_browser():
     tab('服务器文件');expect(page.get_by_label('服务器目录路径',exact=True)).to_have_value('/home/qa');expect(page.get_by_text('已加载 200 项',exact=True)).to_be_visible()
@@ -90,9 +90,9 @@ with sync_playwright() as p:
     click('在对话中配置环境');assert page.evaluate('window.__qa.navigation')=='workflows';assert not calls('workflow_prepare')
     page.evaluate("window.__qa.prepareState='complete'");expect(page.get_by_text('最近一次配置已完成',exact=True)).to_be_visible(timeout=8000)
     page.get_by_text('查看安装日志',exact=True).click();expect(page.get_by_text('test installation log',exact=True)).to_be_visible();page.screenshot(path=str(OUT/'environments.png'),full_page=True)
-    page.get_by_text('基础环境高级设置',exact=True).click();click('授权安装');expect(page.get_by_role('dialog',name='服务器环境安装',exact=True)).to_be_visible()
-    page.get_by_label('服务器账号密码（需有 sudo 权限）').fill('synthetic-sudo');page.evaluate("window.__qa.failures['install_environment']='sudo: permission denied'");click('授权安装并继续配置');expect(page.get_by_role('dialog')).to_contain_text('安装未完成');page.get_by_role('dialog').locator('summary').filter(has_text='查看原因').click();expect(page.get_by_role('dialog')).to_contain_text('需要管理员权限');click('确认结果并关闭');expect(page.get_by_role('dialog')).to_have_count(0)
-   run('环境清单、按步骤配置、日志、管理员失败恢复',environments)
+    page.get_by_text('基础环境高级设置',exact=True).click();click('准备用户环境');expect(page.get_by_role('dialog',name='服务器环境安装',exact=True)).to_be_visible()
+    expect(page.get_by_role('dialog').locator('input[type=password]')).to_have_count(0);page.evaluate("window.__qa.failures['initialize']='用户环境下载失败'");click('开始配置');expect(page.get_by_role('dialog')).to_contain_text('安装未完成');click('确认结果并关闭');expect(page.get_by_role('dialog')).to_have_count(0);page.evaluate("delete window.__qa.failures['initialize']")
+   run('环境清单、按步骤配置、日志、普通权限配置失败恢复',environments)
    def tasks():
     tab('任务与调度');expect(page.get_by_text('测试运行中任务 · 分析中',exact=True)).to_be_visible();assert page.get_by_text('高级设置：手动提交任务',exact=True).count()==0
     page.get_by_role('button',name='查看日志',exact=True).first.click();expect(page.get_by_text('test task log: completed safely',exact=True)).to_be_visible();click('取消任务');expect(page.get_by_text('测试运行中任务 · 已取消',exact=True)).to_be_visible()

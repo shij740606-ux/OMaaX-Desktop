@@ -16,7 +16,8 @@ export function serverError(reason:unknown,scope:ServerErrorScope='operation'):s
  if(/getaddrinfo|enotfound|eai_again|name or service not known|temporary failure in name resolution/i.test(text))return '无法解析服务器地址。请检查主机名和服务器的网络、域名解析配置。';
  if(/econnrefused|connection refused/i.test(text))return '服务器拒绝连接。请检查地址、端口是否正确，以及 SSH 服务和防火墙是否允许连接。';
  if(/no route to host|enetunreach|ehostunreach|network is unreachable/i.test(text))return '当前网络无法到达服务器。请检查网络连接及服务器地址后重试。';
- if(/sudo|管理员权限|系统安装权限/i.test(text))return '安装系统运行组件需要管理员权限。请使用“授权安装”，或请管理员安装所需组件；SSH 连接和文件浏览仍可使用。';
+ if(/系统策略.*隔离运行能力|未开放普通用户文件保护能力|Rootless Podman and cgroup|cgroup controllers unavailable/i.test(text))return '服务器系统未开放当前账号所需的隔离运行能力，请使用已配置环境的服务器或联系服务器管理员。';
+ if(/sudo|管理员权限|系统安装权限/i.test(text))return '环境准备未完成，请重新配置用户环境；无需提供管理员密码。';
  if(/podman.*(?:not found|no such file|未安装)|尚未安装服务器运行组件/i.test(text))return '服务器缺少基础运行组件，请先到“环境管理”准备基础环境。';
  if(/permission denied|eacces|operation not permitted|无权|没有.*权限/i.test(text))return '当前账号没有完成此操作的权限。请检查目录或文件的访问权限，必要时联系管理员。';
  if(/no such file|enoent|not a directory|目录不存在|路径不存在/i.test(text))return '文件或目录不存在，或路径已发生变化。请检查路径后刷新重试。';

@@ -163,6 +163,17 @@ pub fn cloud_session(root: &Path) -> Result<(String,String),String> {
     if profile(&base(),&s.hub,&s.user)?!=root || user.id!=s.user.id {return Err("UNAUTHORIZED: 账号已切换".into());}
     Ok((s.hub,s.token))
 }
+// Native child pipe only: never exposed as an IPC command or renderer response.
+pub fn company_session_cli() {
+    let root=PathBuf::from(std::env::var_os("BIODSH_HOME").unwrap_or_default());
+    let result=(||->Result<Value,String>{
+        require(&root,"")?;
+        let s=stored()?;
+        if profile(&base(),&s.hub,&s.user)?!=root{return Err("account changed".into());}
+        Ok(json!({"hub":s.hub,"token":s.token}))
+    })();
+    match result{Ok(v)=>println!("{v}"),Err(_)=>std::process::exit(1)}
+}
 pub fn login(hub: &str, username: &str, password: &str) -> Result<(), String> {
     let hub = normalize(hub)?;
     if username.trim().is_empty() || password.is_empty() { return Err("请输入用户名和密码".into()); }
@@ -295,11 +306,6 @@ mod tests {
         assert!(request(&url,"login",None,Some(json!({"username":"test","password":"not-real"}))).unwrap_err().contains("用户名或密码错误"));t.join().unwrap();
         assert_eq!(command_unit("open_path").unwrap(),Some(""));
     }
-    #[test] fn local_profile_paths_reject_other_profiles_and_legacy() {
-        let dir=std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());let a=dir.join("a");let b=dir.join("b");std::fs::create_dir_all(&a).unwrap();std::fs::create_dir_all(&b).unwrap();
-        assert!(local_path(&a,&a.to_string_lossy()).is_ok());assert!(local_path(&a,&b.to_string_lossy()).is_err());assert!(local_path(&a,&dir.to_string_lossy()).is_err());
-        std::fs::remove_dir_all(dir).unwrap();
-    }
     #[test] fn profiles_do_not_adopt_legacy_or_other_accounts() {
         let base=Path::new("legacy");let mut b=user();b.id="761f059b-1111-4111-8111-123456789abd".into();
         let a=profile(base,"https://one.test/",&user()).unwrap();
@@ -357,11 +363,7 @@ mod tests {
 }
 
 /// Only profile-owned local workspaces can be added. Server paths use SSH account rules.
-pub fn local_path(root: &Path, path: &str) -> Result<(),String> {
-    let root=root.canonicalize().map_err(|_|"账号目录不可用")?;
-    let path=Path::new(path).canonicalize().map_err(|_|"请选择已存在的账号工作目录")?;
-    if !path.starts_with(root) {return Err("请选择当前账号文件夹中的目录".into());} Ok(())
-}
+
 
 pub fn audit(root:&Path,user:&User,action:&str) {
     use std::io::Write;

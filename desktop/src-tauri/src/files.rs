@@ -101,3 +101,28 @@ fn base64_encode(data: &[u8]) -> String {
     }
     out
 }
+
+/// User-selected local data uses operating-system access, not the software login profile.
+pub fn validate_local_path(value: &str) -> Result<(),String> {
+    let path=Path::new(value);
+    if !path.is_absolute() {return Err("请选择完整的本机文件或文件夹路径".into());}
+    path.canonicalize().map_err(|_|"所选路径不存在或无法访问")?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod local_path_tests {
+    use super::*;
+    #[test]
+    fn user_selected_data_outside_profile_is_available_but_missing_and_relative_paths_are_not() {
+        let root=std::env::temp_dir().join(format!("omaax-paths-{}",uuid::Uuid::new_v4()));
+        let profile=root.join("account-profile");let external=root.join("external data");
+        fs::create_dir_all(&profile).unwrap();fs::create_dir_all(&external).unwrap();
+        fs::write(external.join("result.csv"),"gene,value\nSPL,1").unwrap();
+        for p in [&root,&profile,&external,&external.join("result.csv")] {assert!(validate_local_path(&p.to_string_lossy()).is_ok());}
+        assert!(validate_local_path(&root.join("missing").to_string_lossy()).is_err());
+        assert!(validate_local_path("../external data").is_err());
+        assert!(validate_local_path("https://example.com").is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+}
