@@ -35,7 +35,7 @@ export default function ChatView() {
   }),[currentSession,modeBusy,reasoning]);
   useEffect(()=>{
     const send=()=>void window.biodsh.dshSetReasoning?.({sessionId:currentSession,levels:reasoning.levels,selected:reasoning.selected,busy:modeBusy,error:modeError}).catch(()=>{});
-    send();const timer=setInterval(send,1000);return()=>{clearInterval(timer);void window.biodsh.dshSetReasoning?.({sessionId:null});};
+    send();const timer=setInterval(send,1000);return()=>{clearInterval(timer);void window.biodsh.dshSetReasoning?.({sessionId:null}).catch(()=>{});};
   },[currentSession,reasoning,modeBusy,modeError]);
   const [deleteServers,setDeleteServers]=useState<string[]>([]);
   useEffect(()=>{let active=true;setDeleteServers([]);const load=()=>{if(currentSession)void window.biodsh.dshRpc('server.files',{sessionId:currentSession}).then(value=>{if(active)setDeleteServers(value as string[]);}).catch(()=>{});};load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};},[currentSession]);

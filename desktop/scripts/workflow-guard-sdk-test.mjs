@@ -73,7 +73,7 @@ try {
  while(!existsSync(path.join(home,'result.json'))&&Date.now()<deadline)await new Promise(r=>setTimeout(r,100));
  const result=JSON.parse(readFileSync(path.join(home,'result.json'),'utf8'));
  assert.ok(!result.error,JSON.stringify(result));
- assert.equal(result.budgetStopped.kind,"reject","Token ceiling must stop the real SDK before another model request");
+ assert.equal(result.budgetStopped.kind,"enter","Usage accounting must not stop the SDK at the former token ceiling");
  for(const name of ['read','grep'])assert.ok(JSON.stringify(result.research[name]).includes('ENV_REPAIR_PROBE'),JSON.stringify(result.research[name]));
  assert.ok(JSON.stringify(result.research.glob).includes('environment-guide.txt'));
  assert.ok(JSON.stringify(result.deniedRead).includes('账号未登录'));

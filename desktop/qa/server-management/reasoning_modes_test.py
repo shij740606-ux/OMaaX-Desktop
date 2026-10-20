@@ -1,6 +1,7 @@
 """Three-mode conversation UI against a synthetic bridge; no model charges."""
 import json
 import sys
+from urllib.parse import urlsplit, parse_qs
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT/'validation-local/qa-runtime/python'))
@@ -17,8 +18,13 @@ with sync_playwright() as p:
     modes = page.get_by_label('推理模式', exact=True)
     expect(modes).to_have_value('high')
     assert modes.locator('option').all_text_contents() == ['低', '中', '高']
+    def mode_navigation(route):
+        params = parse_qs(urlsplit(route.request.url).query)
+        route.fulfill(status=204)
+        page.evaluate("e=>window.__modeRequest(e)", {'type':'reasoning-request','sessionId':params['session'][0],'effort':params['effort'][0]})
+    page.route('**/__omaax_mode?*', mode_navigation)
     for value in ['low', 'max', 'high']:
-        page.evaluate("(effort)=>window.__modeRequest({type:'reasoning-request',sessionId:'preview-session',effort})",value)
+        modes.select_option(value)
         expect(modes).to_be_enabled()
         expect(modes).to_have_value(value)
     calls = page.evaluate("window.__qa.calls.filter(c=>c.action==='session.reasoningSet')")

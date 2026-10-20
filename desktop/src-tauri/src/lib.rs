@@ -248,13 +248,11 @@ fn ensure_dsh_view(app: &AppHandle, state: &AppState, url: &str) {
         .initialization_script(DSH_INIT_SCRIPT)
         .initialization_script(include_str!("chat_composer.js"))
         .on_navigation(move |u| {
-            if u.scheme() == "omaax-mode" {
+            if u.scheme() == "http" && u.host_str() == Some("127.0.0.1") && u.path() == "/__omaax_mode" {
                 let params: std::collections::HashMap<_,_> = u.query_pairs().into_owned().collect();
-                if u.host_str() == Some("select") {
-                    if let (Some(session),Some(effort))=(params.get("session"),params.get("effort")) {
-                        if ["low","high","max"].contains(&effort.as_str()) && session.len()<=128 {
-                            let _=opener.emit("event",serde_json::json!({"type":"reasoning-request","sessionId":session,"effort":effort}));
-                        }
+                if let (Some(session),Some(effort))=(params.get("session"),params.get("effort")) {
+                    if ["low","high","max"].contains(&effort.as_str()) && session.len()<=128 {
+                        let _=opener.emit("event",serde_json::json!({"type":"reasoning-request","sessionId":session,"effort":effort}));
                     }
                 }
                 return false;

@@ -17,7 +17,9 @@
         if (!state || state.busy) return;
         const sid = state.sessionId, effort = select.value;
         select.disabled = true;
-        window.location.href = 'omaax-mode://select?session=' + encodeURIComponent(sid) + '&effort=' + encodeURIComponent(effort);
+        // Use an HTTP navigation intercepted by the native view; WebView2 may
+        // dispatch unknown URI schemes to Windows before its navigation handler.
+        window.location.href = location.origin + '/__omaax_mode?session=' + encodeURIComponent(sid) + '&effort=' + encodeURIComponent(effort);
       });
       label.addEventListener('click', event => event.stopPropagation());
       label.append(caption, select); target.append(label);

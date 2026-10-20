@@ -11,8 +11,6 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
-          - runner: macos-15-intel
-            arch: x64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -29,6 +27,15 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: desktop/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target/release/deps
+            desktop/src-tauri/target/release/build
+            desktop/src-tauri/target/release/.fingerprint
+          key: macos-${{ matrix.arch }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
       - name: Dependencies
         run: |
           npm ci --no-audit --no-fund
