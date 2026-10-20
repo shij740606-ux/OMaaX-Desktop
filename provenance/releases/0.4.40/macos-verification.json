@@ -1,0 +1,11 @@
+{
+  "version": "0.4.40",
+  "architecture": "aarch64",
+  "codeCommit": "cbf1b0b",
+  "buildRun": "https://github.com/shij740606-ux/OMaaX-Desktop/actions/runs/39415329996",
+  "sha256": "f805ac51d7bc7f9ebd9a7a82fbd31aa3a89c60bdae5ca562648f5d13c5b25d5e",
+  "desktopFile": "OMaaX_0.4.40_Apple芯片.dmg",
+  "developerSigned": false,
+  "notarized": false,
+  "manualMacAcceptance": false
+}

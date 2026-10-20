@@ -1,0 +1,26 @@
+{
+  "version": "0.4.40",
+  "installedAt": "2026-10-20T19:46:46.5538583+08:00",
+  "installerSha256": "2c99ccc51d107a1da20f1ff76a9312316c47c1698293fae00b69166f96934089",
+  "binarySha256": "187a954a327260fe6d6f7cdd32b707f7d64d65c46dfc638dbfeab3c89ec91446",
+  "resourcesVerified": 445,
+  "configurationAndConversationFilesChecked": 153,
+  "userDataUnchanged": true,
+  "installedSmokeChecks": [
+    "fresh startup locked; wrong password denied; explicit login and internal restart succeed",
+    "installed model bridge uses native login and company grants; empty grant blocks forwarding; personal key entry absent",
+    "real installed app adds external folder through UI; CSV, image preview and Git access work outside account profile",
+    "installed native embedded chat mode navigation works in all three modes; system prompt hidden",
+    "native authenticated create, message save, image proxy and block-only history restore succeed",
+    "normal reopen always locked even with remembered masked credentials; no automatic login",
+    "uncheck permanently clears autofill; existing account data retained"
+  ],
+  "shortcutVerified": true,
+  "rollbackPackage": "OMaaX_0.4.39_旧版备份.exe",
+  "removedObsoleteInstallers": [
+    "OMaaX_0.4.37_旧版备份.exe",
+    "OMaaX_0.4.39_x64-setup.exe"
+  ],
+  "realModelEnvironmentRepair": true,
+  "realSlurmSmallWorkflow": true
+}

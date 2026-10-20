@@ -1,0 +1,48 @@
+{
+  "version": "0.4.40",
+  "codeCommit": "cbf1b0b",
+  "evidence": {
+    "0.4.40-js-tests-final.log": "c115a8714034a9165b622654d206b1babf0f0bf2aafae494867fa6199f1feba2",
+    "0.4.40-native-tests-final.log": "da72280d5f54fc67522108ef24bbd95894ad22c66ddd2b0c0f64a276e7d75208",
+    "0.4.40-python-tests.log": "44ac9ece97777a158a80b32ceb9dfb2cd672218d995ad5893d681787f1e801cd",
+    "0.4.40-linux-results.json": "f472c3ea05ff9bb2f0661e1c66cd9ab124e8ed386ffea428feaea654576b5bd6",
+    "0.4.40-browser-tests.log": "12dedbebbc580ccc87d2d1f66d47d9406060c719042470b4240858c1071e943d",
+    "0.4.40-ui-routing.log": "cd16d5754fb339d57ba74ac4a4617d44d2657eae807366826ed73d823964d0f6",
+    "0.4.40-sdk-guard.log": "63619eca9f575103d988489f0ae1fdca8d3c9d55e2dac34d89a37fc9f2fc79d8",
+    "0.4.40-company-sdk.log": "b1b684462dbba0184460c1bd3d746fb6a8d46b351e97cfd714ee22019970437a",
+    "0.4.40-external-sdk.log": "3bbd7174a731a385a8e4676e19f0fa809b8859537111df59e0443af7eaf8ec5a",
+    "real-model-environment-040/acceptance.json": "a4caab7746cd0c588093f6f44fa37b86135f5cef3253639c001c1b5db50551ee",
+    "native-chain-040/acceptance.json": "a1621e18fc7815eed07159594cee07278e906ef78c32cf4c760eabb4d80ddd19",
+    "installed-login-0.4.40-r3/result.json": "aa6b163649f579c45260e1453b6d707d892beb6ce9c320b5099552f74d215298"
+  },
+  "realModelEnvironmentRepair": {
+    "model": "deepseek-flash",
+    "realModel": true,
+    "realServer": true,
+    "failed": true,
+    "repaired": true,
+    "ready": true,
+    "passed": true
+  },
+  "realSlurmSmallWorkflow": {
+    "passed": true,
+    "files": 9,
+    "model": "deterministic fixture through actual SDK bridge",
+    "native": true,
+    "realSlurm": true
+  },
+  "nativeUi": {
+    "checks": [
+      "fresh startup locked; wrong password denied; explicit login and internal restart succeed",
+      "installed model bridge uses native login and company grants; empty grant blocks forwarding; personal key entry absent",
+      "real installed app adds external folder through UI; CSV, image preview and Git access work outside account profile",
+      "installed native embedded chat mode navigation works in all three modes; system prompt hidden",
+      "native authenticated create, message save, image proxy and block-only history restore succeed",
+      "normal reopen always locked even with remembered masked credentials; no automatic login",
+      "uncheck permanently clears autofill; existing account data retained"
+    ],
+    "errors": [],
+    "realServersContacted": false
+  },
+  "scope": "Functional and small-data acceptance; not exhaustive large biological workflow validation."
+}
