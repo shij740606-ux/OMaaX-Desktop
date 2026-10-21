@@ -6,6 +6,58 @@ import path from 'node:path';
 import { downloadSkill, safeParts, sourceFetch } from '../resources/scripts/download-skill.mjs';
 import {PassThrough} from 'node:stream';
 import {EventEmitter} from 'node:events';
+import {createHash} from 'node:crypto';
+
+test('temporary source failures retry before using the API fallback', async () => {
+ const dir=await mkdtemp(path.join(tmpdir(),'omaax-retry-'));let attempts=0;
+ const data='# Example',sha=createHash('sha1').update(`blob ${Buffer.byteLength(data)}\0`).update(data).digest('hex');
+ try {
+  await downloadSkill({origin:{url:'https://github.com/example/tools',path:'skills/selected',revision:'a'.repeat(40),manifest:{files:[{path:'SKILL.md',sha}],licenses:[]}}},dir,async url=>{
+   assert.ok(!url.includes('api.github.com'));if(++attempts===1)throw Error('temporary disconnect');return new Response(data);
+  });
+  assert.equal(attempts,2);
+ } finally {await rm(dir,{recursive:true,force:true});}
+});
+
+test('interrupted response bodies restart the file without writing partial bytes',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'omaax-stream-retry-'));let calls=0;
+ const body='# Complete',sha=createHash('sha1').update(`blob ${Buffer.byteLength(body)}\0`).update(body).digest('hex');
+ try{
+  await downloadSkill({origin:{url:'https://github.com/example/tools',path:'skills/selected',revision:'a'.repeat(40),manifest:{files:[{path:'SKILL.md',sha}],licenses:[]}}},dir,async()=>{
+   if(++calls===1)return new Response(new ReadableStream({start(c){c.enqueue(Buffer.from('# Partial'));c.error(Error('aborted'));}}));
+   return new Response(body);
+  });
+  assert.equal(calls,2);assert.equal(await readFile(path.join(dir,'SKILL.md'),'utf8'),body);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('pinned manifest downloads without GitHub API even when API is rate limited', async () => {
+  const dir=await mkdtemp(path.join(tmpdir(),'omaax-manifest-'));
+  const blob=s=>createHash('sha1').update(`blob ${Buffer.byteLength(s)}\0`).update(s).digest('hex');
+  const manifest={files:[{path:'SKILL.md',sha:blob('# Example')}],licenses:[{path:'LICENSE',sha:blob('MIT')}]};
+  const urls=[];
+  try {
+    await downloadSkill({origin:{url:'https://github.com/example/tools',path:'skills/selected',revision:'a'.repeat(40),manifest}},dir,async url=>{
+      urls.push(url);
+      if(url.startsWith('https://api.github.com')) return new Response('rate limited',{status:403});
+      return new Response(url.endsWith('/LICENSE')?'MIT':'# Example');
+    });
+    assert.equal(urls.length,2);assert.ok(urls.every(u=>u.startsWith('https://raw.githubusercontent.com/')));
+    assert.equal(await readFile(path.join(dir,'SKILL.md'),'utf8'),'# Example');
+  } finally {await rm(dir,{recursive:true,force:true});}
+});
+
+test('manifest rejects corrupt content, traversal and duplicate case-insensitive paths', async () => {
+  const origin={url:'https://github.com/example/tools',path:'skills/selected',revision:'a'.repeat(40)};
+  const dir=await mkdtemp(path.join(tmpdir(),'omaax-manifest-invalid-'));
+  try {
+    for(const files of [[{path:'../SKILL.md',sha:'b'.repeat(40)}],[{path:'SKILL.md',sha:'b'.repeat(40)},{path:'skill.md',sha:'b'.repeat(40)}]]) {
+      await assert.rejects(downloadSkill({origin:{...origin,manifest:{files,licenses:[]}}},dir,async()=>{throw Error('must not fetch');}),/路径|清单/);
+    }
+    await assert.rejects(downloadSkill({origin:{...origin,manifest:{files:[{path:'SKILL.md',sha:'b'.repeat(40)}],licenses:[]}}},dir,async()=>new Response('wrong bytes')),/校验失败/);
+    assert.deepEqual(await readdir(dir),[]);
+  } finally {await rm(dir,{recursive:true,force:true});}
+});
 
 const sha = 'a'.repeat(40);
 const skill = { origin: { url: 'https://github.com/example/tools', path: 'skills/selected', license: 'MIT' } };
@@ -134,4 +186,15 @@ test('rejects invalid source-guide references before making network requests', a
     {...guide,files:Array(17).fill('README.md')},{...guide,licenseFiles:['../LICENSE']},
     {...guide,instructions:''},{...guide,licenseFiles:['README.md']},
   ]) await assert.rejects(downloadSkill({...skill,id:'plant-guide',sourceGuide},'unused',()=>{throw Error('Network must not run')}),/无效|不安全|只允许/);
+});
+
+test('verified revision avoids HEAD drift and preserves exact source provenance', async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'omaax-pin-test-'));const m=mock();
+ try{await downloadSkill({...skill,origin:{...skill.origin,revision:sha}},dir,m.fetch);
+ assert.ok(!m.urls.some(u=>u.includes('/commits/HEAD')));
+ assert.equal(JSON.parse(await readFile(path.join(dir,'.omaax-source.json'),'utf8')).commit,sha);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('known unavailable tools fail before any download or writes',async()=>{
+ await assert.rejects(downloadSkill({...skill,unavailableReason:'上游已移除'},'unused',()=>{throw Error('must not fetch');}),/上游已移除/);
 });

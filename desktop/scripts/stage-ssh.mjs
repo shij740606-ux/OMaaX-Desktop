@@ -6,7 +6,7 @@ const directory = fileURLToPath(new URL('../resources/ssh/', import.meta.url));
 for (const plugin of ['workflow-guard','step-guard','auth-guard']) {
   const directory=new URL('../dsh-runtime/node_modules/@biodsh/'+plugin+'/',import.meta.url);
   mkdirSync(directory,{recursive:true});
-  for(const file of ['index.js','package.json',...(plugin==='auth-guard'?['image.js']:[])])copyFileSync(new URL('../dsh-plugins/'+plugin+'/'+file,import.meta.url),new URL(file,directory));
+  for(const file of ['index.js','package.json',...(plugin==='auth-guard'?['image.js','local.js']:[])])copyFileSync(new URL('../dsh-plugins/'+plugin+'/'+file,import.meta.url),new URL(file,directory));
 }
 const stamp = new URL('../resources/ssh/.stage-lock', import.meta.url);
 const fingerprint = createHash('sha256').update(readFileSync(new URL('../resources/ssh/package-lock.json', import.meta.url))).digest('hex');

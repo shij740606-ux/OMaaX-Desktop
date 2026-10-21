@@ -1,4 +1,4 @@
-import os,tempfile,types,unittest
+import io,os,tempfile,types,unittest
 from pathlib import Path
 from unittest.mock import patch
 import conda_runtime as c
@@ -27,4 +27,11 @@ class DirectTests(unittest.TestCase):
    with patch.object(c,'network_run',return_value=1),patch.object(c.user_runtime,'manager',return_value=('conda','/conda')),patch.object(c.user_runtime,'cached_explicit',return_value=None):
     with self.assertRaisesRegex(ValueError,'原有环境未改变'):c.create(types.SimpleNamespace(root=lambda:base),['missing'],['conda-forge'],None)
    self.assertEqual(list(base.rglob('ready.json')),[])
+ def test_broken_manager_bootstraps_before_environment_install(self):
+  with tempfile.TemporaryDirectory() as folder:
+   base=Path(folder);log=io.BytesIO()
+   with patch.object(c.user_runtime,'manager',side_effect=[None,('micromamba','/private/micromamba')]),patch.object(c.user_runtime,'install') as repair,patch.object(c.user_runtime,'cached_explicit',return_value=None),patch.object(c,'network_run',return_value=1):
+    with self.assertRaisesRegex(ValueError,'原有环境未改变'):c.create(types.SimpleNamespace(root=lambda:base),['python'],['conda-forge'],log)
+    repair.assert_called_once()
+   self.assertIn('独立用户安装器',log.getvalue().decode());self.assertEqual(list(base.rglob('ready.json')),[])
 if __name__=='__main__':unittest.main()

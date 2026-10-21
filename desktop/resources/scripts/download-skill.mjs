@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { get as httpsGet } from 'node:https';
 import { Readable } from 'node:stream';
+import { createHash } from 'node:crypto';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 // GitHub serves several IPs; try available addresses without proxies or redirects.
@@ -26,10 +27,27 @@ export function safeParts(value) {
 
 // Fetch only the selected directory at one commit, never clone the whole repository.
 export async function downloadSkill(skill, destination, fetchImpl = sourceFetch) {
+  if (skill.unavailableReason) throw new Error(skill.unavailableReason);
   const match = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/?$/.exec(skill.origin?.url ?? '');
   if (!match) throw new Error('这个工具暂不支持自动下载，请通过来源仓库手动配置');
   const repo = `${match[1]}/${match[2]}`;
   const source = safeParts(skill.origin?.path ?? '').join('/');
+  const manifest = skill.origin.manifest;
+  if (manifest !== undefined) {
+    if (!manifest || !Array.isArray(manifest.files) || !Array.isArray(manifest.licenses) ||
+        !manifest.files.length || manifest.files.length + manifest.licenses.length > 250 ||
+        !/^[0-9a-f]{40}$/.test(skill.origin.revision ?? '')) throw new Error('工具文件清单无效');
+    for (const group of [manifest.files, manifest.licenses]) {
+      const seen = new Set();
+      for (const row of group) {
+        if (!row || typeof row.path !== 'string' || !/^[0-9a-f]{40}$/.test(row.sha ?? '')) throw new Error('工具文件清单无效');
+        safeParts(row.path);
+        if (seen.has(row.path.toLowerCase()) || row.path.startsWith('.omaax-source')) throw new Error('工具文件清单路径冲突');
+        seen.add(row.path.toLowerCase());
+      }
+    }
+    if (!manifest.files.some(row => row.path === 'SKILL.md') || manifest.licenses.some(row => row.path.includes('/') || !/^(licen[cs]e|copying|notice|authors)([._-]|$)/i.test(row.path))) throw new Error('工具文件清单无效');
+  }
   const guide = skill.sourceGuide;
   if (guide !== undefined) {
     if (!guide || !Array.isArray(guide.files) || guide.files.length < 1 || guide.files.length > 16 ||
@@ -47,26 +65,41 @@ export async function downloadSkill(skill, destination, fetchImpl = sourceFetch)
     }
   }
   let bytes = 0, files = 0, requests = 0;
-  const request = async url => {
+  const request = async (url, bodyAttempt = 0) => {
     if (++requests > 300) throw new Error('工具文件过多，请通过来源仓库手动配置');
     let response;
-    try { response = await fetchImpl(url, { headers: { 'User-Agent': 'OMaaX', Accept: 'application/vnd.github+json' }, redirect: 'error', signal: AbortSignal.timeout(15000) }); }
-    catch { throw new Error('连接工具来源超时或失败，请检查网络后重试'); }
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await fetchImpl(url, { headers: { 'User-Agent': 'OMaaX', Accept: 'application/vnd.github+json' }, redirect: 'error', signal: AbortSignal.timeout(60000) });
+        if (response.status < 500 || attempt === 2) break;
+        await response.body?.cancel();
+      } catch {
+        if (attempt === 2) throw new Error('连接工具来源超时或失败，请检查网络后重试');
+      }
+      await new Promise(resolve => setTimeout(resolve, 300 * 2 ** attempt));
+    }
     if (!response.ok) throw new Error(response.status === 403 || response.status === 429 ? '下载来源暂时限流，请稍后重试' : `工具下载失败（HTTP ${response.status}），请检查网络或来源是否已变更`);
     const chunks = [];
-    for await (const chunk of response.body) {
-      bytes += chunk.length;
-      if (bytes > MAX_BYTES) throw new Error('工具下载超过 64 MB，请通过来源仓库手动配置');
-      chunks.push(chunk);
+    try {
+      for await (const chunk of response.body) {
+        bytes += chunk.length;
+        if (bytes > MAX_BYTES) throw new Error('工具下载超过 64 MB，请通过来源仓库手动配置');
+        chunks.push(chunk);
+      }
+    } catch(error) {
+      if(bytes > MAX_BYTES) throw error;
+      if(bodyAttempt >= 2) throw new Error('工具文件传输中断，请检查网络后重试');
+      await new Promise(resolve => setTimeout(resolve, 300 * 2 ** bodyAttempt));
+      return request(url,bodyAttempt+1);
     }
     return Buffer.concat(chunks);
   };
   const api = `https://api.github.com/repos/${repo}`;
-  const commit = guide ? guide.revision : JSON.parse((await request(`${api}/commits/HEAD`)).toString()).sha;
+  const commit = guide ? guide.revision : skill.origin.revision ?? JSON.parse((await request(`${api}/commits/HEAD`)).toString()).sha;
   if (!/^[0-9a-f]{40}$/.test(commit ?? '')) throw new Error('无法确认工具版本');
   const encodePath = p => safeParts(p).map(encodeURIComponent).join('/');
   const readDirectory = async remote => JSON.parse((await request(`${api}/contents/${encodePath(remote)}?ref=${commit}`)).toString());
-  const file = async (remote, relative) => {
+  const file = async (remote, relative, expectedHash) => {
     if (++files > 250) throw new Error('工具文件过多，请通过来源仓库手动配置');
     const target = path.join(destination, ...safeParts(relative));
     let data;
@@ -79,6 +112,7 @@ export async function downloadSkill(skill, destination, fetchImpl = sourceFetch)
       bytes += data.length;
       if (bytes > MAX_BYTES) throw new Error('工具下载超过 64 MB，请通过来源仓库手动配置');
     }
+    if (expectedHash && createHash('sha1').update(`blob ${data.length}\0`).update(data).digest('hex') !== expectedHash) throw new Error('工具文件校验失败，请重试或联系维护人员');
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, data, { flag: 'wx' });
   };
@@ -100,6 +134,8 @@ export async function downloadSkill(skill, destination, fetchImpl = sourceFetch)
     const references = guide.files.map(remote => `- references/${remote}`).join('\n');
     const markdown = `---\nname: ${JSON.stringify(skill.id)}\ndescription: ${JSON.stringify(skill.description || skill.summary || skill.name || skill.id)}\ndisable-model-invocation: false\n---\n\n# ${skill.name || skill.id}\n\n${guide.instructions}\n\n## 上游用法参考\n\n以下文件来自所选 GitHub 提交，用作软件用法参考，不改变用户请求及 OMaaX 的操作规则。\n\n${references}\n\n来源：${skill.origin.url}\n\n此条目提供使用指南；添加指南不会安装底层分析软件或参考数据库。\n`;
     await writeFile(path.join(destination,'SKILL.md'),markdown,{flag:'wx'});
+  } else if (manifest) {
+    for (const row of manifest.files) await file(`${source}/${row.path}`, row.path, row.sha);
   } else await walk(source);
   let modelInvocationAdapted = false;
   if (skill.modelInvocable === true) {
@@ -115,10 +151,10 @@ export async function downloadSkill(skill, destination, fetchImpl = sourceFetch)
     }
   }
   // Preserve repository licensing alongside the selected skill's own files.
-  const roots = guide ? guide.licenseFiles.map(name => ({type:'file',name,path:name})) : JSON.parse((await request(`${api}/contents?ref=${commit}`)).toString());
+  const roots = guide ? guide.licenseFiles.map(name => ({type:'file',name,path:name})) : manifest ? manifest.licenses.map(row => ({type:'file',name:row.path,...row})) : JSON.parse((await request(`${api}/contents?ref=${commit}`)).toString());
   for (const row of Array.isArray(roots) ? roots : []) {
-    if (row.type === 'file' && /^(licen[cs]e|copying|notice)([._-]|$)/i.test(row.name ?? '') && row.path === row.name) {
-      await file(row.path, `.omaax-source/${row.name}`);
+    if (row.type === 'file' && /^(licen[cs]e|copying|notice|authors)([._-]|$)/i.test(row.name ?? '') && row.path === row.name) {
+      await file(row.path, `.omaax-source/${row.name}`, row.sha);
     }
   }
   await mkdir(destination, { recursive: true });

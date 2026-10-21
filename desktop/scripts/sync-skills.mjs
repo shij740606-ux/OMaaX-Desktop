@@ -106,6 +106,7 @@ if (existsSync(communityIndex)) {
       inputs: [], outputs: [], offline: false, mutates_input: false, version: c.version ?? '1.0.0',
       evidence: null, featured: false, requires: { python: !!c.has_scripts, env: 'bioenv' },
       tier: 'community', bundle: 'community-skills', origin: c.origin, has_scripts: !!c.has_scripts,
+      ...(c.unavailableReason ? { unavailableReason: c.unavailableReason } : {}),
       ...(c.modelInvocable === true ? { modelInvocable: true } : {}),
       ...(c.sourceGuide ? { sourceGuide: c.sourceGuide } : {}),
     }); });

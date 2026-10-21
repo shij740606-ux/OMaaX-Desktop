@@ -46,8 +46,16 @@ jobs:
           npx tauri build --bundles app,dmg
       - name: Inspect native runtime and application
         run: |
-          file src-tauri/target/release/bundle/macos/OMaaX.app/Contents/MacOS/OMaaX
-          resources/node/darwin-current/bin/node --version
+          test "$(uname -m)" = arm64
+          app=src-tauri/target/release/bundle/macos/OMaaX.app
+          file "$app/Contents/MacOS/OMaaX" | tee macos-verification.txt
+          file "$app/Contents/MacOS/OMaaX" | grep -q arm64
+          "$app/Contents/Resources/node/bin/node" --version | tee -a macos-verification.txt
+          cmp dsh-plugins/auth-guard/local.js "$app/Contents/Resources/dsh/node_modules/@biodsh/auth-guard/local.js"
+          cmp dsh-plugins/auth-guard/index.js "$app/Contents/Resources/dsh/node_modules/@biodsh/auth-guard/index.js"
+          cmp resources/scripts/download-skill.mjs "$app/Contents/Resources/scripts/download-skill.mjs"
+          cmp resources/skills/catalog.json "$app/Contents/Resources/skills/catalog.json"
+          hdiutil verify src-tauri/target/release/bundle/dmg/*.dmg >> macos-verification.txt
           shasum -a 256 src-tauri/target/release/bundle/dmg/*.dmg > installer-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
@@ -55,5 +63,6 @@ jobs:
           path: |
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
             desktop/installer-sha256.txt
+            desktop/macos-verification.txt
           if-no-files-found: error
           retention-days: 14

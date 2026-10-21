@@ -15,7 +15,7 @@ test('community catalog is generated without downloading community resources', (
   writeFileSync(path.join(root, 'desktop/store/community-index.json'), JSON.stringify({ skills: [
     { id: 'example', name: 'Example', description: 'Test fixture', origin: { repo: 'example' } },
     { id: 'population-example', name: 'Population example', category: 'genomics', has_scripts: true, modelInvocable: true,
-      origin: { repo: 'Example', url: 'https://github.com/example/tools', path: 'skills/population', license: 'MIT' } },
+      origin: { repo: 'Example', url: 'https://github.com/example/tools', path: 'skills/population', license: 'MIT', revision:'a'.repeat(40), manifest:{files:[{path:'SKILL.md',sha:'b'.repeat(40)}],licenses:[]} } },
     {id:'plant-guide',name:'Plant guide',has_scripts:false,origin:{repo:'Example',url:'https://github.com/example/plant',path:'README.md',license:'MIT'},
       sourceGuide:{revision:'a'.repeat(40),files:['README.md'],licenseFiles:['LICENSE'],instructions:'Use only this tool',requirements:'R'}},
   ] }));
@@ -37,6 +37,8 @@ test('community catalog is generated without downloading community resources', (
   assert.equal(population.name, '群体结构分析');
   assert.equal(population.origin.path, 'skills/population');
   assert.equal(population.origin.license, 'MIT');
+  assert.equal(population.origin.revision, 'a'.repeat(40));
+  assert.deepEqual(population.origin.manifest.files,[{path:'SKILL.md',sha:'b'.repeat(40)}]);
   assert.equal(population.has_scripts, true);
   assert.equal(population.modelInvocable, true);
   assert.equal(population.bundle, 'community-skills');

@@ -75,7 +75,7 @@ export default function ChatView() {
           )}
         </div>
       </header>
-      {currentSession&&<div className="px-5 py-2 hairline-b t-caption">本段已调用 {budget.calls||0} 次 · {budget.reported?`${budget.tokens||0} tokens`:'用量待服务商返回'}；费用以服务商账单为准。{(budget.failures||0)>=3&&<span> 连续修复失败，已暂停自动重试。<button className="btn btn-tint" onClick={()=>{if(window.confirm('继续尝试修复可能产生费用。是否继续？'))void window.biodsh.dshRpc('session.budgetReset',{sessionId:currentSession}).then(v=>setBudget(v as typeof budget));}}>继续修复</button></span>}</div>}
+      {currentSession&&<div className="px-5 py-2 hairline-b t-caption">本段已调用 {budget.calls||0} 次 · {budget.reported?`${budget.tokens||0} tokens`:'用量待服务商返回'}；费用以服务商账单为准。{(budget.failures||0)>=3&&<span> 普通分析连续失败，环境配置和流程参数调整仍可继续。<button className="btn btn-tint" onClick={()=>{if(window.confirm('继续尝试修复可能产生费用。是否继续？'))void window.biodsh.dshRpc('session.budgetReset',{sessionId:currentSession}).then(v=>setBudget(v as typeof budget));}}>继续修复</button></span>}</div>}
       {workflow&&<div className="flex items-center justify-between px-5 py-2 hairline-b" style={{background:'var(--accent-soft)'}}><span>已选择一体化分析流程：{workflow.name}</span><button className="btn btn-ghost" onClick={()=>setTab('workflows')}>查看流程与确认计划</button></div>}
       {deleteServers.length>0&&<div className="max-h-[35vh] overflow-auto">{deleteServers.map(server=><ServerDeleteRequests key={server} server={server} sessionId={currentSession||undefined}/>)}</div>}
       <div ref={areaRef} className="flex-1 min-h-0 relative" style={{ background: 'var(--surface)' }}>

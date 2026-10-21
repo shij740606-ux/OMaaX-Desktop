@@ -35,6 +35,21 @@ class PreflightTests(unittest.TestCase):
     def test_login_node_only_submits(self):
         self.start()
 
+    def test_authorized_plan_submits_without_another_user_confirmation(self):
+        intent = {'source': 'user', 'executionRequested': True, 'sessionId': 'test', 'seq': 4}
+        plan = {'plan': {'id': 'task-1'}, 'digest': 'fixed', 'confirmed': False,
+                'state': 'awaiting_confirmation'}
+        self.r.dispatch.return_value = {'id': 'task-1', 'state': 'queued'}
+        result = p.complete(self.r, plan, intent)
+        self.assertTrue(result['confirmed'])
+        self.assertEqual(result['state'], 'queued')
+        self.assertEqual(self.r.dispatch.call_args.args[0]['body']['intent'], intent)
+
+    def test_plan_only_never_submits(self):
+        plan = {'plan': {'id': 'task-1'}, 'confirmed': False, 'state': 'awaiting_confirmation'}
+        self.assertEqual(p.complete(self.r, plan, None), plan)
+        self.r.dispatch.assert_not_called()
+
     def test_same_user_intent_has_one_operation(self):
         intent = {'source': 'user', 'executionRequested': True, 'seq': 1, 'sessionId': 'test'}
         self.assertEqual(self.start(intent), self.start(intent))

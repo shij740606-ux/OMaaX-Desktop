@@ -1,4 +1,4 @@
-"""Conda-managed user runtime; preserve protected rootless execution and existing environments."""
+"""Discover working user-level installers without modifying existing site environments."""
 import hashlib,json,os,shutil,subprocess,tempfile,sys
 from pathlib import Path
 
@@ -18,16 +18,22 @@ def activate():
 
 def manager():
     """Reuse a site installation read-only; new environments always use private prefixes."""
+    candidates=[('micromamba',str(prefix().parent/'micromamba'))]
     for name in ('micromamba','conda'):
         executable=shutil.which(name)
-        if executable:return name,executable
-    candidates=[os.environ.get('CONDA_EXE',''),str(Path(sys.executable).parent/'conda')]
+        if executable:candidates.append((name,executable))
+    candidates += [('conda',os.environ.get('CONDA_EXE','')),('conda',str(Path(sys.executable).parent/'conda'))]
     for base in (Path.home()/'miniforge3',Path.home()/'miniconda3',Path.home()/'anaconda3',
                  Path.home().parent.parent/'apps/Anaconda3',Path('/opt/conda'),Path('/opt/anaconda3')):
-        candidates.append(str(base/'bin/conda'))
-    for candidate in candidates:
+        candidates.append(('conda',str(base/'bin/conda')))
+    for kind,candidate in dict.fromkeys(candidates):
         if candidate and Path(candidate).is_file() and os.access(candidate,os.X_OK):
-            return 'conda',candidate
+            try:
+                env={k:v for k,v in os.environ.items() if k not in ('PYTHONHOME','PYTHONPATH')}
+                probe=subprocess.run([candidate,'--version'],env=env,capture_output=True,text=True,timeout=10)
+                if probe.returncode==0:return kind,candidate
+            except (OSError,subprocess.TimeoutExpired):
+                pass
     return None
 
 def package_caches():

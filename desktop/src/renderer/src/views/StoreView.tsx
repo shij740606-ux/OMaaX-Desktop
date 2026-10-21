@@ -234,13 +234,13 @@ function SkillCard({ skill, onOpen }: { skill: CatalogSkill; onOpen: () => void 
   const st = statuses[skill.id]?.state;
   return (
     <div className="card card-hover p-4 flex flex-col gap-2.5 rise omaax-tool-card" onClick={onOpen}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 flex-wrap">
         <Icon skill={skill} size={40} />
         <div className="flex-1 min-w-0">
           <div className="t-headline truncate" title={skillName(skill, lang)}>{skillName(skill, lang)}</div>
-          <div className="t-caption truncate">{skill.tier === 'community' ? skill.origin?.repo : `v${skill.version}`}{st === 'installed' ? ` · ${t('已安装')}` : ''}</div>
+          <div className="t-caption truncate">{skill.tier === 'community' ? t('OMaaX 扩展工具') : `v${skill.version}`}{st === 'installed' ? ` · ${t('已安装')}` : ''}</div>
         </div>
-        <div onClick={(e) => e.stopPropagation()}><InstallButton skill={skill} /></div>
+        <div className="w-full" onClick={(e) => e.stopPropagation()}><InstallButton skill={skill} /></div>
       </div>
       <div className="t-body" style={{ color: 'var(--text-2)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 54 }}>{skillSummary(skill, lang)}</div>
       <div className="flex flex-wrap gap-1.5"><Badges skill={skill} /></div>
@@ -267,7 +267,7 @@ function DetailSheet({ skill, onClose, rating, onRate }: { skill: CatalogSkill; 
           <Icon skill={skill} size={64} />
           <div className="flex-1 min-w-0">
             <div className="t-title1 truncate">{skillName(skill, lang)}</div>
-            <div className="t-caption mt-1 truncate">{community ? `${t('扩展工具')} · ${skill.origin?.repo}` : t('OMaaX 官方')} · {skill.id}{st?.installedVersion ? ` · ${t('已安装 v{v}', { v: st.installedVersion })}` : ''}</div>
+            <div className="t-caption mt-1 truncate">{community ? t('OMaaX 扩展工具') : t('OMaaX 官方')} · {skill.id}{st?.installedVersion ? ` · ${t('已安装 v{v}', { v: st.installedVersion })}` : ''}</div>
             <div className="flex flex-wrap gap-1.5 mt-3"><Badges skill={skill} /></div>
           </div>
           <div className="flex flex-col items-end gap-2">

@@ -1,0 +1,27 @@
+{
+  "node": {
+    "passed": 152,
+    "failed": 0
+  },
+  "python": {
+    "passed": 172,
+    "skipped": 31,
+    "failed": 0
+  },
+  "native": {
+    "passed": 47,
+    "ignored": 3,
+    "failed": 0
+  },
+  "typecheck": "passed",
+  "localHarness": {
+    "realBundledRuntime": true,
+    "fixtureModelEndpoint": true,
+    "selectedWorkflowAndServer": true,
+    "localCsvSum": 6,
+    "inputPreserved": true
+  },
+  "liveCompanyModelTested": false,
+  "realClusterTested": false,
+  "installerRun": false
+}

@@ -41,7 +41,7 @@ class ManagementTests(unittest.TestCase):
    info=self.call('initialize',actor='user');self.assertTrue(Path(info['workspace']).is_dir());self.assertEqual(info['setup']['state'],'idle');command.assert_not_called()
  def test_setup_start_is_idempotent_and_restart_respects_saved_completion(self):
   fake=types.SimpleNamespace(flock=Mock(),LOCK_EX=1,LOCK_NB=2)
-  with patch.dict(sys.modules,{'fcntl':fake}),patch.object(setup.subprocess,'Popen') as launch,patch.object(setup.shutil,'which',return_value='/usr/bin/podman'):
+  with patch.dict(sys.modules,{'fcntl':fake}),patch.object(setup.subprocess,'Popen') as launch,patch('user_runtime.manager',return_value=('conda','/site/bin/conda')):
    a=self.call('setup_start',actor='user');b=self.call('setup_start',actor='user');self.assertEqual(a['id'],b['id']);self.assertEqual(launch.call_count,1)
    setup.save(r,{**a,'state':'complete','execution':'direct-v1'});self.assertEqual(self.call('setup_start',actor='user')['state'],'complete');self.assertEqual(launch.call_count,1)
    self.call('setup_start',{'retry':True},'user');self.assertEqual(launch.call_count,2)

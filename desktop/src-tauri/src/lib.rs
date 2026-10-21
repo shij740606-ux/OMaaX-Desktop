@@ -1,6 +1,8 @@
 //! OMaaX Desktop（Tauri 版）主进程：一个无边框窗口里放两个 WebView —— "ui"（我们的 React 壳子）
 //! 和 "dsh"（dsh web 原版界面，作为子视图贴在对话页的内容区）。
 mod dsh;
+mod instance;
+mod child_job;
 mod company_llm;
 pub use hub_auth::company_session_cli;
 mod hub_auth;
@@ -20,6 +22,7 @@ mod platform_mcp;
 pub use platform_mcp::run as run_platform_mcp;
 mod knowledge;
 mod ssh_hosts;
+mod ssh_pool;
 mod personal_compute;
 pub use ssh_hosts::run_mcp;
 mod pyenv;
@@ -1214,6 +1217,7 @@ async fn hub_login(app: AppHandle, state: State<'_, AppState>, hub: String, user
         }
         Ok::<(),String>(())
     }).await.map_err(|e|e.to_string())??;
+    instance::release();
     app.restart();
 }
 #[tauri::command]
@@ -1230,6 +1234,7 @@ async fn hub_forget_login(webview:tauri::Webview)->Result<(),String>{
 async fn hub_logout(app: AppHandle, state: State<'_, AppState>) -> Result<(),String> {
     company_llm::stop(); education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); }
     tauri::async_runtime::spawn_blocking(hub_auth::logout).await.map_err(|e|e.to_string())??;
+    instance::release();
     app.restart();
 }
 #[tauri::command]
@@ -1240,12 +1245,31 @@ async fn hub_admin(app:AppHandle,state:State<'_,AppState>) -> Result<(),String> 
 }
 
 pub fn run() {
+    let base=instance::data_root();
+    match instance::claim(&base) {
+        Ok(true)=>{},
+        Ok(false)=>return,
+        Err(error)=>panic!("无法保护对话数据目录：{error}"),
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let handle = app.handle().clone();
+            let activation=instance::data_root().join(".desktop-activate");
+            let focus_handle=handle.clone();
+            std::thread::spawn(move || {
+                let mut previous=std::fs::read_to_string(&activation).unwrap_or_default();
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    let current=std::fs::read_to_string(&activation).unwrap_or_default();
+                    if current!=previous {
+                        previous=current;
+                        if let Some(window)=focus_handle.get_window("main") {let _=window.unminimize();let _=window.show();let _=window.set_focus();}
+                    }
+                }
+            });
             let paths = AppPaths::detect(&handle);
             // 版本升级后 WebView2 可能继续用缓存里的旧页面（程序是新的、界面是旧的）。
             // 版本号变化时清掉 HTTP/代码缓存（保留 localStorage 等站点数据）。
@@ -1310,8 +1334,14 @@ pub fn run() {
             });
             true
         })
-        .run(tauri::generate_context!())
-        .expect("error while running OMaaX");
+        .build(tauri::generate_context!())
+        .expect("error while building OMaaX")
+        .run(|app,event| {
+            if matches!(event,tauri::RunEvent::Exit) {
+                if let Some(st)=app.try_state::<AppState>() {st.dsh.stop(app);}
+                company_llm::stop();education::stop();instance::release();
+            }
+        });
 }
 
 #[tauri::command]

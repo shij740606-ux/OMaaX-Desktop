@@ -27,7 +27,8 @@ export interface CatalogSkill {
   requires: { python: boolean; env: string };
   tier: 'official' | 'community';
   bundle: 'skills' | 'community-skills';
-  origin?: { repo: string; url: string; path: string; license: string };
+  origin?: { repo: string; url: string; path: string; license: string; revision?: string; manifest?: { files: {path: string; sha: string}[]; licenses: {path: string; sha: string}[] } };
+  unavailableReason?: string;
   has_scripts?: boolean;
   modelInvocable?: boolean;
   sourceGuide?: { files: string[]; instructions: string; requirements: string; revision: string; licenseFiles: string[] };

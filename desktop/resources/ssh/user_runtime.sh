@@ -12,6 +12,7 @@ omaax_find_python() {
 }
 omaax_install_runtime() (
   set -eu
+  unset PYTHONHOME PYTHONPATH
   umask 077
   [ "$(id -u)" != 0 ] || { echo '请使用普通服务器账号准备环境' >&2; exit 1; }
   [ ! -L "$HOME/omaax" ] && [ ! -L "$omaax_runtime_root" ] && [ ! -L "$omaax_runtime_env" ] || { echo '环境目录不能是符号链接' >&2; exit 1; }
@@ -46,13 +47,14 @@ omaax_install_runtime() (
   [ ! -L "$omaax_runtime_root/micromamba" ] || exit 1
   tar -xjOf "$omaax_archive" bin/micromamba > "$omaax_runtime_root/micromamba"
   chmod 700 "$omaax_runtime_root/micromamba"
+  "$omaax_runtime_root/micromamba" --version >&2 || { echo '独立安装器无法运行，请检查服务器系统兼容性；原有 Conda 未修改' >&2; exit 1; }
   export MAMBA_ROOT_PREFIX="$omaax_runtime_root/mamba"
   omaax_operation=create
   [ ! -f "$omaax_runtime_env/conda-meta/history" ] || omaax_operation=install
   if [ "${1:-python}" = analysis ]; then
-    "$omaax_runtime_root/micromamba" --no-rc "$omaax_operation" --yes --prefix "$omaax_runtime_env" --override-channels --channel-priority strict -c conda-forge 'python=3.12' micromamba pyyaml >&2
+    "$omaax_runtime_root/micromamba" --no-rc "$omaax_operation" --yes --prefix "$omaax_runtime_env" --override-channels --channel-priority strict -c "${OMAAX_BOOTSTRAP_CHANNEL:-conda-forge}" "python=${OMAAX_BOOTSTRAP_PYTHON:-3.12}" micromamba pyyaml >&2
   else
-    "$omaax_runtime_root/micromamba" --no-rc "$omaax_operation" --yes --prefix "$omaax_runtime_env" --override-channels --channel-priority strict -c conda-forge 'python=3.12' >&2
+    "$omaax_runtime_root/micromamba" --no-rc "$omaax_operation" --yes --prefix "$omaax_runtime_env" --override-channels --channel-priority strict -c "${OMAAX_BOOTSTRAP_CHANNEL:-conda-forge}" "python=${OMAAX_BOOTSTRAP_PYTHON:-3.12}" >&2
   fi
 )
 omaax_prepare_python() {

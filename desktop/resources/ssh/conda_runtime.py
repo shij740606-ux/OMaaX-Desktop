@@ -81,7 +81,11 @@ def create(r,packages,channels,log,context=None):
             if source.is_dir():shutil.copytree(source,opt/'omaax'/name)
             elif source.is_file():(opt/'omaax'/name).write_text(translate(source.read_text(),{'/opt':str(opt)}))
     manager=user_runtime.manager()
-    if not manager:raise ValueError('未找到 Conda；请先准备服务器环境')
+    if not manager:
+        log.write('未找到可运行的 Conda，正在准备独立用户安装器；已有环境不修改。\n'.encode());log.flush()
+        user_runtime.install()
+        manager=user_runtime.manager()
+    if not manager:raise ValueError('用户安装器准备未完成，请检查环境安装日志')
     kind,executable=manager
     base=[executable,*(['--no-rc'] if kind=='micromamba' else [])]
     install_command=[*base,'create','--yes','--prefix','/opt/conda','--override-channels',*[v for c in channels for v in ('-c',c)],*packages]

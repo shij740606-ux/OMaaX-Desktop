@@ -7,14 +7,14 @@ export default function InstallButton({ skill, size = 'sm' }: { skill: CatalogSk
   const status = statuses[skill.id];
   const installed = status?.state === 'installed' || status?.state === 'update_available';
   const pending = !!busy[skill.id];
-  return <div className="flex flex-col items-end gap-1">
+  return <div className="flex flex-col items-end gap-1 max-w-full">
     <button className={`btn ${installed ? 'btn-ghost' : 'btn-tint'} ${size === 'sm' ? '!h-7 !px-2 text-xs' : ''}`}
-      disabled={installed || pending}
+      disabled={installed || pending || !!skill.unavailableReason}
       onClick={e => { e.stopPropagation(); void install(skill.id); }}
       title={skill.tier === 'community' ? '只下载这个工具，不安装其他工具或运行依赖' : '添加此基础工具，运行环境按需配置'}>
       {pending ? <Loader2 size={14} className="animate-spin" /> : installed ? <Check size={14} /> : <Download size={14} />}
-      {pending ? '正在添加…' : installed ? '已添加' : status?.error ? '重试添加' : '添加'}
+      {pending ? '正在添加…' : installed ? '已添加' : skill.unavailableReason ? '来源暂不可用' : status?.error ? '重试添加' : '添加'}
     </button>
-    {status?.error && <span role="alert" className="text-xs max-w-64 text-right break-words" style={{color:'var(--red)'}}>{status.error}</span>}
+    {!installed && (skill.unavailableReason || status?.error) && <span role="alert" className="text-xs max-w-64 text-right break-words" style={{color:'var(--red)'}}>{skill.unavailableReason || status?.error}</span>}
   </div>;
 }

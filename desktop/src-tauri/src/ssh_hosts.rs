@@ -154,11 +154,39 @@ fn validate_command(command: &str) -> Result<(), String> {
     if command.len() > 6 * 1024 * 1024 || command.contains('\0') { return Err("执行内容超过 6 MB 或包含无效字符".into()); }
     Ok(())
 }
+fn environment_command(action: &str) -> Result<String, String> {
+    if !matches!(action, "inspect" | "repair" | "status") { return Err("环境操作无效".into()); }
+    Ok(format!("{}\nomaax_repair_action={}\n{}", include_str!("../../resources/ssh/user_runtime.sh"), action, include_str!("../../resources/ssh/environment_repair.sh")))
+}
+fn environment_options(args: &Value) -> Result<String, String> {
+    let python=args["pythonVersion"].as_str().unwrap_or("3.12");
+    let channel=args["channel"].as_str().unwrap_or("conda-forge");
+    if !matches!(python,"3.10"|"3.11"|"3.12") || channel.is_empty() || channel.len()>512
+        || !channel.chars().all(|c|c.is_ascii_alphanumeric() || "-_./:".contains(c))
+        || !(channel=="conda-forge" || channel.starts_with("https://")) {
+        return Err("请使用支持的 Python 版本和 HTTPS Conda 软件源".into());
+    }
+    Ok(format!("export OMAAX_BOOTSTRAP_PYTHON='{python}' OMAAX_BOOTSTRAP_CHANNEL='{channel}'\n"))
+}
+fn repair_environment(root: &Path, node: &Path, script: &Path, args: &Value) -> Result<Value, String> {
+    let id=args["serverId"].as_str().ok_or("缺少服务器编号")?;
+    if !list(root)?.iter().any(|host| host.id==id && host.selected) { return Err("该服务器未被用户选择，禁止连接".into()); }
+    let command=environment_options(args)?+&environment_command(args["action"].as_str().unwrap_or("inspect"))?;
+    let result=call(root,node,script,id,"execute",&command,900,false)?;
+    if result["exitCode"].as_i64()!=Some(0) {
+        return Err(format!("SSH 环境修复未完成，原有数据保留。请根据日志继续诊断：{} {}",result["stdout"].as_str().unwrap_or(""),result["stderr"].as_str().unwrap_or("")));
+    }
+    Ok(result)
+}
+
 pub fn install_environment(root: &Path, node: &Path, script: &Path, id: &str) -> Result<Value,String> {
     // Reuse detached user-level setup; credentials and system package installation are never requested.
     crate::personal_compute::request(root,node,script,id,"setup_start",json!({"retry":true}),false)
 }
 pub(crate) fn run_request(node: &Path, script: &Path, request: Value) -> Result<Value,String> {
+    if script.file_name().and_then(|n|n.to_str())==Some("client.cjs") {
+        return crate::ssh_pool::request(node,script,request);
+    }
     let mut process = Command::new(node); process.arg(script).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     #[cfg(windows)] { use std::os::windows::process::CommandExt; process.creation_flags(0x0800_0000); }
     let mut child = process.spawn().map_err(|_| "SSH 运行时不可用，请重新构建或安装完整桌面程序".to_string())?;
@@ -221,14 +249,15 @@ pub fn run_mcp() {
             "initialize" => Ok(json!({"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "OMaaX SSH", "version": "1.0.0"}})),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": [
+                {"name":"server_environment","description":"Inspect or repair the user-owned runtime directly over SSH, without loading any remote Python or Conda first. DSH chooses pythonVersion and channel to match server compatibility and network. Use inspect for OS, architecture and bootstrap dependencies; use repair when Python/Conda cannot start (including GLIBC errors). Repair installs an independent user runtime, preserves existing Conda/data and returns a persistent log. Use status to retrieve logs after errors or disconnection. Then use workflow_prepare recipes for scientific packages/channels/scripts, server_files for inputs and workflow_plan for declared parameters. No sudo or Podman required. If repair fails, explain the actual log and missing network/system prerequisites; do not claim success.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"action":{"enum":["inspect","repair","status"]},"pythonVersion":{"enum":["3.10","3.11","3.12"]},"channel":{"type":"string","description":"conda-forge or an HTTPS Conda channel mirror"}},"required":["serverId","action"],"additionalProperties":false}},
                 {"name":"workflow_catalog","description":"List fixed workflows or obtain declared parameters for one workflow/step. Source software and step order are fixed; scientific parameter choices belong to the user. No biological approval checkpoints. Query workflow and step for detailed editable parameters.","inputSchema":{"type":"object","properties":{"workflow":{"enum":["gene_family","rnaseq","singlecell","spatial","metagenome","atacseq","chipseq","cutandrun","methylseq"]},"step":{"type":"string"}},"additionalProperties":false}},
                 {"name":"workflow_inspect","description":"Read only file names, sizes and text-table headers in a user-provided absolute input folder or registered source. Other account-readable reference paths can be inspected with server_files. Ask the user for sample groups or missing parameters; do not infer biological design.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"source":{"type":"string"},"input":{"type":"string"}},"required":["serverId","input"],"additionalProperties":false}},
                 {"name":"workflow_readiness","description":"Inspect required software and missing dependencies for selected steps before preparing or repairing the environment.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"type":"string"},"steps":{"type":"array","items":{"type":"string"}},"parameters":{"type":"object"},"configs":{"type":"object"}},"required":["serverId","workflow"],"additionalProperties":false}},
-                {"name":"workflow_prepare","description":"Prepare or repair selected step environments. Model controls per-step recipes: packages (Conda specs), channels and script (shell executed only inside a new isolated image without host data mounts). Omit recipes to use declared dependencies. Poll workflow_prepare_status; after failure revise recipes and retry. Existing environments are preserved until validation succeeds.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"type":"string"},"steps":{"type":"array","items":{"type":"string"}},"parameters":{"type":"object"},"configs":{"type":"object"},"recipes":{"type":"object","additionalProperties":{"type":"object","properties":{"packages":{"type":"array","items":{"type":"string"}},"channels":{"type":"array","items":{"type":"string"}},"script":{"type":"string"}},"additionalProperties":false}}},"required":["serverId","workflow","steps"],"additionalProperties":false}},
+                {"name":"workflow_prepare","description":"Prepare or repair selected step environments. Model controls per-step recipes: packages (Conda specs), channels and script (shell executed in a new user-owned Conda environment; preserve input files and use server_delete for all intentional deletions). Omit recipes to use declared dependencies. Poll workflow_prepare_status; after failure revise recipes and retry. Existing environments are preserved until validation succeeds.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"type":"string"},"steps":{"type":"array","items":{"type":"string"}},"parameters":{"type":"object"},"configs":{"type":"object"},"recipes":{"type":"object","additionalProperties":{"type":"object","properties":{"packages":{"type":"array","items":{"type":"string"}},"channels":{"type":"array","items":{"type":"string"}},"script":{"type":"string"}},"additionalProperties":false}}},"required":["serverId","workflow","steps"],"additionalProperties":false}},
                 {"name":"workflow_prepare_status","description":"Read environment installation progress and logs; diagnose failures, revise recipe and retry without asking user to configure software.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"type":"string"}},"required":["serverId","workflow"],"additionalProperties":false}},
                 {"name":"workflow_environment","description":"Register an existing immutable local image for a workflow or individual step; readiness must still pass.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"type":"string"},"image":{"type":"string"},"step":{"type":"string"}},"required":["serverId","workflow","image"],"additionalProperties":false}},
                 {"name":"workflow_plan","description":"Prepare any of the fixed pipelines. First collect the user-provided server, absolute data folder (or optional registered source and relative folder), selected stages and parameter choices. Parameters must follow workflow_catalog. Following a real user execution request, the native app validates and automatically submits this plan. Do not call this tool for plan-only discussions or explicit do-not-run requests; use workflow_catalog and workflow_inspect instead. No arbitrary command, image, script, environment or Nextflow config is allowed. Do not impose extra biological audit gates or independent-replicate minimums. The source software handles its own numerical requirements.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"workflow":{"enum":["gene_family","rnaseq","singlecell","spatial","metagenome","atacseq","chipseq","cutandrun","methylseq"]},"source":{"type":"string"},"input":{"type":"string","description":"Absolute path on the server (recommended), or relative data folder within source; dot means the chosen source folder."},"steps":{"type":"array","items":{"type":"string"}},"prefix":{"type":"string"},"parameters":{"type":"object","description":"Objects keyed by selected stage ID; only the CLI-declared typed fields."},"preferences":{"type":"object","properties":{"library_strandness":{"enum":["","non_stranded","forward","reverse"]}},"additionalProperties":false},"configs":{"type":"object","description":"Objects keyed by selected omics stage ID; use catalog defaults and user choices, paths may be absolute account-readable paths, relative to chosen input or @stage:artifact."},"cpu":{"type":"integer"},"memoryMb":{"type":"integer"},"timeoutSeconds":{"type":"integer"}},"required":["serverId","workflow","input"],"additionalProperties":false}},
-                {"name":"workflow_plans","description":"List saved fixed-workflow plans and actual execution states on a selected server. User confirmation is required; exit zero is not sufficient for successful results.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"],"additionalProperties":false}},
+                {"name":"workflow_plans","description":"List saved fixed-workflow plans and actual execution states on a selected server. Execution requests are submitted automatically after validation. Read the actual task state and outputs; exit zero alone does not prove successful results.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"],"additionalProperties":false}},
                 {"name":"workflow_result","description":"Read the actual executed steps, user parameters and result files of a fixed pipeline. Optionally provide file from the returned file list to read up to 64 KiB of actual text results for interpretation. No arbitrary paths.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"id":{"type":"string"},"file":{"type":"string"}},"required":["serverId","id"],"additionalProperties":false}},
                 {"name":"server_delete","description":"Delete only files explicitly requested by the user at account-permitted absolute paths. Moves to recoverable trash. Every deletion, including one small file, returns a pending preview. Explain exact paths, file/directory count, recursive scope and byte size in chat; wait for the user to confirm the deletion card. Never claim a pending request was executed; model cannot approve. No shell deletion or credential/control files.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"recursive":{"type":"boolean"}},"required":["serverId","path"],"additionalProperties":false}},
                 {"name":"server_write","description":"Write a new text or structured config file at any absolute server path writable by the SSH account. Directory creation is automatic. Existing files are not overwritten: a pending request is returned for explicit desktop user approval, with backup before replacement. No deletion or arbitrary host commands. Project/session filing is automatic.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"path":{"type":"string"},"content":{}},"required":["serverId","path","content"],"additionalProperties":false}},
@@ -245,11 +274,12 @@ pub fn run_mcp() {
                 {"name":"task_logs","description":"Read task logs. Defaults to the latest 64 KiB; returned segments and nextOffset allow reading complete archived logs without rerunning the task.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"id":{"type":"string"},"segment":{"type":"string"},"offset":{"type":"integer","minimum":0}},"required":["serverId","id"]}},
                 {"name":"cancel_task","description":"Request cancellation of this account's task; preserves original data and partial outputs.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"},"id":{"type":"string"}},"required":["serverId","id"]}},
                 {"name":"list_servers","description":"List only SSH servers explicitly selected by the user. Never request or expose credentials.","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
-                {"name":"get_resources","description":"Read CPU, memory, disk and GPU metrics on a selected host using a fixed read-only probe. Arbitrary SSH commands are disabled; use protected platform jobs for analysis.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"],"additionalProperties":false}}
+                {"name":"get_resources","description":"Read CPU, memory, disk and GPU metrics on a selected host using a fixed read-only probe. For environment installation and repair use workflow_prepare with packages, channels and script; it runs through SSH with the selected ordinary account. A broken site Conda is skipped and a private installer is prepared automatically. Use server_files to inspect inputs and workflow_plan for the fixed analysis.","inputSchema":{"type":"object","properties":{"serverId":{"type":"string"}},"required":["serverId"],"additionalProperties":false}}
             ]})),
             "tools/call" => {
                 let params = &request["params"];
                 let value = match params["name"].as_str().unwrap_or("") {
+                    "server_environment" => repair_environment(&root,&node,&script,&params["arguments"]),
                     "workflow_catalog" => crate::personal_compute::tool_catalog(&params["arguments"]),
                     "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "workflow_prepare" | "workflow_prepare_status" | "workflow_readiness" | "workflow_environment" | "workflow_inspect" | "workflow_plan" | "workflow_plans" | "workflow_result" => {
                         let mut args=params["arguments"].clone();
@@ -349,3 +379,23 @@ pub fn bind(root: &Path, id: &str, node_id: Option<String>) -> Result<Vec<Host>,
     host.worker_node_id = node_id; persist(root, &hosts)?; Ok(hosts)
 }
 
+
+#[cfg(test)]
+mod environment_repair_tests {
+    use super::*;
+    #[test]
+    fn bootstrap_does_not_load_workflow_runner() {
+        let command=environment_command("repair").unwrap();
+        assert!(command.contains("omaax_install_runtime analysis"));
+        assert!(!command.contains("OMAAX_REQUEST"));
+        assert!(command.contains("repair-XXXXXXXX.log"));
+        assert!(environment_command("repair; rm -rf x").is_err());
+        assert!(environment_options(&json!({"channel":"https://x/' ; rm -rf x"})).is_err());
+        assert!(environment_options(&json!({"pythonVersion":"3.10","channel":"https://mirror.example/conda-forge"})).unwrap().contains("3.10"));
+    }
+    #[test]
+    fn bootstrap_checks_selection_before_credentials() {
+        let temp=std::env::temp_dir().join(format!("ssh-repair-{}",uuid::Uuid::new_v4()));
+        assert!(repair_environment(&temp,Path::new("missing"),Path::new("missing"),&json!({"serverId":"unknown","action":"repair"})).unwrap_err().contains("未被用户选择"));
+    }
+}

@@ -298,3 +298,38 @@ test('result pages append without duplicates or starting analysis',async()=>{
  assert.equal(s.view.findAllByType('button').filter(b=>text(b)==='下载').length,3);assert.equal(s.view.findAllByType('button').some(b=>text(b)==='加载更多结果'),false);
  assert.equal(s.calls.filter(c=>c.action==='workflow_result').at(-1).body.offset,2);assert.equal(s.count('workflow_confirm'),0);await s.stop();
 });
+
+test('missing server, blank path and invalid resource drafts never block conversation handoff',async()=>{
+ const s=setup();s.api.sshHosts=async()=>[];const rpc=[];
+ s.api.dshRpc=async(method,args)=>{rpc.push({method,args});return method==='workspace.list'?{items:[{workspaceId:'test',sessionIds:['test-session']}]}:{projectId:'test',sessionId:'isolated-session'};};
+ await s.mount();await choose(s);await change(namedInput(s,'本次数据路径'),'');await change(namedInput(s,'CPU 核数'),'0');
+ for(const label of ['在对话中使用','交给模型配置与分析','在对话中准备分析'])assert.equal(button(s,label).props.disabled,false,label);
+ await click(button(s,'在对话中准备分析'));
+ const selection=rpc.find(p=>p.method==='workflow.select').args.selection;
+ assert.equal(selection.input,'.');assert.equal(selection.serverId,undefined);assert.equal(selection.cpu,undefined);
+ assert.ok(rpc.some(p=>p.method==='session.prompt'));assert.equal(s.count('workflow_confirm'),0);await s.stop();
+});
+
+test('page SSH error and unfinished parameter edits do not gate handoff or reuse stale parameters',async()=>{
+ const s=setup((h,a)=>a==='status'?Promise.reject(Error('Connection lost before handshake')):undefined),rpc=[];
+ s.api.dshRpc=async(method,args)=>{rpc.push({method,args});return method==='workspace.list'?{items:[{workspaceId:'test',sessionIds:['test-session']}]}:{projectId:'test',sessionId:'isolated-session'};};
+ await s.mount();await choose(s);
+ await click(s.view.findAllByType('button').find(b=>b.props['aria-label']==='比较表达差异'));
+ const field=s.view.findAll(n=>n.props.name==='padj'&&typeof n.props.onValidationChange==='function')[0];assert.ok(field);
+ await act(async()=>{field.props.onValidationChange('padj','unfinished');await settle();});
+ assert.equal(button(s,'交给模型配置与分析').props.disabled,false);
+ await click(button(s,'交给模型配置与分析'));
+ assert.equal(rpc.find(p=>p.method==='workflow.select').args.selection.parameters.rnaseq_de.padj,undefined);
+ assert.match(rpc.find(p=>p.method==='session.prompt').args.content[0].text,/未完成的参数编辑/);
+ assert.equal(s.count('workflow_confirm'),0);await s.stop();
+});
+
+test('SSH refresh failures back off and successful reconnect restores normal polling',async()=>{
+ let offline=true;const s=setup((h,a)=>a==='status'&&offline?Promise.reject(Error('offline')):undefined);
+ await s.mount();const initial=s.count('workflow_plans');
+ await advance(5000);assert.equal(s.count('workflow_plans'),initial);
+ await advance(5000);assert.equal(s.count('workflow_plans'),initial+1);
+ await advance(10000);assert.equal(s.count('workflow_plans'),initial+1);
+ offline=false;await advance(10000);assert.equal(s.count('workflow_plans'),initial+2);
+ await advance(5000);assert.equal(s.count('workflow_plans'),initial+3);await s.stop();
+});
