@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 use sha2::Digest;
 use std::{path::Path, io::Write, process::{Command, Stdio}};
 
+const PROTECTED_PATHS: &str = include_str!("../../resources/ssh/protected_paths.py");
 const SERVER_WORKSPACE: &str = include_str!("../../resources/ssh/server_workspace.py");
 const WORKSPACE_CONTEXT: &str = include_str!("../../resources/ssh/workspace_context.py");
 const SERVER_FILE_OPS: &str = include_str!("../../resources/ssh/server_file_ops.py");
@@ -33,7 +34,7 @@ fn runner_source() -> String {
 fn base_runner_source() -> String {
     let engine_hash=format!("{:x}",sha2::Sha256::digest(format!("{WORKFLOW_ENGINE}\n{RUNNER}\n{WORKFLOW_ADAPTER}\n{WORKFLOW_ENVIRONMENTS}\n{WORKFLOW_DEPENDENCIES}\n{CONDA_RUNTIME}\n{USER_RUNTIME}\n{SCHEDULER_BACKEND}\n{WORKFLOW_PREFLIGHT}\n{SERVER_WORKSPACE}\n{WORKSPACE_CONTEXT}\n{SERVER_FILE_OPS}").as_bytes()));
     let mut prefix=String::from("import sys,types,base64,json\n");
-    for (name,source) in [("scheduler_backend",SCHEDULER_BACKEND),("workflow_preflight",WORKFLOW_PREFLIGHT),("user_runtime",USER_RUNTIME),("conda_runtime",CONDA_RUNTIME),("workspace_context",WORKSPACE_CONTEXT),("server_file_ops",SERVER_FILE_OPS),("server_setup",SERVER_SETUP)] {prefix.push_str(&format!("m=types.ModuleType('{name}')\nexec(compile(base64.b64decode('{}'),'<{name}>','exec'),m.__dict__)\nsys.modules['{name}']=m\n",STANDARD.encode(source)));}
+    for (name,source) in [("protected_paths",PROTECTED_PATHS),("scheduler_backend",SCHEDULER_BACKEND),("workflow_preflight",WORKFLOW_PREFLIGHT),("user_runtime",USER_RUNTIME),("conda_runtime",CONDA_RUNTIME),("workspace_context",WORKSPACE_CONTEXT),("server_file_ops",SERVER_FILE_OPS),("server_setup",SERVER_SETUP)] {prefix.push_str(&format!("m=types.ModuleType('{name}')\nexec(compile(base64.b64decode('{}'),'<{name}>','exec'),m.__dict__)\nsys.modules['{name}']=m\n",STANDARD.encode(source)));}
     prefix.push_str(&format!("sys.modules['user_runtime'].BOOTSTRAP_SOURCE=base64.b64decode('{}').decode()\n",STANDARD.encode(USER_RUNTIME_SH)));
     // Deletion imports storage, so load it after server_workspace has been registered.
     let delete_module=format!("d=types.ModuleType('server_delete')\nexec(compile(base64.b64decode('{}'),'<server_delete>','exec'),d.__dict__)\nsys.modules['server_delete']=d\n",STANDARD.encode(SERVER_DELETE));
@@ -161,8 +162,8 @@ pub fn bind_workflow(home:&Path, payload:&Value) -> Result<Value,String> {
 
 fn permitted(action:&str,agent:bool)->bool {
     match action {
-        "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" | "workflow_prepare" | "workflow_environment" => true,
-        "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_notified" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_resume" | "workflow_bundle_status" => !agent,
+        "protected_paths" | "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" | "workflow_prepare" | "workflow_environment" => true,
+        "protected_path_add" | "protected_path_remove" | "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_notified" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_resume" | "workflow_bundle_status" => !agent,
         _ => false,
     }
 }

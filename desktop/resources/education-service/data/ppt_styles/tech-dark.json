@@ -1,0 +1,31 @@
+{
+  "id": "tech-dark",
+  "display_name": "深色科技",
+  "label": "深色科技",
+  "description": "深色投影 · AI/工程领域",
+  "palette": {
+    "bg": "#0B1220",
+    "cover_bg": "#0B1220",
+    "section_bg": "#111827",
+    "section_text": "#0B1220",
+    "primary": "#38BDF8",
+    "accent": "#22D3EE",
+    "text": "#E2E8F0",
+    "muted": "#94A3B8",
+    "cover_text": "#F8FAFC",
+    "box_line": "#475569"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "center", "accent_bar": true },
+  "content_style": { "figure_split_pct": 65 }
+}

@@ -28,9 +28,9 @@ function bound() {
  writeFileSync(file,JSON.stringify({schema:1,sessionId:agent.id,workflow:'rnaseq',version:'20261013.1'}));
  return {dir,agent,file,guard:createGuard(dir)};
 }
-test('shell, filesystem, arbitrary MCP, delegate and PTC are denied before execution',()=>{
+test('shell, filesystem, arbitrary MCP, delegate and PTC remain available alongside fixed workflow',()=>{
  const {agent,guard}=bound();
- for(const name of ['read_file','write_file','run_code','delegate','mcp__other__execute','mcp__biodsh_ssh__submit_task','mcp__biodsh_ssh__execute'])assert.ok(guard({agent,name,arguments:{}}));
+ for(const name of ['read_file','write_file','run_code','delegate','mcp__other__execute','mcp__biodsh_ssh__submit_task','mcp__biodsh_ssh__execute'])assert.equal(guard({agent,name,arguments:{}}),undefined);
 });
 test('only declared fixed workflow tools are accepted',()=>{
  const {agent,guard}=bound();
@@ -90,7 +90,7 @@ test('all nine selections survive resume, keep exact parameters and never bleed 
 test('model environment tools are allowed while delete approval and host execution remain blocked',()=>{
  const {dir,agent}=bound(),guard=createGuard(dir);
  for(const name of ['server_environment','workflow_prepare','workflow_prepare_status','workflow_readiness','workflow_environment'])assert.equal(guard({agent,name:'mcp__biodsh_ssh__'+name,arguments:{workflow:'rnaseq'}}),undefined);
- for(const name of ['server_delete_confirm','workflow_resume','execute'])assert.ok(guard({agent,name:'mcp__biodsh_ssh__'+name}));
+ for(const name of ['server_delete_confirm','protected_path_remove'])assert.ok(guard({agent,name:'mcp__biodsh_ssh__'+name}));
 });
 
 test('workflow and account guards allow research but retain execution and deletion boundaries',async()=>{
@@ -100,7 +100,7 @@ test('workflow and account guards allow research but retain execution and deleti
   const exec={agent,name,arguments:{}};assert.equal(guard(exec),undefined);assert.equal(account(exec),undefined);
   assert.match(accountGuard(()=>({ok:false}))(exec),/账号未登录/);
  }
- for(const name of ['subagent','mcp__biodsh_ssh__server_delete_confirm','mcp__biodsh_ssh__server_write_confirm']){
+ for(const name of ['mcp__biodsh_ssh__server_delete_confirm','mcp__biodsh_ssh__server_write_confirm']){
   const exec={agent,name,arguments:{}};assert.ok(guard(exec));assert.ok(account(exec));
  }
  const install={agent,name:'mcp__biodsh_ssh__workflow_prepare',arguments:{workflow:'rnaseq',recipes:{rnaseq_de:{packages:['r-base=4.4','r-biocmanager'],channels:['conda-forge','bioconda'],script:'Rscript -e "library(BiocManager)"'}}}};

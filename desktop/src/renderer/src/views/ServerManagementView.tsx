@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import HostsView from './HostsView';
 import PersonalComputeView from './PersonalComputeView';
 
-const sections = [['connections','SSH 连接'],['files','服务器文件'],['resources','资源监控'],['environments','环境管理'],['tasks','任务与调度'],['data','跨服务器数据'],['protection','数据保护与审计']] as const;
+const sections = [['connections','连接服务器'],['files','服务器文件'],['resources','资源监控'],['environments','环境管理'],['tasks','任务与调度'],['data','跨服务器数据'],['protection','数据保护与审计']] as const;
 type Section = typeof sections[number][0];
 export default function ServerManagementView({initial='connections'}:{initial?:Section}) {
   const [section,setSection]=useState<Section>(()=>sessionStorage.getItem('omaax.files.open')?'protection':initial);

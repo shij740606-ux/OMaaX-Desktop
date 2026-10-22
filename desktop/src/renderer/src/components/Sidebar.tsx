@@ -1,7 +1,7 @@
 import {useAuth,hasUnit} from '../AuthGate';
 import omaaxIcon from '../assets/omaax-icon.png';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, GraduationCap } from 'lucide-react';
+import { Palette, SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folder, FolderPlus, GitBranch, GitCommitHorizontal, ChevronRight, ChevronDown, MessageSquare, RefreshCw, Pin, Pencil, Archive, Share2, Trash2, FolderOpen, Sparkles, Loader2, Server, GraduationCap } from 'lucide-react';
 import { useApp, type Tab } from '../store';
 import { Database, Globe } from 'lucide-react';
 import ContextMenu, { type MenuState } from './ContextMenu';
@@ -191,7 +191,8 @@ export default function Sidebar() {
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
 {id:'store', content: nav('store', t('工具中心'), Store)},
-{id:'education', content: nav('education', t('教育科研'), GraduationCap)}].filter(item=>item.id==='education'?bioflow:item.id==='knowledge'?hasUnit(user,'qa'):item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','knowledge','data','workflows','db','hosts','env','store','education'], orders.nav || [], id => id))}>{item.content}</div>)}
+{id:'drawing', content: nav('drawing', '科研绘图', Palette)},
+{id:'education', content: nav('education', t('教育科研'), GraduationCap)}].filter(item=>item.id==='education'?bioflow:item.id==='knowledge'?hasUnit(user,'qa'):item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','knowledge','data','workflows','db','hosts','env','store','drawing','education'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 mt-3">

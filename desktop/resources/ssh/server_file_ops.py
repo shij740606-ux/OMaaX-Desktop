@@ -9,6 +9,8 @@ def destination(r,value):
     if not isinstance(value,str) or not value or any(c in value for c in ('\0','\n','\r')):raise ValueError('请输入服务器绝对路径')
     p=Path(value).expanduser()
     if not p.is_absolute():raise ValueError('写入服务器文件需要绝对路径')
+    import protected_paths
+    protected_paths.check(r,p)
     p=p.resolve(strict=False)
     private=[Path.home()/name for name in ('.ssh','.aws','.kube','.docker')]+[Path('/proc'),Path('/sys'),Path('/dev')]
     if any(p==d or d in p.parents for d in private) or p.name in ('.env','.netrc','.git-credentials','id_rsa','id_ed25519'):raise ValueError('不能写入凭据或系统特殊文件')
@@ -86,10 +88,7 @@ def submit(r,body,copy=False):
     if p.exists():request['previous']=signature(p.stat())
     request['digest']=hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
     (folder/'request.json').write_text(json.dumps(request),encoding='utf-8')
-    if p.exists():
-        r.audit(r.database(),'server.overwrite_requested',{'id':identifier,'path':str(p),'context':request['context']})
-        return {'id':identifier,'path':str(p),'requiresApproval':True,'message':'文件已存在，尚未覆盖。请用户在服务器管理的文件写入请求中明确批准，或改用新文件名。'}
-    result=perform(r,request,folder);request['state']='complete';(folder/'request.json').write_text(json.dumps(request));return result
+    result=perform(r,request,folder,approved='previous' in request);request['state']='complete';(folder/'request.json').write_text(json.dumps(request));return result
 
 def dispatch(r,action,body,actor):
     fields={'server_write':{'path','content','context'},'server_copy':{'path','source','context'},'server_write_requests':set(),'server_write_confirm':{'id','digest'},'server_write_reject':{'id'}}

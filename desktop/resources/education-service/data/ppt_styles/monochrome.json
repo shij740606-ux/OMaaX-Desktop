@@ -1,0 +1,31 @@
+{
+  "id": "monochrome",
+  "display_name": "极简黑白",
+  "label": "极简黑白",
+  "description": "黑白灰 · 正式严肃",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#FFFFFF",
+    "section_bg": "#F5F5F5",
+    "section_text": "#FFFFFF",
+    "primary": "#111111",
+    "accent": "#444444",
+    "text": "#1A1A1A",
+    "muted": "#666666",
+    "cover_text": "#111111",
+    "box_line": "#999999"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "center", "accent_bar": true },
+  "content_style": { "figure_split_pct": 55 }
+}

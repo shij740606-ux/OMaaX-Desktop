@@ -1,0 +1,31 @@
+{
+  "id": "warm-earth",
+  "display_name": "暖色土系",
+  "label": "暖色土系",
+  "description": "暖土色系 · 农业领域",
+  "palette": {
+    "bg": "#FFFBF5",
+    "cover_bg": "#FFF7ED",
+    "section_bg": "#FFEDD5",
+    "section_text": "#FFFFFF",
+    "primary": "#9A3412",
+    "accent": "#EA580C",
+    "text": "#431407",
+    "muted": "#9A6A55",
+    "cover_text": "#7C2D12",
+    "box_line": "#FDBA74"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "left", "accent_bar": true },
+  "content_style": { "figure_split_pct": 60 }
+}

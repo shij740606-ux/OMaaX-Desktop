@@ -1,0 +1,31 @@
+{
+  "id": "academic-blue",
+  "display_name": "学术蓝",
+  "label": "学术蓝",
+  "description": "经典蓝白 · 答辩常用",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#EFF6FF",
+    "section_bg": "#DBEAFE",
+    "section_text": "#FFFFFF",
+    "primary": "#1D4ED8",
+    "accent": "#3B82F6",
+    "text": "#0F172A",
+    "muted": "#64748B",
+    "cover_text": "#1E3A8A",
+    "box_line": "#93C5FD"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "left", "accent_bar": true },
+  "content_style": { "figure_split_pct": 60 }
+}

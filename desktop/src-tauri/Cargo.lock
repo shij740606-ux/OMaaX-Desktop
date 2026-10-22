@@ -287,9 +287,10 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "biodsh-desktop"
-version = "0.4.44"
+version = "0.4.45"
 dependencies = [
  "base64 0.22.1",
+ "flate2",
  "gtk",
  "keyring",
  "minisign-verify",
@@ -303,6 +304,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "tokio",
  "ureq",
  "uuid",
  "windows-sys 0.61.2",

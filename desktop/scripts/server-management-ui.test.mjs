@@ -20,7 +20,7 @@ function harness(api){
   if(file.endsWith('.json')){module.exports=JSON.parse(fs.readFileSync(file,'utf8'));return module.exports;}
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   const require=name=>{
-   if(name==='react')return React;if(name==='react/jsx-runtime')return realRequire(name);
+   if(name.endsWith('.css'))return {};if(name==='react')return React;if(name==='react/jsx-runtime')return realRequire(name);
    if(name==='lucide-react')return new Proxy({},{get:(_,key)=>key==='__esModule'?false:()=>null});
    if(name.endsWith('/store'))return {useApp:()=>({currentSession:'test-dialogue',setTab:()=>{}})};
    if(name.endsWith('/i18n'))return {useT:()=>({t:value=>value})};
@@ -355,4 +355,23 @@ test('chat deletion card shows exact bytes and requires explicit scoped confirma
  assert.match(text(view.toJSON()),/7 字节/);assert.match(text(view.toJSON()),/small.txt/);assert.doesNotMatch(text(view.toJSON()),/other.txt/);assert.equal(calls.filter(c=>c.action==='server_delete_confirm').length,0);
  await act(async()=>{button(view,'已知悉范围，确认移入回收站').props.onClick();await settle();});
  assert.deepEqual(calls.find(c=>c.action==='server_delete_confirm').body,{id:'one',digest:'fixed-digest'});assert.equal(view.toJSON(),null);act(()=>view.unmount());
+});
+
+test('protected paths can be added, listed and removed without invoking analysis or approvals',async()=>{
+ const calls=[];let rows=[];
+ const h=harness({personalCompute:async(id,action,body)=>{
+  calls.push({id,action,body});
+  if(action==='protected_path_add')rows=[{path:body.path,resolved:body.path,directory:true}];
+  if(action==='protected_path_remove')rows=[];
+  return rows;
+ }}),View=h.load('views/ProtectedPaths.tsx').default;
+ let view;await act(async()=>{view=create(React.createElement(View,{server:'test-server'}));await settle();});
+ assert.match(text(view.root),/已保护路径（0）/);
+ await act(async()=>view.root.findByType('input').props.onChange({target:{value:'/data/raw'}}));
+ await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});await settle();});
+ assert.match(text(view.root),/已保护路径（1）/);assert.match(text(view.root),/\/data\/raw/);
+ await act(async()=>{button(view,'解除保护').props.onClick();await settle();});
+ assert.match(text(view.root),/已保护路径（0）/);
+ assert.deepEqual(calls.map(x=>x.action),['protected_paths','protected_path_add','protected_path_remove']);
+ await act(async()=>view.unmount());
 });

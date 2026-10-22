@@ -18,3 +18,5 @@
 
 @media(max-height:750px){.knowledge-empty-icon{display:none}.knowledge-empty{padding:6px 0}.knowledge-empty p{margin-bottom:12px}.knowledge-suggestions button{font-size:12px}.knowledge-composer textarea{height:44px;min-height:44px;max-height:44px}}
 @media(max-width:800px){.knowledge-suggestions{grid-template-columns:1fr;max-width:440px;gap:6px}.knowledge-suggestions button{padding:7px 10px}.knowledge-empty p{font-size:12px}.knowledge-session-bar{gap:4px}.knowledge-session-bar>.btn{font-size:12px;padding:7px 9px}.knowledge-brand h1{font-size:19px}.knowledge-brand p{font-size:11px}}
+
+.knowledge-message{user-select:text;-webkit-user-select:text}.knowledge-message-heading{flex-wrap:wrap}.knowledge-copy{font-size:12px}.knowledge-message-heading .knowledge-copy{margin-left:auto}.knowledge-copy-status{font-size:12px;color:var(--text-secondary,#666)}

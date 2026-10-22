@@ -11,6 +11,8 @@ def destination(r,value,existing=True):
     p=Path(value).expanduser()
     if not p.is_absolute() or '..' in p.parts:raise ValueError('删除需要绝对路径，不接受上级目录跳转')
     p=p.parent.resolve(strict=True)/p.name
+    import protected_paths
+    protected_paths.check(r,p,operation='delete',recursive=True)
     work=storage.workspace(r)
     roots=[Path('/'),Path.home(),work,r.ROOT,getattr(r,'APP_HOME',r.ROOT)]
     controls=[] if work in p.parents else [r.ROOT]
@@ -125,7 +127,7 @@ def submit(r,body,notice=False):
     if summary['bytes']>LIMIT:reasons.append('删除数据超过 10 GB')
     item={'id':str(uuid.uuid4()),'paths':[str(p) for p in paths],'snapshot':summary,'warnings':reasons,'context':workspace_context.normalize(body.get('context')),'created':time.time(),'state':'pending','policy':'notice-v1' if notice else 'confirmation'}
     item['digest']=hashlib.sha256(json.dumps(item,sort_keys=True).encode()).hexdigest();save(r,item)
-    return {'requiresNotice':notice,'requiresApproval':not notice,'id':item['id'],'paths':item['paths'],'bytes':summary['bytes'],'entries':summary['entries'],'warnings':reasons,'message':'尚未删除。软件必须先展示实际路径、递归范围和字节数，收到界面展示回执后才移入回收站；模型不能自行提交回执。未展示时延期，其他分析可继续。' if notice else '尚未删除，请核对提醒中的范围后移入回收站。'}
+    return execute(r,item)
 
 
 def dispatch(r,action,body,actor):

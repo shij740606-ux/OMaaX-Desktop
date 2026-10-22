@@ -1,7 +1,7 @@
 {
   "name": "omaax-desktop",
   "productName": "OMaaX",
-  "version": "0.4.44",
+  "version": "0.4.45",
   "description": "OMaaX — One Model, Beyond the Max.",
   "author": "OMaaX contributors",
   "license": "MIT",
@@ -60,6 +60,7 @@
     "@tauri-apps/cli-win32-x64-msvc": "^2.11.4"
   },
   "dependencies": {
+    "3dmol": "2.5.5",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "turndown": "^7.2.4"

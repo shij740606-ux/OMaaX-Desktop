@@ -1,0 +1,36 @@
+{
+  "id": "domestic",
+  "display_name": "国内组会",
+  "label": "国内组会",
+  "description": "深蓝红强调 · 国内组会 / 学术报告",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#FFFFFF",
+    "section_bg": "#1F4E79",
+    "section_text": "#FFFFFF",
+    "primary": "#1F4E79",
+    "accent": "#C00000",
+    "text": "#1A1A1A",
+    "muted": "#6B6B6B",
+    "cover_text": "#1F4E79",
+    "box_line": "#F2F2F2"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, PingFang SC, Source Han Sans SC, Noto Sans CJK SC, Arial, sans-serif",
+    "body": "Microsoft YaHei, PingFang SC, Source Han Sans SC, Noto Sans CJK SC, Arial, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 36,
+    "title_pt": 28,
+    "bullet_pt": 20,
+    "reference_pt": 16,
+    "figure_pt": 13
+  },
+  "cover_style": {
+    "title_align": "left",
+    "accent_bar": true
+  },
+  "content_style": {
+    "figure_split_pct": 60
+  }
+}

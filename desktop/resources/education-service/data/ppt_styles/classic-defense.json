@@ -1,0 +1,31 @@
+{
+  "id": "classic-defense",
+  "display_name": "经典答辩",
+  "label": "经典答辩",
+  "description": "深蓝衬线 · 正式答辩",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#1A365D",
+    "section_bg": "#EEF2F7",
+    "section_text": "#FFFFFF",
+    "primary": "#1A365D",
+    "accent": "#B7791F",
+    "text": "#1F2937",
+    "muted": "#64748B",
+    "cover_text": "#FFFFFF",
+    "box_line": "#94A3B8"
+  },
+  "fonts": {
+    "title": "Times New Roman, Georgia, Noto Serif CJK SC, SimSun, serif",
+    "body": "Times New Roman, Georgia, Noto Serif CJK SC, SimSun, serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "left", "accent_bar": false },
+  "content_style": { "figure_split_pct": 60 }
+}

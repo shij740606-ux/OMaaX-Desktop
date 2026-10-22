@@ -47,7 +47,7 @@ class ProjectWorkspaceTests(unittest.TestCase):
   self.assertEqual(r.jobdir(job),storage.workspace(r)/destination)
   self.assertEqual(self.call('export',{'job':job,'paths':['result.txt']})[0]['size'],6)
   self.assertEqual((r.jobdir(job)/'log.txt').read_text(),'task log')
-  pending=storage.manage(r,{'operation':'delete','path':destination});self.assertTrue(pending['requiresApproval']);row=self.call('server_delete_requests',{},'user')[0];deleted=self.call('server_delete_confirm',{'id':row['id'],'digest':row['digest']},'user');storage.restore(r,{'trashId':deleted['trashId']})
+  deleted=storage.manage(r,{'operation':'delete','path':destination});self.assertTrue(deleted['recoverable']);storage.restore(r,{'trashId':deleted['trashId']})
   self.assertEqual((r.jobdir(job)/'output/result.txt').read_text(),'result')
  def test_structural_roots_traversal_and_outside_deletion_are_rejected(self):
   base=context.base(r,C1);rel=base.relative_to(storage.workspace(r)).as_posix()
@@ -74,26 +74,23 @@ class ProjectWorkspaceTests(unittest.TestCase):
   self.call('server_copy',{'source':str(source),'path':str(target),'context':C1});self.assertEqual(target.read_bytes(),source.read_bytes())
   listed=storage.manage(r,{'operation':'external','context':C1})['files'];self.assertEqual(len(listed),2)
  @unittest.skipIf(os.name=='nt','POSIX descriptor identity is validated on the actual Linux server')
- def test_existing_file_needs_explicit_user_approval_and_backup(self):
-  target=self.data/'input.txt';pending=self.call('server_write',{'path':str(target),'content':'revised','context':C1})
-  self.assertTrue(pending['requiresApproval']);self.assertEqual(target.read_text(),'raw input')
-  row=self.call('server_write_requests',{},'user')[0]
-  with self.assertRaises(ValueError):self.call('server_write_confirm',{'id':row['id'],'digest':row['digest']})
-  result=self.call('server_write_confirm',{'id':row['id'],'digest':row['digest']},'user')
+ def test_existing_file_is_backed_up_without_extra_approval(self):
+  target=self.data/'input.txt';result=self.call('server_write',{'path':str(target),'content':'revised','context':C1})
   self.assertEqual(target.read_text(),'revised');self.assertEqual(Path(result['backup']).read_text(),'raw input')
   self.assertIn(context.key(C1['sessionId']),result['backup'])
- def test_changed_target_or_payload_prevents_overwrite(self):
-  target=self.data/'input.txt';self.call('server_write',{'path':str(target),'content':'replacement'})
-  row=self.call('server_write_requests',{},'user')[0];target.write_text('other edit')
-  with self.assertRaisesRegex(ValueError,'已变化'):self.call('server_write_confirm',{'id':row['id'],'digest':row['digest']},'user')
+ def test_changed_target_prevents_overwrite(self):
+  target=self.data/'input.txt';perform=writes.perform
+  def changed(*args,**kwargs):
+   target.write_text('other edit');return perform(*args,**kwargs)
+  with patch.object(writes,'perform',side_effect=changed):
+   with self.assertRaisesRegex(ValueError,'已变化'):self.call('server_write',{'path':str(target),'content':'replacement'})
   self.assertEqual(target.read_text(),'other edit')
-  folder,item=writes.record(r,row['id']);(folder/'proposed.txt').write_text('tampered')
-  with self.assertRaisesRegex(ValueError,'内容已变化'):self.call('server_write_confirm',{'id':row['id'],'digest':row['digest']},'user')
- def test_copy_source_change_and_rejection_leave_destination_untouched(self):
-  source=self.base/'source.bin';source.write_bytes(b'original');target=self.data/'input.txt'
-  self.call('server_copy',{'source':str(source),'path':str(target)});row=self.call('server_write_requests',{},'user')[0];source.write_bytes(b'changed')
-  with self.assertRaisesRegex(ValueError,'源文件已变化'):self.call('server_write_confirm',{'id':row['id'],'digest':row['digest']},'user')
-  self.call('server_write_reject',{'id':row['id']},'user');self.assertEqual(self.call('server_write_requests',{},'user'),[])
+ def test_copy_source_change_leaves_destination_untouched(self):
+  source=self.base/'source.bin';source.write_bytes(b'original');target=self.data/'input.txt';perform=writes.perform
+  def changed(*args,**kwargs):
+   source.write_bytes(b'changed');return perform(*args,**kwargs)
+  with patch.object(writes,'perform',side_effect=changed):
+   with self.assertRaisesRegex(ValueError,'源文件已变化'):self.call('server_copy',{'source':str(source),'path':str(target)})
   self.assertEqual(target.read_text(),'raw input')
  def test_credentials_control_and_invalid_context_cannot_be_written(self):
   for path in [r.ROOT/'state.sqlite',Path.home()/'.ssh/config']:

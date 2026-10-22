@@ -1,0 +1,36 @@
+{
+  "id": "editorial",
+  "display_name": "杂志插画",
+  "label": "杂志插画",
+  "description": "米底紫衬线 · 插画杂志风",
+  "palette": {
+    "bg": "#FAF7F2",
+    "cover_bg": "#FAF7F2",
+    "section_bg": "#2B2B2B",
+    "section_text": "#FFFFFF",
+    "primary": "#8E7DBE",
+    "accent": "#C8553D",
+    "text": "#2B2B2B",
+    "muted": "#7D776F",
+    "cover_text": "#2B2B2B",
+    "box_line": "#F1ECE4"
+  },
+  "fonts": {
+    "title": "Palatino Linotype, Book Antiqua, Georgia, Source Han Serif SC, SimSun, Noto Serif SC, serif",
+    "body": "Palatino Linotype, Book Antiqua, Georgia, Source Han Serif SC, SimSun, Noto Serif SC, serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 32,
+    "bullet_pt": 20,
+    "reference_pt": 16,
+    "figure_pt": 13
+  },
+  "cover_style": {
+    "title_align": "left",
+    "accent_bar": true
+  },
+  "content_style": {
+    "figure_split_pct": 60
+  }
+}

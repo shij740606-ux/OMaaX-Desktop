@@ -16,11 +16,21 @@ function imageError(value:unknown){
  if(message.includes('IMAGE_MISSING'))return '文献图片暂不可用，请稍后重新加载。';
  return '图片暂时无法加载，请稍后重试。';
 }
-function KnowledgeImage({src,alt}:{src?:string;alt?:string}){
+export async function copyKnowledgeImage(data:string){
+ const img=new Image();img.src=data;await img.decode();
+ if(!img.naturalWidth||!img.naturalHeight||img.naturalWidth*img.naturalHeight>40_000_000)throw Error('图片过大，请保存图片');
+ const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+ const context=canvas.getContext('2d');if(!context)throw Error('无法复制图片');context.drawImage(img,0,0);
+ const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('图片转换失败')),'image/png'));
+ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+}
+export function KnowledgeImage({src,alt}:{src?:string;alt?:string}){
  const [image,setImage]=useState(''),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);
+ const [actionBusy,setActionBusy]=useState(false),[notice,setNotice]=useState('');
+ async function act(save:boolean){setActionBusy(true);setNotice('');try{if(save){const result=await window.biodsh.cloudQa('save_image',{data:image}) as {saved:boolean};setNotice(result.saved?'图片已保存':'');}else{await copyKnowledgeImage(image);setNotice('图片已复制');}}catch{setNotice(save?'保存失败，请重试':'复制失败，请尝试保存图片');}finally{setActionBusy(false);}}
  const request=useRef<{key:string;promise:Promise<unknown>}|null>(null);
  const current=useRef('');
- useEffect(()=>{let alive=true;setImage('');setError('');
+ useEffect(()=>{let alive=true;setImage('');setError('');setNotice('');
   if(!src){setError('图片地址无效');return;}
   const key=src+':'+attempt;
   current.current=key;
@@ -32,7 +42,7 @@ function KnowledgeImage({src,alt}:{src?:string;alt?:string}){
   }).catch(value=>{if(alive)setError(imageError(value));});
   return()=>{alive=false;current.current='';};
  },[src,attempt]);
- return <span className="block my-3">{image?<img src={image} alt={alt||'文献图片'} className="max-w-full h-auto rounded" onError={()=>{setImage('');setError('图片无法显示，请重试');}}/>:error?<span role="status">{error}<button type="button" className="btn ml-2" onClick={()=>setAttempt(v=>v+1)}>重新加载图片</button></span>:<span role="status">正在加载文献图片…</span>}</span>;
+ return <span className="block my-3">{image?<><img src={image} alt={alt||'文献图片'} className="max-w-full h-auto rounded" onError={()=>{setImage('');setError('图片无法显示，请重试');}}/><span className="flex gap-2 mt-2"><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>void act(false)}>复制图片</button><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>void act(true)}>保存图片</button></span>{notice&&<span role="status">{notice}</span>}</>:error?<span role="status">{error}<button type="button" className="btn ml-2" onClick={()=>setAttempt(v=>v+1)}>重新加载图片</button></span>:<span role="status">正在加载文献图片…</span>}</span>;
 }
 const components:Components={
   img:({src,alt})=><KnowledgeImage src={src} alt={alt}/>,

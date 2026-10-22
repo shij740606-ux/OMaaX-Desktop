@@ -9,6 +9,7 @@ import {serverRequest,invalidateServer} from './serverRequests';
 export function installTauriBridge() {
   const reportDshBounds=dshLayoutQueue((rect,visible)=>invoke('dsh_bounds',{rect,visible}),error=>console.error('Chat layout failed',error));
   const api = {
+    drawing: (action:string,body:unknown={}) => invoke<unknown>('drawing',{action,body}),
     cloudQa: (action:string,body:unknown={}) => invoke<unknown>('cloud_qa',{action,body}),
     educationStart: () => invoke<string>("education_start"),
     educationDelete: (path:string) => invoke("education_delete",{path}),

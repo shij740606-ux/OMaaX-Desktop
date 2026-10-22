@@ -8,14 +8,21 @@ export function sourceUrl(source:Source):string|null{
  const candidate=source.url||(source.doi?'https://doi.org/'+source.doi:source.pmid?'https://pubmed.ncbi.nlm.nih.gov/'+source.pmid+'/':'');
  try{const u=new URL(candidate);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}
 }
-function Sources({sources}:{sources:Source[]}){return <div className="flex flex-col gap-2 mt-3">{sources.map((s,i)=><div className="p-3 rounded border" key={s.id||i}><strong>{s.title||s.doi||`文献 ${i+1}`}</strong>{s.snippet&&<p className="text-sm whitespace-pre-wrap mt-1">{s.snippet}</p>}{(s.doi||s.pmid)&&<p className="text-xs mt-1">{s.doi?`DOI: ${s.doi}`:`PMID: ${s.pmid}`}</p>}{sourceUrl(s)&&<button className="btn btn-ghost mt-1" onClick={()=>void window.biodsh.openExternal(sourceUrl(s)!).catch(()=>window.alert('链接无法打开，请稍后重试'))}>查看来源</button>}</div>)}</div>;}
+export function sourcesText(sources:Source[]):string{return sources.map((s,i)=>[`${i+1}. ${s.title||'文献'}`,s.snippet,s.doi&&`DOI: ${s.doi}`,s.pmid&&`PMID: ${s.pmid}`,sourceUrl(s)].filter(Boolean).join('\n')).join('\n\n');}
+export function messageText(message:Message):string{return [message.text,...(message.blocks||[]).map(b=>sourcesText(b.items||[]))].filter(Boolean).join('\n\n');}
+function CopyButton({text,label}:{text:string;label:string}){
+ const [status,setStatus]=useState('');
+ return <><button type="button" className="btn btn-ghost knowledge-copy" onClick={async()=>{try{await navigator.clipboard.writeText(text);setStatus('已复制');}catch{setStatus('复制失败，请选中文字复制');}}}>{label}</button>{status&&<span role="status" className="knowledge-copy-status">{status}</span>}</>;
+}
+function Sources({sources}:{sources:Source[]}){return <div className="flex flex-col gap-2 mt-3"><CopyButton text={sourcesText(sources)} label="复制检索结果"/>{sources.map((s,i)=><div className="p-3 rounded border" key={s.id||i}><strong>{s.title||s.doi||`文献 ${i+1}`}</strong>{s.snippet&&<p className="text-sm whitespace-pre-wrap mt-1">{s.snippet}</p>}{(s.doi||s.pmid)&&<p className="text-xs mt-1">{s.doi?`DOI: ${s.doi}`:`PMID: ${s.pmid}`}</p>}{sourceUrl(s)&&<button className="btn btn-ghost mt-1" onClick={()=>void window.biodsh.openExternal(sourceUrl(s)!).catch(()=>window.alert('链接无法打开，请稍后重试'))}>查看来源</button>}<CopyButton text={sourcesText([s])} label="复制文献"/></div>)}</div>;}
 export default function CloudKnowledgeView(){
  const [sessions,setSessions]=useState<Session[]>([]),[selected,setSelected]=useState<string|null>(null),[messages,setMessages]=useState<Message[]>([]);
  const [question,setQuestion]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[unsaved,setUnsaved]=useState<{id:string;answer:Message}|null>(null);
+ const [activeRequest,setActiveRequest]=useState<string|null>(null);const requestRef=useRef<string|null>(null);
  const alive=useRef(true),version=useRef(0),pending=useRef(false),listVersion=useRef(0);
  const questionInput=useRef<HTMLTextAreaElement>(null),resultArea=useRef<HTMLDivElement>(null);
  useEffect(()=>{const area=resultArea.current;if(area)area.scrollTop=area.scrollHeight;},[messages,selected]);
- useEffect(()=>{alive.current=true;void refresh();return()=>{alive.current=false;version.current++;};},[]);
+ useEffect(()=>{alive.current=true;void refresh();return()=>{alive.current=false;version.current++;if(requestRef.current)void call('cancel',{requestId:requestRef.current}).catch(()=>{});};},[]);
  async function refresh(){const request=++listVersion.current;try{const v=await call<unknown>('list');if(alive.current&&request===listVersion.current)setSessions(cloudRows(v));}catch{if(alive.current&&request===listVersion.current)setError('会话列表暂时无法加载，请重试');}}
  async function newSession(){
   if(pending.current||unsaved)return;
@@ -26,6 +33,7 @@ export default function CloudKnowledgeView(){
   finally{pending.current=false;if(alive.current){setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
  }
  async function select(id:string){if(pending.current||unsaved)return;const revision=++version.current;setBusy(true);setError('');pending.current=true;try{const d=cloudMessages(await call('detail',{id}));if(alive.current&&revision===version.current){setSelected(id);setMessages(d);}}catch{if(alive.current)setError('会话加载失败，请刷新后重试');}finally{pending.current=false;if(alive.current)setBusy(false);}}
+ function stop(){const requestId=requestRef.current;if(!requestId)return;const revision=++version.current;requestRef.current=null;setActiveRequest(null);pending.current=false;setBusy(false);setError('已中止本次请求');void call('cancel',{requestId}).catch(()=>{if(alive.current&&version.current===revision)setError('已停止接收回答，但未能确认请求已断开');});}
  async function ask(search:boolean){
   const q=question.trim();if(pending.current||unsaved)return;
   if(!q){questionInput.current?.focus();return;}
@@ -36,7 +44,11 @@ export default function CloudKnowledgeView(){
    if(!id){const r=cloudSession(await call('create',{title:q.slice(0,60)}));id=r.id;if(!id)throw Error('会话创建失败');if(valid())setSelected(id);}
    await call('message',{id,role:'user',text:q});if(!valid())return;
    setMessages(prev=>[...prev,{role:'user',text:q}]);setQuestion('');
-   const result=cloudReply(await call(search?'search':'chat',{question:q}));if(!valid())return;
+   const requestId=crypto.randomUUID();await call('begin',{requestId});
+   if(!valid()){void call('cancel',{requestId}).catch(()=>{});return;}
+   requestRef.current=requestId;setActiveRequest(requestId);
+   const result=cloudReply(await call(search?'search':'chat',{question:q,requestId}));if(!valid())return;
+   requestRef.current=null;setActiveRequest(null);
    const sources=Array.isArray(result.sources)?result.sources:[];
    const text=search?(sources.length?`找到 ${sources.length} 条文献来源。`:'暂未找到相关文献，可调整关键词后重试。'):result.answer;
    if(!text)throw Error('知识库尚未返回答案，请稍后重试');
@@ -44,7 +56,7 @@ export default function CloudKnowledgeView(){
    try{await call('message',{id,...answer});}catch{if(valid())setUnsaved({id,answer});}
    if(valid())void refresh();
   }catch(e){if(valid()){setQuestion(q);setError(String(e).replace(/^(Error:|UNAUTHORIZED:|FORBIDDEN:)\s*/,'').slice(0,180));}}
-  finally{pending.current=false;if(valid()){setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
+  finally{if(valid()){requestRef.current=null;setActiveRequest(null);pending.current=false;setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
  }
  async function retrySave(){
   if(!unsaved||pending.current)return;pending.current=true;setBusy(true);setError('');
@@ -67,7 +79,7 @@ export default function CloudKnowledgeView(){
  <div className="knowledge-results" ref={resultArea} role="region" aria-label="问答结果" tabIndex={0}>
   <div className="knowledge-thread">
    {!messages.length&&<div className="knowledge-empty"><span className="knowledge-empty-icon"><MessageSquareText size={32}/></span><h2>从一个科研问题开始</h2><p>输入研究问题获取文献支持的回答，或只检索相关文献。</p><div className="knowledge-suggestions">{['水稻 SPL 基因家族有哪些主要功能？','单细胞 RNA-seq 分析常用哪些质控方法？','如何查找植物抗逆相关研究？'].map(example=><button type="button" key={example} disabled={busy||!!unsaved} onClick={()=>{setQuestion(example);setError('');questionInput.current?.focus();}}><Search size={14}/><span>{example}</span></button>)}</div></div>}
-   {messages.map((m,i)=><article className={'knowledge-message '+(m.role==='user'?'knowledge-message-user':'knowledge-message-answer')} key={m.id||i}><div className="knowledge-message-heading">{m.role==='user'?<MessageSquareText size={16}/>:<BookOpen size={16}/>}<strong>{m.role==='user'?'我的问题':'知识库回答'}</strong></div><KnowledgeMarkdown text={m.text||''}/>{m.blocks?.map((b,j)=>{const sources=b.items||[];return sources.length?<details className="knowledge-sources" key={j}><summary>参考文献（{sources.length}）</summary><Sources sources={sources}/></details>:null;})}</article>)}
+   {messages.map((m,i)=><article className={'knowledge-message '+(m.role==='user'?'knowledge-message-user':'knowledge-message-answer')} key={m.id||i}><div className="knowledge-message-heading">{m.role==='user'?<MessageSquareText size={16}/>:<BookOpen size={16}/>}<strong>{m.role==='user'?'我的问题':'知识库回答'}</strong><CopyButton text={messageText(m)} label={m.role==='user'?'复制问题':'复制回答和来源'}/></div><KnowledgeMarkdown text={m.text||''}/>{m.blocks?.map((b,j)=>{const sources=b.items||[];return sources.length?<details className="knowledge-sources" key={j}><summary>参考文献（{sources.length}）</summary><Sources sources={sources}/></details>:null;})}</article>)}
   </div>
  </div>
  <footer className="knowledge-composer-area">
@@ -77,7 +89,7 @@ export default function CloudKnowledgeView(){
    <form className="knowledge-composer" onSubmit={e=>{e.preventDefault();void ask(false);}}>
     <label htmlFor="knowledge-question">科研问题</label>
     <textarea ref={questionInput} id="knowledge-question" rows={2} maxLength={8000} value={question} disabled={busy||!!unsaved} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229){e.preventDefault();void ask(false);}}} placeholder="输入科研问题或文献关键词…"/>
-    <div className="knowledge-composer-actions"><div className="knowledge-submit-buttons"><button type="button" className="btn btn-fill" title="只查找文献来源，不生成问答内容" disabled={busy||!!unsaved||!question.trim()} onClick={()=>void ask(true)}><Search size={15}/>仅检索文献</button><button type="submit" className="btn btn-primary" title="检索文献并生成回答" disabled={busy||!!unsaved||!question.trim()}><Send size={15}/>{busy?'正在处理，请稍候…':'提问'}</button></div></div>
+    <div className="knowledge-composer-actions"><div className="knowledge-submit-buttons"><button type="button" className="btn btn-fill" title="只查找文献来源，不生成问答内容" disabled={busy||!!unsaved||!question.trim()} onClick={()=>void ask(true)}><Search size={15}/>仅检索文献</button>{activeRequest?<button type="button" className="btn btn-primary" onClick={stop}>中止</button>:<button type="submit" className="btn btn-primary" title="检索文献并生成回答" disabled={busy||!!unsaved||!question.trim()}><Send size={15}/>{busy?'正在处理，请稍候…':'提问'}</button>}</div></div>
    </form>
    <p className="knowledge-footnote">每个问题独立检索，会话保存问答历史。引用前请展开参考文献核对原文。</p>
   </div>

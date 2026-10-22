@@ -161,6 +161,9 @@ def start(r,body):
     w.no_extra(body,{'workflow','steps','parameters','configs','recipes'})
     flow=w.flow_for(body.get('workflow'));steps=w.select_steps(flow,body.get('steps'))
     recipes=validate_recipes(body.get('recipes',{}),steps)
+    body=dict(body);body['parameters']=dict(body.get('parameters',{}));body['configs']=dict(body.get('configs',{}))
+    for step in steps:
+        sid=step['id'];body['parameters'][sid],body['configs'][sid]=w.normalize_step_parameters(step,body['parameters'].get(sid,{}),body['configs'].get(sid,{}))
     w.safe_values(body.get('parameters',{}));w.safe_values(body.get('configs',{}))
     r.protection();w.ready_bundle(r)
     db=r.database();tables(db)

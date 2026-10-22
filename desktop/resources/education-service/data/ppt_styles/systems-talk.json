@@ -1,0 +1,36 @@
+{
+  "id": "systems-talk",
+  "display_name": "系统顶会",
+  "label": "系统顶会",
+  "description": "深蓝橙标 · 系统顶会报告",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#FFFFFF",
+    "section_bg": "#1E2633",
+    "section_text": "#FFFFFF",
+    "primary": "#1F3A5F",
+    "accent": "#E4572E",
+    "text": "#1A1A1A",
+    "muted": "#6B6B6B",
+    "cover_text": "#1F3A5F",
+    "box_line": "#EEF1F4"
+  },
+  "fonts": {
+    "title": "Arial, Helvetica, Microsoft YaHei, Source Han Sans SC, sans-serif",
+    "body": "Arial, Helvetica, Microsoft YaHei, Source Han Sans SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 44,
+    "title_pt": 30,
+    "bullet_pt": 20,
+    "reference_pt": 16,
+    "figure_pt": 13
+  },
+  "cover_style": {
+    "title_align": "left",
+    "accent_bar": true
+  },
+  "content_style": {
+    "figure_split_pct": 60
+  }
+}

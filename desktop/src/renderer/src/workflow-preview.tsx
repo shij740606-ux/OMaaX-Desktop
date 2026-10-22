@@ -109,6 +109,7 @@ if(new URLSearchParams(location.search).has('cloud')){
  (window as any).__cloudQa=state;
  window.biodsh.cloudQa=async(action,body:any={})=>{
   state.calls.push(action);if(state.failure===action)throw Error('知识库正在更新或暂不可用，请稍后重试');
+  if(action==='begin'||action==='cancel')return {ok:true};
   if(action==='list')return state.sessions;
   if(action==='create'){const s={id:crypto.randomUUID(),title:body.title,messages:[]};state.sessions.push(s);return s;}
   const session=state.sessions.find(s=>s.id===body.id);

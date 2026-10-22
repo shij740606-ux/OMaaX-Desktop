@@ -1,0 +1,31 @@
+{
+  "id": "academic-minimal",
+  "display_name": "学术极简",
+  "label": "学术极简",
+  "description": "白底蓝黑 · 投屏通用",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#FFFFFF",
+    "section_bg": "#F3F4F6",
+    "section_text": "#FFFFFF",
+    "primary": "#111827",
+    "accent": "#2563EB",
+    "text": "#1F2937",
+    "muted": "#6B7280",
+    "cover_text": "#111827",
+    "box_line": "#9CA3AF"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "left", "accent_bar": false },
+  "content_style": { "figure_split_pct": 60 }
+}

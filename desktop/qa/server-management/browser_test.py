@@ -115,10 +115,10 @@ with sync_playwright() as p:
     page.get_by_text('管理保护设置',exact=True).click();click('保存保护范围');expect(page.get_by_role('status').filter(has_text='只读输入和镜像范围已保存')).to_be_visible();assert calls('configure');page.screenshot(path=str(OUT/'protection.png'),full_page=True)
    run('目录新建、重命名、移动、搜索、递归提醒、回收恢复、覆盖及审计',workspace)
    def stability():
-    names=['服务器文件','资源监控','环境管理','任务与调度','跨服务器数据','数据保护与审计','SSH 连接']
+    names=['服务器文件','资源监控','环境管理','任务与调度','跨服务器数据','数据保护与审计','连接服务器']
     for i in range(70):
      tab(names[i%len(names)]);expect(page.get_by_role('navigation',name='服务器管理栏目')).to_be_visible();assert page.locator('body').inner_text().strip()
-    tab('SSH 连接');expect(card('A')).to_be_visible()
+    tab('连接服务器');expect(card('A')).to_be_visible()
     for width,height in [(1280,800),(900,700),(768,1024)]:
      page.set_viewport_size({'width':width,'height':height});no_overflow();page.screenshot(path=str(OUT/f'layout-{width}.png'),full_page=True)
     assert not errors,errors

@@ -1,0 +1,36 @@
+{
+  "id": "jp-gothic",
+  "display_name": "日韩发表",
+  "label": "日韩发表",
+  "description": "白底蓝黄贴纸 · 日韩技术发表",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#FFFFFF",
+    "section_bg": "#1E5BD8",
+    "section_text": "#FFFFFF",
+    "primary": "#1E5BD8",
+    "accent": "#1E5BD8",
+    "text": "#111111",
+    "muted": "#6B6B6B",
+    "cover_text": "#1E5BD8",
+    "box_line": "#EFEFEF"
+  },
+  "fonts": {
+    "title": "Noto Sans JP, Hiragino Sans, Yu Gothic, Microsoft YaHei, Noto Sans SC, sans-serif",
+    "body": "Noto Sans JP, Hiragino Sans, Yu Gothic, Microsoft YaHei, Noto Sans SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 46,
+    "title_pt": 28,
+    "bullet_pt": 20,
+    "reference_pt": 16,
+    "figure_pt": 13
+  },
+  "cover_style": {
+    "title_align": "left",
+    "accent_bar": true
+  },
+  "content_style": {
+    "figure_split_pct": 60
+  }
+}

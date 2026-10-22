@@ -1,15 +1,18 @@
 """Account-permission reads and default filing; deletion stays inside the workspace."""
+import protected_paths
 import csv,hashlib,io,json,os,re,shutil,stat,subprocess,time,uuid
 from pathlib import Path
 
 def workspace(r):
     base=r.workspace_root()
     if any(p.is_symlink() for p in [base,*base.parents]):raise ValueError('工作文件夹不能是链接')
+    if not base.exists():protected_paths.check(r,base,'mkdir')
     base.mkdir(mode=0o700,parents=True,exist_ok=True)
     if os.name=='posix' and base.stat().st_uid!=os.getuid():raise ValueError('工作文件夹不属于当前 SSH 账号')
     for name in ('configs','references','files','results','projects','.trash'):
         p=base/name
         if p.is_symlink():raise ValueError('工作子目录不能是链接')
+        if not p.exists():protected_paths.check(r,p,'mkdir')
         p.mkdir(mode=0o700,exist_ok=True)
     return base
 
@@ -102,6 +105,7 @@ def write_config(r,body):
         stream=io.StringIO();writer=csv.DictWriter(stream,fieldnames=columns,delimiter='\t' if kind=='tsv' else ',');writer.writeheader();writer.writerows(rows);data=stream.getvalue()
     else:raise ValueError('支持 YAML、JSON、CSV 和 TSV 配置表')
     if len(data.encode())>1048576:raise ValueError('配置表超过 1 MB')
+    protected_paths.check(r,p)
     p.parent.mkdir(parents=True,exist_ok=True)
     with p.open('x',encoding='utf-8',newline='') as f:f.write(data)
     r.audit(r.database(),'workspace.config_created',{'path':str(p),'format':kind})
@@ -121,7 +125,7 @@ def manage(r,body):
     if operation=='info':
         context=body.get('context');base=workspace_context.base(r,context) if context else workspace(r)
         old=r.root()/'workspace'
-        return {'path':str(base),'workspaceRoot':str(workspace(r)),'legacyRoot':str(old) if old!=workspace(r) and old.is_dir() else None,'folders':['configs','references','files','tasks'] if context else ['projects','configs','references','files','results'],'context':context,'originalDataReadOnly':not r.conda_runtime.is_ref(image),'inputPolicy':'preserve-originals'}
+        return {'path':str(base),'workspaceRoot':str(workspace(r)),'legacyRoot':str(old) if old!=workspace(r) and old.is_dir() else None,'folders':['configs','references','files','tasks'] if context else ['projects','configs','references','files','results'],'context':context,'originalDataReadOnly':False,'inputPolicy':'preserve-originals'}
     if operation=='trash':
         rows=[]
         for p in (workspace(r)/'.trash').iterdir():
@@ -150,11 +154,14 @@ def manage(r,body):
                 resolved=read_path(r,str(child));rows.append({'name':child.name,'path':str(child),'directory':resolved.is_dir(),'size':resolved.stat().st_size})
             except (OSError,ValueError):continue
         return {'path':str(p),'files':rows,'truncated':count>20000 or len(rows)>=500}
-    if operation=='mkdir':p.mkdir(parents=True,exist_ok=False);return {'path':str(p)}
+    if operation in ('mkdir','move','rename','delete'):protected_paths.check(r,p,operation,recursive=operation!='mkdir')
+    if operation=='mkdir':
+        p.mkdir(parents=True,exist_ok=False);r.audit(r.database(),'workspace.mkdir',{'path':str(p)});return {'path':str(p)}
     if operation in ('move','rename'):
         if workspace_context.reserved(p.relative_to(workspace(r))):raise ValueError('请管理项目或对话中的文件夹，不更改归档结构')
         if p.name in ('output','log.txt','task.json','supervisor.lock','cancel') and any(p.parent==r.jobdir(row['id']) for row in r.database().execute('SELECT id FROM jobs')):raise ValueError('这是任务的结果或日志入口。请重命名或移动整个任务文件夹；其中的结果文件可以单独管理。')
         dest=managed(r,body.get('destination'),existing=False,context=body.get('context'))
+        protected_paths.check(r,dest,'move')
         if dest.exists() or dest.is_symlink():raise ValueError('目标位置已有文件，不能覆盖')
         if p==dest or p in dest.parents:raise ValueError('不能移动到自己的子目录')
         if busy_path(r,p) or busy_path(r,dest):raise ValueError('正在使用的目录不能移动或重命名')
@@ -179,6 +186,7 @@ def restore(r,body):
     if dest.exists() or dest.is_symlink():raise ValueError('原位置已有文件，不能覆盖')
     content=trash/'content'
     if not content.exists() and not content.is_symlink():raise ValueError('回收文件不正确')
+    protected_paths.check(r,dest,'restore')
     dest.parent.mkdir(parents=True,exist_ok=True)
     try:content.rename(dest)
     except OSError as error:
@@ -197,6 +205,7 @@ def restore(r,body):
 def script(r,body):
     p=managed(r,body.get('path'),existing=False,context=body.get('context'));text=body.get('content')
     if 'files' not in p.relative_to(workspace(r)).parts or p.suffix not in ('.py','.R','.r','.sh') or not isinstance(text,str) or '\0' in text or len(text.encode())>1048576:raise ValueError('分析脚本支持 Python、R 和 Shell，请保存在工作文件夹或使用服务器写入工具另选路径')
+    protected_paths.check(r,p)
     p.parent.mkdir(parents=True,exist_ok=True)
     with p.open('x',encoding='utf-8') as f:f.write(text)
     r.audit(r.database(),'workspace.script_created',{'path':str(p)})

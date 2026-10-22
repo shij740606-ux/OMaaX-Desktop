@@ -1,3 +1,4 @@
+import ProtectedPaths from './ProtectedPaths';
 import {serverError} from '../serverErrors';
 import { useEffect, useRef, useState } from 'react';
 import type { SshHost, SshMetrics } from '@shared/types';
@@ -13,7 +14,7 @@ import { useApp } from '../store';
 import {invalidateServer} from '../serverRequests';
 import {connectionRevision} from '../serverConnections';
 const jobLabels:Record<string,string>={queued:'等待资源',running:'分析中',succeeded:'已完成',complete:'已完成',partial:'部分完成',invalid_result:'结果不满足要求',failed:'失败',cancelled:'已取消',interrupted:'已中断'};
-const auditLabels:Record<string,string>={'bootstrap.shared_ready':'共享文件夹已准备','bootstrap.install_packages':'安装计算环境','bootstrap.image_ready':'运行环境已准备','bootstrap.ready':'环境检查完成',configure:'更新保护设置','job.cancel_requested':'请求取消任务','data.export':'导出数据','data.import_pending':'开始接收数据','data.import_complete':'数据接收完成'};
+const auditLabels:Record<string,string>={'bootstrap.shared_ready':'共享文件夹已准备','bootstrap.install_packages':'安装计算环境','bootstrap.image_ready':'运行环境已准备','bootstrap.ready':'环境检查完成',configure:'更新目录与环境登记','job.cancel_requested':'请求取消任务','data.export':'导出数据','data.import_pending':'开始接收数据','data.import_complete':'数据接收完成'};
 
 type Status = {uid:number; root:string; protection:unknown; error:string; sources:Record<string,string>; images:string[]};
 type Job = {id:string; state:string; detail:string; created:number; spec:{argv:string[]; sources:string[];title?:string;context?:AnalysisContext}};
@@ -48,7 +49,7 @@ export default function PersonalComputeView({section,onManageEnvironment,results
   const transfer=async(body:unknown)=>{const result=await call<{path:string;source?:string;files?:number}>(id,'transfer',{target:target||null,source:{...(body as object),context:await analysisContext(currentSession)}});setNotice(`传输已校验完成：${result.path}${result.source?`；目标数据名称：${result.source}`:''}`);};
   return <div className="p-5 flex flex-col gap-4 max-w-[1180px] mx-auto">
     <div className="card p-4 flex flex-wrap items-center gap-3"><span>当前服务器</span><select aria-label="服务器账号" className="field !w-auto" disabled={busy} value={id} onChange={e=>setId(e.target.value)}>{hosts.map(h=><option key={h.id} value={h.id}>{h.name} · {h.username}@{h.host}</option>)}</select><button className="btn btn-ghost" disabled={busy||!id} onClick={()=>{invalidateServer(id);if(section==='environments'||section==='files')setEnvironmentRefresh(n=>n+1);else void run(refresh);}}>刷新</button></div>
-    {!hosts.length&&<div className="card p-5">请先在“SSH 连接”添加服务器并测试连接。</div>}
+    {!hosts.length&&<div className="card p-5">请先在“连接服务器”添加服务器并测试连接。</div>}
     {busy&&<div role="status">正在处理…</div>}
     {error&&<div role="alert" className="card p-4 break-words" style={{color:'var(--red)'}}>操作未完成，请查看原因后重试。<details className="mt-2 t-caption"><summary>查看原因</summary>{error}</details></div>}
     {notice&&<div role="status" className="card p-4 break-words">{notice}</div>}
@@ -61,14 +62,14 @@ export default function PersonalComputeView({section,onManageEnvironment,results
       {log&&<pre className="card p-4 whitespace-pre-wrap break-all max-h-96 overflow-auto">{log}</pre>}
     </>}
     {id&&resultsOnly&&<ServerWorkspaceFiles key={id} server={id}/>}
-    {id&&section==='protection'&&<><ServerDeleteRequests server={id}/><ServerWorkspaceFiles key={id} server={id}/><ServerWriteRequests key={'write-'+id} server={id}/></>}
+    {id&&section==='protection'&&<><ProtectedPaths key={'protection-'+id} server={id}/><ServerDeleteRequests server={id}/><ServerWorkspaceFiles key={id} server={id}/><ServerWriteRequests key={'write-'+id} server={id}/></>}
     {id&&section==='environments'&&<ServerEnvironments key={id} server={id} label={hosts.find(h=>h.id===id)?.name||id} refreshToken={environmentRefresh}/>}
     {id&&section==='files'&&<ServerFileBrowser key={id} server={id} refreshToken={environmentRefresh}/>}
     {id&&section==='data'&&<ServerTransfers server={id}/>}
     {id&&section==='data'&&<div className="card p-5 flex flex-col gap-3"><div className="t-headline">复制数据</div><div>把文件复制到另一台服务器或电脑，原文件保持不变。</div><div className="t-caption">复制期间请保持软件打开。每次最多 500 个文件。</div>{status&&!Object.keys(status.sources).length&&<p className="t-caption">还没有可复制的文件夹，请先到“数据保护与审计”登记数据目录。</p>}<label>选择文件夹<select className="field w-full" value={source} onChange={e=>setSource(e.target.value)}>{Object.keys(status?.sources||{}).map(name=><option key={name} value={name}>{name==='shared'?'专用共享文件夹':name}</option>)}</select></label><label>只复制其中的文件（可选）<input placeholder="留空复制整个文件夹，例如 samples/data.csv" className="field w-full" value={relative} onChange={e=>setRelative(e.target.value)}/></label><label>复制到<select className="field w-full" value={target} onChange={e=>setTarget(e.target.value)}><option value="">这台电脑</option>{hosts.filter(h=>h.id!==id).map(h=><option value={h.id} key={h.id}>{h.name} · {h.username}</option>)}</select></label><button className="btn btn-primary self-start" disabled={busy||!source} onClick={()=>void run(()=>transfer({source,path:relative.trim()||'.'}))}>开始复制</button></div>}
     {status&&section==='protection'&&<>
-      <div className="card p-5 flex flex-col gap-3"><div className="t-headline">保护原始数据</div><p>分析默认保留原始输入，配置、索引和结果另存到 OMaaX 工作文件夹，并保留运行日志。</p><div className="t-caption">可读取当前 SSH 账号有权限访问的数据路径，无需逐个登记。可以在账号有权限的任意目录保存新文件；覆盖已有文件需你明确授权，每次删除都会先展示路径、范围和大小，经你确认后移入回收站。此功能不包含自动备份。</div>{!status.protection&&<div>分析环境尚未就绪，请到“环境管理”准备环境。</div>}<details><summary className="cursor-pointer">管理保护设置</summary>
-      <form className="mt-4 flex flex-col gap-3" onSubmit={e=>{e.preventDefault();void run(async()=>{const roots:Record<string,string>={};for(const line of sourceText.split('\n').filter(l=>l.trim())){const n=line.indexOf('=');if(n<1)throw Error('目录格式应为 数据名称=/绝对路径');const name=line.slice(0,n).trim();if(name in roots)throw Error('数据名称重复');roots[name]=line.slice(n+1).trim();}await call(id,'configure',{sources:roots,images:imageText.split('\n').map(l=>l.trim()).filter(Boolean)});await refresh();setNotice('输入目录和环境范围已保存');});}}><label>数据目录（每行：数据名称=/绝对路径）<textarea rows={5} className="field w-full font-mono" value={sourceText} onChange={e=>setSourceText(e.target.value)}/></label><label>允许的环境标识（每行一个已配置的环境）<textarea rows={3} className="field w-full font-mono" value={imageText} onChange={e=>setImageText(e.target.value)}/></label><button className="btn btn-primary self-start" disabled={busy}>保存保护范围</button><div className="t-caption">执行记录与输出目录：{status.root}。数据副本可在“跨服务器数据”中导出保存；不会自动清理任务或副本。</div></form>
+      <div className="card p-5"><details><summary className="cursor-pointer">数据传输目录与环境登记</summary>
+      <form className="mt-4 flex flex-col gap-3" onSubmit={e=>{e.preventDefault();void run(async()=>{const roots:Record<string,string>={};for(const line of sourceText.split('\n').filter(l=>l.trim())){const n=line.indexOf('=');if(n<1)throw Error('目录格式应为 数据名称=/绝对路径');const name=line.slice(0,n).trim();if(name in roots)throw Error('数据名称重复');roots[name]=line.slice(n+1).trim();}await call(id,'configure',{sources:roots,images:imageText.split('\n').map(l=>l.trim()).filter(Boolean)});await refresh();setNotice('输入目录和环境范围已保存');});}}><label>数据目录（每行：数据名称=/绝对路径）<textarea rows={5} className="field w-full font-mono" value={sourceText} onChange={e=>setSourceText(e.target.value)}/></label><label>允许的环境标识（每行一个已配置的环境）<textarea rows={3} className="field w-full font-mono" value={imageText} onChange={e=>setImageText(e.target.value)}/></label><button className="btn btn-primary self-start" disabled={busy}>保存登记</button><div className="t-caption">执行记录与输出目录：{status.root}。数据副本可在“跨服务器数据”中导出保存；不会自动清理任务或副本。</div></form>
       </details></div>
       <div className="card p-4"><div className="t-headline">操作记录</div><p className="t-caption mt-2">查看任务执行和数据传输记录，方便排查问题。</p>{!audit.length&&<p className="t-caption mt-3">还没有操作记录。</p>}{audit.map(row=><div className="py-2 hairline-b break-words" key={row.id}><div>{new Date(row.at*1000).toLocaleString()} · {auditLabels[row.action]||(row.action.startsWith('job.')?`任务${jobLabels[row.action.slice(4)]||'状态已更新'}`:'操作已记录')}</div><details className="t-caption mt-1"><summary>查看详情</summary><div>{row.detail}</div></details></div>)}</div>
     </>}

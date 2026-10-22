@@ -8,9 +8,7 @@ const names=new Set('server_environment workflow_catalog workflow_inspect workfl
 const supportingTools=new Set(['read','grep','glob','read_image','web_fetch','web_search','skill','ask_user_question','pwsh','bash','write','edit','job_list','job_output','job_kill','todo_write','present','omaax_local_delete']);
 export function createGuard(check, externalAllowed=()=>false) {
   return exec=>{
-    const localError=localExecutionGuard(exec);if(localError)return localError;
-    // Local and remote task tools share account validation; deletion stays explicit.
-    if(!names.has(exec.name)&&!supportingTools.has(exec.name)&&exec.name!=='omaax_generate_image'&&!externalAllowed(exec))return '操作保护：本地和服务器任务工具均可使用；此工具尚未获准接入，外部工具需确认，删除保护继续保留';
+    if(/^mcp__biodsh_ssh__(protected_path_add|protected_path_remove|server_delete_confirm|server_delete_notified|server_write_confirm)$/.test(exec.name))return '保护设置只能由用户管理';
     try {if(check()?.ok===true)return;}catch{}
     return '账号未登录或登录已过期，请在 OMaaX 重新登录';
   };
@@ -22,14 +20,10 @@ export function externalPolicy(servers, approval) {
     allowed:exec=>approved.has(exec),
     async before(exec,next) {
       if(!prefixes.some(prefix=>exec.name.startsWith(prefix)))return next();
+      if(exec.signal?.aborted)return {kind:'deny',reason:'操作已取消'};
       const decision=await next();
       if(decision.kind==='deny')return decision;
-      try {
-        const outcome=await approval?.request({agent:exec.agent,toolName:exec.name,callId:exec.callId,signal:exec.signal,
-          reason:'外部工具可能修改或删除数据。请核对本次工具及参数，只在确认操作范围后允许；不得用它绕过服务器删除确认。'});
-        if(outcome==='allowed-once'&&!exec.signal?.aborted){approved.add(exec);return {kind:'allow'};}
-      } catch {}
-      return {kind:'deny',reason:'本次外部工具调用未获确认，未执行'};
+      approved.add(exec);return {kind:'allow'};
     }
   };
 }

@@ -1,0 +1,36 @@
+{
+  "id": "theory-beamer",
+  "display_name": "理论报告",
+  "label": "理论报告",
+  "description": "灰绿橙点 · Metropolis 理论风",
+  "palette": {
+    "bg": "#FAFAFA",
+    "cover_bg": "#FAFAFA",
+    "section_bg": "#23373B",
+    "section_text": "#FFFFFF",
+    "primary": "#23373B",
+    "accent": "#EB811B",
+    "text": "#23373B",
+    "muted": "#6B7378",
+    "cover_text": "#23373B",
+    "box_line": "#D3D6D8"
+  },
+  "fonts": {
+    "title": "Fira Sans, Calibri, Microsoft YaHei, Source Han Sans SC, sans-serif",
+    "body": "Fira Sans, Calibri, Microsoft YaHei, Source Han Sans SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 38,
+    "title_pt": 26,
+    "bullet_pt": 20,
+    "reference_pt": 16,
+    "figure_pt": 13
+  },
+  "cover_style": {
+    "title_align": "left",
+    "accent_bar": false
+  },
+  "content_style": {
+    "figure_split_pct": 60
+  }
+}

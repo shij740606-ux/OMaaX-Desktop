@@ -97,6 +97,7 @@ const api = {
   readWorkspaceImage: (rel: string, path?: string) => ipcRenderer.invoke('files:readImage', rel, path),
   sessionExport: (sessionId: string) => ipcRenderer.invoke('dsh:export', sessionId),
   checkUpdates: () => ipcRenderer.invoke('updates:check'),
+  drawing: async (_action:string,_body:unknown={}) => {throw Error('科研绘图需要使用当前桌面版本');},
   assistantAsk: (model: string, question: string, context: string) => ipcRenderer.invoke('assistant:ask', model, question, context),
   windowControl: (a: 'minimize' | 'maximize' | 'close') => ipcRenderer.invoke(`window:${a}`),
   onEvent: (cb: (e: IpcEvent) => void) => {

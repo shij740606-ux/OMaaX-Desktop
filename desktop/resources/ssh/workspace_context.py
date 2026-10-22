@@ -16,9 +16,13 @@ def base(r,value):
     import server_workspace as storage
     ctx=normalize(value);relative='projects/'+key(ctx['projectId'])+'/sessions/'+key(ctx['sessionId'])
     path=storage.managed(r,relative,existing=False)
+    import protected_paths
+    if not path.exists():protected_paths.check(r,path,'mkdir')
     path.mkdir(parents=True,exist_ok=True,mode=0o700)
     for name in ('configs','references','files','tasks'):
-        storage.managed(r,relative+'/'+name,existing=False).mkdir(exist_ok=True,mode=0o700)
+        child=storage.managed(r,relative+'/'+name,existing=False)
+        if not child.exists():protected_paths.check(r,child,'mkdir')
+        child.mkdir(exist_ok=True,mode=0o700)
     db=r.database();db.execute('INSERT OR REPLACE INTO workspace_contexts VALUES(?,?,?,?,?)',(ctx['projectId'],ctx['sessionId'],json.dumps(ctx),relative,time.time()));db.commit()
     return path
 

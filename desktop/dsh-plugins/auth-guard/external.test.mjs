@@ -6,26 +6,15 @@ import path from 'node:path';
 import {externalPolicy,createGuard} from './index.js';
 import {createImageTool} from './image.js';
 
-test('external tools require exact per-call approval; rejection, cancellation, spoofing and absent UI fail closed',async()=>{
- for(const outcome of ['allowed-once','rejected','unavailable','cancelled']){
-  const policy=externalPolicy(['papers'],{request:async()=>outcome});
-  const exec={name:'mcp__papers__delete',signal:new AbortController().signal};
-  const guard=createGuard(()=>({ok:true}),policy.allowed);
-  assert.match(guard(exec),/确认/);
-  const result=await policy.before(exec,async()=>({kind:'allow'}));
-  assert.equal(result.kind,outcome==='allowed-once'?'allow':'deny');
-  assert.equal(guard(exec)===undefined,outcome==='allowed-once');
-  assert.match(guard({...exec}),/确认/);
-  assert.match(createGuard(()=>({ok:false}),policy.allowed)(exec),/账号/);
-  assert.match(guard({name:'mcp__biodsh_ssh__server_delete_confirm'}),/保护/);
- }
- const policy=externalPolicy(['biodsh_ssh','papers'],undefined);
- const e={name:'mcp__papers__search'};
- assert.equal((await policy.before(e,async()=>({kind:'allow'}))).kind,'deny');
- assert.equal(policy.allowed(e),false);
+test('external tools proceed without extra approval but cancellation and login remain effective',async()=>{
+ const policy=externalPolicy(['papers'],{request:async()=>{throw Error('Unexpected approval');}});
+ const exec={name:'mcp__papers__search'};
+ assert.equal((await policy.before(exec,async()=>({kind:'allow'}))).kind,'allow');
+ assert.equal(createGuard(()=>({ok:true}))(exec),undefined);
+ assert.match(createGuard(()=>({ok:false}))(exec),/账号/);
+ assert.equal((await policy.before(exec,async()=>({kind:'deny'}))).kind,'deny');
  const abort=new AbortController();abort.abort();
- const cancelled=externalPolicy(['papers'],{request:async()=> 'allowed-once'});
- assert.equal((await cancelled.before({...e,signal:abort.signal},async()=>({kind:'allow'}))).kind,'deny');
+ assert.equal((await policy.before({...exec,signal:abort.signal},async()=>({kind:'allow'}))).kind,'deny');
 });
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhXkAAAAASUVORK5CYII=','base64');
 test('image API saves distinct files, renders preview, keeps key out of returned data and rejects overwrite arguments',async()=>{

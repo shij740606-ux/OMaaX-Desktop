@@ -1,0 +1,31 @@
+{
+  "id": "botanic-forest",
+  "display_name": "植研绿林",
+  "label": "植研绿林",
+  "description": "植物绿系 · 所内汇报",
+  "palette": {
+    "bg": "#F4FAF6",
+    "cover_bg": "#14532D",
+    "section_bg": "#DCFCE7",
+    "section_text": "#FFFFFF",
+    "primary": "#14532D",
+    "accent": "#16A34A",
+    "text": "#1A2E1A",
+    "muted": "#4D7C57",
+    "cover_text": "#FFFFFF",
+    "box_line": "#86C79A"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "left", "accent_bar": false },
+  "content_style": { "figure_split_pct": 60 }
+}

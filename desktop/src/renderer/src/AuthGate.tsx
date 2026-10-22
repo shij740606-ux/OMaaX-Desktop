@@ -1,3 +1,5 @@
+import omaaxIcon from './assets/omaax-icon.png';
+import './AuthGate.css';
 import {createContext,useContext,useEffect,useState,useRef,type ReactNode} from 'react';
 import {WindowControls} from './components/Sidebar';
 export interface HubUser {id:string;username:string;role:string;authorizations:string[]}
@@ -21,14 +23,12 @@ export default function AuthGate({children}:{children:ReactNode}) {
  },[]);
  const logout=async()=>{revision.current++;changing.current=true;setBusy(true);setSession({...session,authenticated:false});try{await window.biodsh.hubLogout();}catch(e){setError(loginError(e));}finally{revision.current++;changing.current=false;setBusy(false);}};
  if(session.authenticated&&session.user)return <AuthContext.Provider value={{...session,logout}}>{children}</AuthContext.Provider>;
- return <div className="h-full w-full flex items-center justify-center" style={{background:'#f5f7fa',color:'#202530'}}><div className="absolute top-3 right-3"><WindowControls compact/></div><form style={{width:420,padding:32,background:'white',borderRadius:16,boxShadow:'0 12px 40px #0001'}} onSubmit={async e=>{e.preventDefault();revision.current++;changing.current=true;setBusy(true);setError('');edited.current=true;const secret=password;setPassword('');try{await window.biodsh.hubLogin(hub,username,secret,remember);setSession(await window.biodsh.hubStatus());}catch(e){setError(loginError(e));}finally{revision.current++;changing.current=false;setBusy(false);}}}>
- <h1 className="text-2xl font-semibold mb-2">登录 OMaaX</h1><p className="text-sm text-gray-500 mb-5">账号由管理员创建，请使用用户名和密码登录。</p>
- <label className="block text-sm mb-3">用户名<input aria-label="用户名" className="block border rounded p-2 mt-1 w-full" autoComplete="username" value={username} onChange={e=>{edited.current=true;setUsername(e.target.value);}} required disabled={busy}/></label>
- <label className="block text-sm mb-3">密码<input aria-label="密码" className="block border rounded p-2 mt-1 w-full" type="password" autoComplete="current-password" value={password} onChange={e=>{edited.current=true;setPassword(e.target.value);}} required disabled={busy}/></label>
- <label className="flex items-center gap-2 text-sm mb-4"><input type="checkbox" checked={remember} disabled={busy} onChange={async e=>{edited.current=true;const checked=e.target.checked;setRemember(checked);if(!checked){setBusy(true);try{await window.biodsh.hubForgetLogin();}catch(e){setRemember(true);setError(loginError(e));}finally{setBusy(false);}}}}/>记住账号和密码</label>
- <p className="text-xs text-gray-500 mb-4">每次打开仍需点击登录。请仅在自己的电脑上记住密码。</p>
- {error&&!error.includes('请登录')&&<p role="alert" className="text-sm text-red-700 mb-3">{error}</p>}
- <button className="w-full rounded p-2 text-white bg-blue-600 disabled:opacity-50" disabled={busy||loading}>{loading?'正在检查登录状态…':busy?'正在登录…':'登录'}</button>
- <p className="text-xs text-gray-500 mt-4">请向管理员获取内测账号。</p>
+ return <div className="auth-page"><div className="auth-window-controls"><WindowControls compact/></div><form className="auth-card" aria-label="登录 OMaaX" onSubmit={async e=>{e.preventDefault();revision.current++;changing.current=true;setBusy(true);setError('');edited.current=true;const secret=password;setPassword('');try{await window.biodsh.hubLogin(hub,username,secret,remember);setSession(await window.biodsh.hubStatus());}catch(e){setError(loginError(e));}finally{revision.current++;changing.current=false;setBusy(false);}}}>
+ <header className="auth-heading"><img src={omaaxIcon} alt="" width={64} height={64}/><div className="auth-wordmark">OMaaX</div><h1>欢迎回来</h1></header>
+ <label className="auth-field">用户名<input aria-label="用户名" className="auth-input" placeholder="请输入用户名" autoComplete="username" value={username} onChange={e=>{edited.current=true;setUsername(e.target.value);}} required disabled={busy}/></label>
+ <label className="auth-field">密码<input aria-label="密码" className="auth-input" type="password" placeholder="请输入密码" autoComplete="current-password" value={password} onChange={e=>{edited.current=true;setPassword(e.target.value);}} required disabled={busy}/></label>
+ <label className="auth-remember"><input type="checkbox" checked={remember} disabled={busy} onChange={async e=>{edited.current=true;const checked=e.target.checked;setRemember(checked);if(!checked){setBusy(true);try{await window.biodsh.hubForgetLogin();}catch(e){setRemember(true);setError(loginError(e));}finally{setBusy(false);}}}}/>记住账号和密码</label>
+ {error&&!error.includes('请登录')&&<p role="alert" className="auth-error">{error}</p>}
+ <button className="auth-submit" disabled={busy||loading}>{loading?'正在检查登录状态…':busy?'正在登录…':'登录'}</button>
  </form></div>;
 }

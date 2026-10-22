@@ -147,7 +147,7 @@ const riskClass = (note) => {
     <!-- ========== 结果区 ========== -->
     <template v-else>
       <!-- 降级横幅（meta 标志，非报错红） -->
-      <div v-if="meta && (!meta.vector_ok || !meta.llm_ok)" class="rp-degraded">
+      <div v-if="meta && !meta.llm_ok" class="rp-degraded">
         {{ !meta.llm_ok ? '智能推荐暂不可用，以下按影响因子和审稿周期排序' : '已扩大期刊范围进行匹配' }}
       </div>
 

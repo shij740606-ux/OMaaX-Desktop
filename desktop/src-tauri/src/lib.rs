@@ -1,5 +1,7 @@
 //! OMaaX Desktop（Tauri 版）主进程：一个无边框窗口里放两个 WebView —— "ui"（我们的 React 壳子）
 //! 和 "dsh"（dsh web 原版界面，作为子视图贴在对话页的内容区）。
+#![recursion_limit = "256"]
+mod drawing;
 mod dsh;
 mod instance;
 mod child_job;
@@ -1037,6 +1039,11 @@ async fn check_updates(app: AppHandle, state: State<'_, AppState>) -> Result<ser
 
 /// 右键"问一下"：使用统一公司对话连接，非流式，回答简短。
 #[tauri::command]
+async fn drawing(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+    let paths=state.paths.clone();
+    tauri::async_runtime::spawn_blocking(move||drawing::run(&app,&paths,&action,body)).await.map_err(|_|"绘图操作未完成，请重试".to_string())?
+}
+#[tauri::command]
 async fn assistant_ask(app:AppHandle,state: State<'_, AppState>, model: String, question: String, context: String) -> Result<String, String> {
     let _=model;let paths=state.paths.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1184,7 +1191,7 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<Window> {
 
 #[tauri::command]
 async fn education_start(app:AppHandle,state:State<'_,AppState>)->Result<String,String>{
- let root=state.paths.root.clone();tauri::async_runtime::spawn_blocking(move||education::start(&app,&root)).await.map_err(|e|e.to_string())?
+ let paths=state.paths.clone();tauri::async_runtime::spawn_blocking(move||education::start(&app,&paths)).await.map_err(|e|e.to_string())?
 }
 #[tauri::command]
 async fn education_delete(app:AppHandle,state:State<'_,AppState>,path:String)->Result<serde_json::Value,String>{
@@ -1199,7 +1206,19 @@ async fn hub_status(app: AppHandle, state: State<'_, AppState>) -> Result<serde_
 }
 #[tauri::command]
 async fn cloud_qa(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+    if action=="save_image" {
+        let (bytes,ext)=cloud_qa::image_bytes(body["data"].as_str().unwrap_or(""))?;
+        let (tx,rx)=std::sync::mpsc::channel();
+        app.dialog().file().set_file_name(format!("文献图片.{ext}")).add_filter("图片",&[ext]).save_file(move|p|{let _=tx.send(p);});
+        return tauri::async_runtime::spawn_blocking(move||{
+            let Some(target)=rx.recv().ok().flatten() else{return Ok(serde_json::json!({"saved":false}));};
+            std::fs::write(target.to_string(),bytes).map_err(|_|"图片保存失败，请检查保存位置".to_string())?;
+            Ok(serde_json::json!({"saved":true}))
+        }).await.map_err(|_|"图片保存未完成".to_string())?;
+    }
     let root=state.paths.root.clone();
+    if matches!(action.as_str(),"begin"|"cancel"){return cloud_qa::control(&action,&body);}
+    if matches!(action.as_str(),"chat"|"search") && body.get("requestId").is_some(){return cloud_qa::generate(root,action,body).await;}
     tauri::async_runtime::spawn_blocking(move||{
         cloud_qa::route(&action,&body)?;
         hub_auth::cloud_session(&root)?;
@@ -1328,7 +1347,7 @@ pub fn run() {
             ssh_hosts_list, ssh_hosts_save, ssh_hosts_remove, ssh_hosts_select, ssh_hosts_trust, ssh_hosts_test, ssh_hosts_metrics, ssh_hosts_files,
             env_status, env_install, dsh_status, dsh_start, dsh_restart, dsh_stop, dsh_reload, dsh_bounds,
             skills_catalog, skills_statuses, skills_readme, skills_install, skills_uninstall,
-            open_path, open_external, pick_folder, window_control, client_log, deepseek_balance, git_status, git_init, git_commit, dsh_rpc, dsh_open_session, dsh_new_session, check_updates, assistant_ask, session_export, workspace_files, read_workspace_image, ratings_get, ratings_set, session_delete, env_install_extra, migrate_scan, migrate_import, refdata_list, refdata_install, refdata_remove, demos_seed, dsh_set_context, dsh_set_reasoning, embed_query, db_catalog, light_update_check, light_update_apply
+            open_path, open_external, pick_folder, window_control, client_log, deepseek_balance, git_status, git_init, git_commit, dsh_rpc, dsh_open_session, dsh_new_session, check_updates, drawing, assistant_ask, session_export, workspace_files, read_workspace_image, ratings_get, ratings_set, session_delete, env_install_extra, migrate_scan, migrate_import, refdata_list, refdata_install, refdata_remove, demos_seed, dsh_set_context, dsh_set_reasoning, embed_query, db_catalog, light_update_check, light_update_apply
                 ]);
                 handler(invoke);
             });

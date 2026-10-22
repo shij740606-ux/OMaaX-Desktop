@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3];sys.path.insert(0,str(ROOT/'validation-local/qa-runtime/python'))
 from playwright.sync_api import sync_playwright,expect
 OUT=ROOT/'validation-local/server-full-qa/browser';OUT.mkdir(parents=True,exist_ok=True)
-names=['服务器文件','资源监控','环境管理','任务与调度','跨服务器数据','数据保护与审计','SSH 连接']
+names=['服务器文件','资源监控','环境管理','任务与调度','跨服务器数据','数据保护与审计','连接服务器']
 errors=[];latencies=[];samples=[];rounds=0;faults=0;started=time.monotonic()
 with sync_playwright() as p:
  edge=Path(os.environ.get('ProgramFiles(x86)',r'C:\Program Files (x86)'))/'Microsoft/Edge/Application/msedge.exe'
@@ -29,7 +29,7 @@ with sync_playwright() as p:
     page.evaluate("window.__qa.failures['metrics:qa-a']='Timed out while waiting for handshake'")
     nav.get_by_role('button',name='资源监控',exact=True).click();page.get_by_role('button',name='刷新',exact=True).click();expect(page.get_by_role('alert')).to_contain_text('SSH 握手超时')
     page.evaluate("delete window.__qa.failures['metrics:qa-a']");page.get_by_role('button',name='刷新',exact=True).click();expect(page.get_by_role('alert')).to_have_count(0);expect(page.get_by_label('服务器资源概览')).to_be_visible();faults+=1
-    nav.get_by_role('button',name='SSH 连接',exact=True).click()
+    nav.get_by_role('button',name='连接服务器',exact=True).click()
    sample=page.evaluate('({intervals:window.__qaIntervals,heapBytes:performance.memory?.usedJSHeapSize||null})');samples.append(sample)
    assert sample['intervals']<=baseline+1,'Timers accumulated after page changes'
    page.evaluate('window.__qa.calls.splice(0,Math.max(0,window.__qa.calls.length-100))')

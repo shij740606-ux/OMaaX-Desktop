@@ -25,6 +25,6 @@ export default function EducationView({active}:{active:boolean}){
  },[url,setTab]);
  return <div className="h-full flex flex-col" style={{display:active?'flex':'none'}}>
   <header className="drag h-[52px] shrink-0 flex items-center pl-5 hairline-b"><span className="t-title2">教育科研</span></header>
-  {error?<div className="p-8"><p role="alert">{error}</p><button className="btn btn-primary mt-4" onClick={()=>{opened.current=false;setUrl('');setAttempt(x=>x+1);}}>重新连接</button></div>:url?<iframe ref={frame} title="教育科研工作台" className="flex-1 w-full border-0" src={url} onLoad={syncTheme} sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"/>:<p className="p-8">正在打开教育科研…</p>}
+  {error?<div className="p-8"><p role="alert">{error}</p><button className="btn btn-primary mt-4" onClick={()=>{opened.current=false;setUrl('');setAttempt(x=>x+1);}}>重试</button></div>:url?<iframe ref={frame} title="教育科研工作台" className="flex-1 w-full border-0" src={url} onLoad={syncTheme} sandbox="allow-scripts allow-same-origin allow-downloads allow-modals"/>:<p className="p-8">正在准备本地教育科研，首次使用需要下载运行环境…</p>}
  </div>;
 }

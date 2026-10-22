@@ -1,0 +1,36 @@
+{
+  "id": "international",
+  "display_name": "国际会议",
+  "label": "国际会议",
+  "description": "白底红点 · 海外组会 / 国际会议",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#FFFFFF",
+    "section_bg": "#111111",
+    "section_text": "#FFFFFF",
+    "primary": "#111111",
+    "accent": "#C0392B",
+    "text": "#111111",
+    "muted": "#6B6B6B",
+    "cover_text": "#111111",
+    "box_line": "#E5E5E5"
+  },
+  "fonts": {
+    "title": "Arial, Helvetica, Microsoft YaHei, PingFang SC, Source Han Sans SC, sans-serif",
+    "body": "Arial, Helvetica, Microsoft YaHei, PingFang SC, Source Han Sans SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 32,
+    "bullet_pt": 20,
+    "reference_pt": 16,
+    "figure_pt": 13
+  },
+  "cover_style": {
+    "title_align": "left",
+    "accent_bar": true
+  },
+  "content_style": {
+    "figure_split_pct": 60
+  }
+}

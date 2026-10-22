@@ -538,6 +538,12 @@ def launch(job):
 
 def dispatch(req):
     db = database(); cfg = config(db); action = req['action']; body = req.get('body') or {}
+    if action in ('protected_paths','protected_path_add','protected_path_remove'):
+        import protected_paths
+        return protected_paths.dispatch(types.SimpleNamespace(**globals()),action,body,req.get('actor','user'))
+    if action in ('protected_paths','protected_path_add','protected_path_remove'):
+        import protected_paths
+        return protected_paths.dispatch(types.SimpleNamespace(**globals()),action,body,req.get('actor','user'))
     if action.startswith('server_delete'):
         import server_delete
         return server_delete.dispatch(types.SimpleNamespace(**globals()),action,body,req.get('actor','user'))
@@ -598,7 +604,7 @@ def dispatch(req):
         workflow_images=workflow_engine.available_images(types.SimpleNamespace(**globals()))
         workflow_images.update({key:value['image'] for key,value in cfg.get('workflowEnvironments',{}).items() if value.get('image')})
         return {'workflowImages':workflow_images, 'version': VERSION, 'uid': os.getuid(), 'root': str(root()), 'workspace':str(workspace_root()), 'protection': state, 'error': error,
-                'sources': cfg.get('sources', {}), 'images': cfg.get('images', []), 'environmentCheckedAt':cached.get('at')}
+                'protectedPaths':cfg.get('protectedPaths',[]), 'sources': cfg.get('sources', {}), 'images': cfg.get('images', []), 'environmentCheckedAt':cached.get('at')}
     if action == 'configure':
         sources = body.get('sources', {}); images = body.get('images', [])
         if not isinstance(sources, dict) or len(sources)>100 or not isinstance(images, list) or len(images)>100:
@@ -620,7 +626,10 @@ def dispatch(req):
         # Never pull an image during a task; the user provisions approved images explicitly.
         if conda_runtime.is_ref(spec['image']):conda_runtime.resolve(types.SimpleNamespace(**globals()),spec['image'])
         else:command(['podman', 'image', 'inspect', spec['image']])
-        directory = jobdir(job,spec); directory.mkdir(parents=True, mode=0o700)
+        directory = jobdir(job,spec)
+        import protected_paths
+        protected_paths.check(types.SimpleNamespace(**globals()),directory,'analysis-output')
+        directory.mkdir(parents=True, mode=0o700)
         (directory/'output').mkdir(mode=0o700)
         now = time.time()
         db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?)', (job, json.dumps(spec), 'queued', now, now, ''))
@@ -687,6 +696,8 @@ def dispatch(req):
         existing=db.execute('SELECT path FROM transfer_imports WHERE id=?',(transfer,)).fetchone()
         if existing:
             directory=Path(existing['path'])
+            import protected_paths
+            protected_paths.check(types.SimpleNamespace(**globals()),directory,'import')
             if not directory.is_dir() or any(p.is_symlink() for p in [directory,*directory.parents]):raise ValueError('接收目录发生变化，未继续传输')
             return {'path':str(directory)}
         size=body.get('bytes',0)
@@ -694,6 +705,8 @@ def dispatch(req):
             raise ValueError('目标可用空间不足（保留至少 1 GiB / 1%），未开始传输')
         import workspace_context
         directory = workspace_context.base(types.SimpleNamespace(**globals()),body.get('context'))/'files/imports'/transfer
+        import protected_paths
+        protected_paths.check(types.SimpleNamespace(**globals()),directory,'import')
         directory.mkdir(parents=True, mode=0o700, exist_ok=False)
         db.execute('INSERT INTO transfer_imports VALUES(?,?)',(transfer,str(directory)));db.commit()
         audit(db, 'data.import_pending', {'id':transfer})

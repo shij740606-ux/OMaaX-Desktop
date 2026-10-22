@@ -1,3 +1,4 @@
+import DrawingView from './views/DrawingView';
 import { useEffect } from 'react';
 import AuthGate,{useAuth,hasUnit} from './AuthGate';
 import { SudoInstallProvider } from './components/SudoInstall';
@@ -50,6 +51,7 @@ function Shell() {
         {tab === 'servers' && bioflow && <ServerManagementView initial="resources" />}
         {tab === 'store' && bioflow && <StoreView />}
         {tab === 'env' && bioflow && <EnvView />}
+        {bioflow && <div className="h-full" hidden={tab !== 'drawing'}><DrawingView active={tab === 'drawing'}/></div>}
         {bioflow && <EducationView active={tab === 'education'} />}
         {tab === 'account' && <SettingsView initialPane="account" />}
         {tab === 'settings' && <SettingsView />}

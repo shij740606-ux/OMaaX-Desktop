@@ -1,0 +1,31 @@
+{
+  "id": "nature-green",
+  "display_name": "自然绿",
+  "label": "自然绿",
+  "description": "自然生态绿 · 植物/生态领域",
+  "palette": {
+    "bg": "#FFFFFF",
+    "cover_bg": "#F0FDF4",
+    "section_bg": "#DCFCE7",
+    "section_text": "#FFFFFF",
+    "primary": "#15803D",
+    "accent": "#22C55E",
+    "text": "#14532D",
+    "muted": "#4D7C57",
+    "cover_text": "#14532D",
+    "box_line": "#86EFAC"
+  },
+  "fonts": {
+    "title": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif",
+    "body": "Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, sans-serif"
+  },
+  "sizes": {
+    "cover_title_pt": 40,
+    "title_pt": 30,
+    "bullet_pt": 18,
+    "reference_pt": 14,
+    "figure_pt": 13
+  },
+  "cover_style": { "title_align": "left", "accent_bar": true },
+  "content_style": { "figure_split_pct": 60 }
+}

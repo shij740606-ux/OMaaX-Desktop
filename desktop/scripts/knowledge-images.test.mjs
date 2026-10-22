@@ -1,0 +1,27 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),React=require('react'),{act,create}=require('react-test-renderer');
+const module={exports:{}};
+const code=ts.transpileModule(fs.readFileSync(new URL('../src/renderer/src/views/KnowledgeMarkdown.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
+new Function('require','module','exports',code)(n=>['react-markdown','remark-gfm'].includes(n)?()=>null:require(n),module,module.exports);
+const {KnowledgeImage,copyKnowledgeImage}=module.exports;
+const text=n=>typeof n==='string'?n:(n.children||[]).map(text).join('');
+test('image copy writes PNG bytes; save uses the loaded image and handles cancel and failure',async()=>{
+ let written,saved,fail=false,cancel=false;
+ globalThis.Image=class{naturalWidth=10;naturalHeight=10;async decode(){}};
+ globalThis.document={createElement:()=>({getContext:()=>({drawImage(){}}),toBlob:cb=>cb(new Blob(['png'],{type:'image/png'}))})};
+ globalThis.ClipboardItem=class{constructor(data){this.data=data;}};
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{write:async items=>{written=items;}}}});
+ await copyKnowledgeImage('data:image/png;base64,eA==');assert.equal(written[0].data['image/png'].type,'image/png');
+ globalThis.window={biodsh:{cloudQa:async(action,body)=>{if(action==='image')return {src:'data:image/png;base64,eA=='};saved=body;if(fail)throw Error('disk');return {saved:!cancel};}}};
+ let view;await act(async()=>{view=create(React.createElement(KnowledgeImage,{src:'/api/figures/proxy?x=1'}));});
+ const button=label=>view.root.findAllByType('button').find(n=>text(n)===label);
+ await act(async()=>button('复制图片').props.onClick());assert.match(text(view.root),/图片已复制/);
+ await act(async()=>button('保存图片').props.onClick());assert.equal(saved.data,'data:image/png;base64,eA==');assert.match(text(view.root),/图片已保存/);
+ cancel=true;await act(async()=>button('保存图片').props.onClick());assert.doesNotMatch(text(view.root),/图片已保存/);
+ fail=true;await act(async()=>button('保存图片').props.onClick());assert.match(text(view.root),/保存失败/);
+ await act(async()=>view.unmount());
+});

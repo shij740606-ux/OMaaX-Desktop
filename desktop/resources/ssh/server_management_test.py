@@ -27,8 +27,9 @@ class ManagementTests(unittest.TestCase):
   # Only this test's fixed temporary directory is removed; no real user paths are used.
   self.temp.cleanup()
  def call(self,action,body=None,actor='agent'):return r.dispatch({'action':action,'body':body or {},'actor':actor})
- def confirm(self,pending):
-  row=next(i for i in self.call('server_delete_requests',actor='user') if i['id']==pending['id'])
+ def confirm(self,result):
+  if result.get('recoverable'):return result
+  row=next(i for i in self.call('server_delete_requests',actor='user') if i['id']==result['id'])
   return self.call('server_delete_confirm',{'id':row['id'],'digest':row['digest']},'user')
  def test_new_account_workspace_is_under_omaax_and_conversations_are_separate(self):
   home=self.base/'user-home';home.mkdir();app=home/'omaax';control=app/'.servers/server-a';control.mkdir(parents=True)
@@ -52,31 +53,19 @@ class ManagementTests(unittest.TestCase):
  def test_upgrade_rechecks_old_setup_without_changing_saved_config(self):
   before=r.config(r.database());setup.save(r,{'state':'complete','updated':1,'detail':'old environment'})
   self.assertEqual(setup.status(r)['state'],'idle');self.assertEqual(r.config(r.database()),before)
- def test_small_and_empty_files_always_require_user_confirmation(self):
+ def test_small_and_empty_files_need_no_extra_confirmation(self):
   for size in (0,7):
    p=self.data/('small-'+str(size));p.write_bytes(b'x'*size)
-   pending=self.call('server_delete',{'path':str(p)})
-   self.assertTrue(pending['requiresNotice']);self.assertEqual(pending['bytes'],size);self.assertEqual(pending['paths'],[str(p)]);self.assertTrue(p.exists())
-   row=next(row for row in self.call('server_delete_requests',actor='user') if row['id']==pending['id'])
-   with self.assertRaisesRegex(ValueError,'用户确认'):self.call('server_delete_confirm',{'id':row['id'],'digest':row['digest']})
-   p.write_bytes(b'changed')
-   with self.assertRaisesRegex(ValueError,'已变化'):self.confirm(pending)
-   self.assertEqual(p.read_bytes(),b'changed')
+   result=self.call('server_delete',{'path':str(p)})
+   self.assertTrue(result['recoverable']);self.assertFalse(p.exists())
+   self.assertEqual(self.call('server_delete_requests',actor='user'),[])
  def test_single_external_file_moves_to_trash_and_restores(self):
   p=self.data/'original.txt';result=self.confirm(self.call('server_delete',{'path':str(p)}))
   self.assertFalse(p.exists());self.assertTrue(result['recoverable']);self.call('workspace_restore',{'trashId':result['trashId']});self.assertEqual(p.read_text(),'keep original')
- def test_display_receipt_is_required_and_model_cannot_forge_it(self):
-  p=self.data/'original.txt';pending=self.call('server_delete',{'path':str(p),'context':C})
-  self.assertFalse(pending['requiresApproval']);self.assertTrue(p.exists())
-  row=self.call('server_delete_requests',actor='user')[0]
-  payload={'id':row['id'],'digest':row['digest']}
-  with self.assertRaises(ValueError):self.call('server_delete_notified',payload)
-  with self.assertRaises(ValueError):self.call('server_delete_notified',{**payload,'digest':'forged'},'user')
-  self.assertTrue(p.exists())
-  result=self.call('server_delete_notified',payload,'user');self.assertFalse(p.exists())
-  saved=json.loads((deletion.folder(r)/(row['id']+'.json')).read_text())
-  self.assertIn('notifiedAt',saved);self.assertEqual(saved['state'],'complete')
-  with self.assertRaises(ValueError):self.call('server_delete_notified',payload,'user')
+ def test_no_display_receipt_needed_and_legacy_admin_action_stays_user_only(self):
+  p=self.data/'original.txt';result=self.call('server_delete',{'path':str(p),'context':C})
+  self.assertTrue(result['recoverable']);self.assertFalse(p.exists())
+  with self.assertRaises(ValueError):self.call('server_delete_notified',{'id':'forged','digest':'forged'})
   self.call('workspace_restore',{'trashId':result['trashId']});self.assertEqual(p.read_text(),'keep original')
  def test_foundation_probe_chooses_smallest_approved_image_only(self):
   large='sha256:'+'a'*64;small='sha256:'+'b'*64;unapproved='sha256:'+'c'*64
@@ -136,27 +125,26 @@ class ManagementTests(unittest.TestCase):
   original={'state':'failed','detail':"Command '['podman', 'run']' timed out after 60 seconds"};setup.save(r,original)
   shown=setup.status(r);self.assertIn('上次环境检查超时',shown['detail']);self.assertEqual(shown['errorDetail'],original['detail'])
   self.assertEqual(json.loads(setup.path(r).read_text(encoding='utf-8')),original)
- def test_recursive_deletion_warns_and_model_cannot_confirm(self):
-  pending=self.call('server_delete',{'path':str(self.data),'recursive':True});self.assertTrue(pending['requiresNotice']);self.assertTrue(self.data.exists())
-  row=self.call('server_delete_requests',actor='user')[0]
-  with self.assertRaisesRegex(ValueError,'用户确认'):self.call('server_delete_confirm',{'id':row['id'],'digest':row['digest']})
-  self.confirm(pending);self.assertFalse(self.data.exists())
- def test_wildcards_freeze_only_matched_files_and_leave_other_files(self):
+ def test_recursive_deletion_is_recoverable_without_extra_approval(self):
+  result=self.call('server_delete',{'path':str(self.data),'recursive':True});self.assertTrue(result['recoverable']);self.assertFalse(self.data.exists())
+ def test_wildcards_only_remove_matched_files(self):
   for name in ['one.tmp','two.tmp','keep.dat']:(self.data/name).write_text(name)
-  pending=self.call('server_delete',{'path':str(self.data/'*.tmp')});self.assertEqual(len(pending['paths']),2);self.assertTrue((self.data/'one.tmp').exists())
-  (self.data/'later.tmp').write_text('not in preview');self.confirm(pending)
-  self.assertTrue((self.data/'later.tmp').exists());self.assertTrue((self.data/'keep.dat').exists());self.assertFalse((self.data/'one.tmp').exists())
- def test_changed_recursive_scope_rejects_confirmation_without_deleting(self):
-  pending=self.call('server_delete',{'path':str(self.data),'recursive':True});(self.data/'new.txt').write_text('new')
-  with self.assertRaisesRegex(ValueError,'已变化'):self.confirm(pending)
+  result=self.call('server_delete',{'path':str(self.data/'*.tmp')})
+  self.assertEqual(len(result['deleted']),2);self.assertTrue((self.data/'keep.dat').exists())
+ def test_changed_recursive_scope_is_rechecked_before_deleting(self):
+  execute=deletion.execute
+  def changed(runner,item):
+   (self.data/'new.txt').write_text('new');return execute(runner,item)
+  with patch.object(deletion,'execute',side_effect=changed):
+   with self.assertRaisesRegex(ValueError,'已变化'):self.call('server_delete',{'path':str(self.data),'recursive':True})
   self.assertTrue((self.data/'original.txt').exists())
- def test_over_10gb_metadata_requires_warning_without_allocating_large_data(self):
-  p=self.data/'large.bin'
-  p.write_bytes(b'small test fixture');summary=deletion.snapshot(r,[p]);summary['bytes']=10_000_000_001
-  self.assertEqual(deletion.LIMIT,10_000_000_000)
-  with patch.object(deletion,'snapshot',return_value=summary):pending=self.call('server_delete',{'path':str(p)})
-  self.assertTrue(pending['requiresNotice']);self.assertIn('删除数据超过 10 GB',pending['warnings']);self.assertTrue(p.exists())
-  row=self.call('server_delete_requests',actor='user')[0];self.call('server_delete_reject',{'id':row['id']},'user');self.assertTrue(p.exists())
+ def test_large_deletion_records_size_without_an_approval_gate(self):
+  p=self.data/'large.bin';p.write_bytes(b'small test fixture')
+  summary=deletion.snapshot(r,[p]);summary['bytes']=10_000_000_001
+  with patch.object(deletion,'snapshot',return_value=summary):result=self.call('server_delete',{'path':str(p)})
+  self.assertTrue(result['recoverable']);self.assertFalse(p.exists())
+  row=r.database().execute("SELECT detail FROM audit WHERE action='server.deleted'").fetchone()
+  self.assertEqual(json.loads(row['detail'])['bytes'],summary['bytes'])
  def test_credential_and_control_roots_and_active_inputs_are_protected(self):
   for p in [Path.home(),Path.home()/'.ssh',r.ROOT,storage.workspace(r),self.data/'../other']:
    with self.assertRaises(ValueError):self.call('server_delete',{'path':str(p),'recursive':True})

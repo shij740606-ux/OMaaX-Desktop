@@ -8,7 +8,7 @@ const API_PATH = /^\/api\/review\/(?:journals|conferences|recommend|presubmit|fo
 function validApi(url) {
   try { return API_PATH.test(url) && !decodeURIComponent(url).split(/[/?]/).includes('..') && !/[\\\r\n\0]/.test(decodeURIComponent(url)); } catch { return false; }
 }
-function start({ directory, forward, control, token = randomBytes(32).toString('hex') }) {
+function start({ directory, forward, control, backendToken, port = 0, token = randomBytes(32).toString('hex') }) {
   const prefix = `/${token}`;
   const root = fs.realpathSync(directory);
   function error(res, status, message) { res.writeHead(status, {'Content-Type':'application/json'}); res.end(JSON.stringify({ok:false,error:{code:'UNAVAILABLE',message}})); }
@@ -16,6 +16,7 @@ function start({ directory, forward, control, token = randomBytes(32).toString('
     forward((err, socket) => {
       if (err) return error(res,503,'科研服务连接失败，请重试');
       const headers = {};
+      if(backendToken)headers['x-omaax-backend']=backendToken;
       for (const key of ['content-type','content-length','accept','range']) if(req.headers[key])headers[key]=req.headers[key];
       if(method==='DELETE') {delete headers['content-length'];delete headers['content-type'];}
       const agent=new http.Agent();agent.createConnection=()=>socket;
@@ -63,24 +64,24 @@ function start({ directory, forward, control, token = randomBytes(32).toString('
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'");
     res.writeHead(200,{'Content-Type':mime});fs.createReadStream(file).pipe(res);
   });
-  return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve({server,url:`http://127.0.0.1:${server.address().port}/${token}/index.html`})));
+  return new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve({server,url:`http://127.0.0.1:${server.address().port}/${token}/index.html`}));});
 }
 module.exports={start,validApi,DELETE_PATH};
 if(require.main===module){
-  const {Client}=require('ssh2');const readline=require('node:readline');
-  const input=readline.createInterface({input:process.stdin});let connection;
+  const readline=require('node:readline');
+  const {launch}=require('./education-local.cjs');
+  const input=readline.createInterface({input:process.stdin});let local;
   input.once('line',async line=>{
     try{
-      const config=JSON.parse(line);connection=new Client();
-      connection.on('error',()=>{process.stdout.write(JSON.stringify({error:'科研服务连接失败，请检查服务器连接'})+'\n');process.exit(1);});
-      connection.on('close',()=>process.exit(0));
-      connection.on('ready',async()=>{
-        try {
-        const result=await start({directory:config.directory,control:config.control,forward:cb=>connection.forwardOut('127.0.0.1',0,'127.0.0.1',8100,cb)});
-        process.stdout.write(JSON.stringify({url:result.url})+'\n'); } catch {process.stdout.write(JSON.stringify({error:'科研服务连接失败'})+'\n');process.exit(1);}
-      });
-      connection.connect({host:config.host,port:config.port,username:config.username,password:config.password||undefined,privateKey:config.privateKey||undefined,passphrase:config.passphrase||undefined,readyTimeout:15000,keepaliveInterval:15000,keepaliveCountMax:3,hostVerifier:key=>key.toString('base64')===config.hostKey});
-    }catch{process.stdout.write(JSON.stringify({error:'科研服务启动失败'})+'\n');process.exit(1);}
+      const config=JSON.parse(line);local=await launch(config);
+      const portFile=path.join(config.state,'ui-port.json');
+      let port=0;try{port=JSON.parse(fs.readFileSync(portFile,'utf8'));}catch{}
+      if(!Number.isInteger(port)||port<0||port>65535)port=0;
+      const result=await start({...config,port,backendToken:local.token,forward:local.forward});
+      fs.writeFileSync(portFile,JSON.stringify(result.server.address().port));
+      process.stdout.write(JSON.stringify({url:result.url})+'\n');
+      local.child.once('exit',()=>{result.server.close();process.exit(0);});
+    }catch{process.stdout.write(JSON.stringify({error:'本地教育科研启动失败，请检查本机运行环境或重试'})+'\n');process.exit(1);}
   });
-  input.on('close',()=>{connection?.end();process.exit(0);});
+  input.on('close',()=>{local?.child.stdin.end();process.exit(0);});
 }

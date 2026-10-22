@@ -116,7 +116,7 @@ export default function HostsView(_props:{active?:boolean}={}) {
   return <div className="h-full flex flex-col">
     <div className="flex-1 overflow-y-auto p-5"><div className="max-w-[1180px] mx-auto flex flex-col gap-4">
       <div className="flex flex-wrap gap-3 items-center"><div className="flex-1"><div className="t-title2">{t('我的服务器')}</div><div className="t-caption mt-1">{t('添加连接信息，选择允许智能体使用的服务器。')}</div></div><button className="btn btn-primary" disabled={busy} onClick={() => edit()}><Plus size={14} />{t('添加服务器')}</button></div>
-      <section className="card p-4 flex flex-col gap-2" aria-label="数据保护"><div className="t-headline">连接后就能管理服务器</div><div className="t-caption">首次登录后自动创建 ~/omaax 并按需准备基础环境。SSH 连接、账号认证和环境状态分别显示；环境失败不会影响已验证的 SSH 登录。分析结果按项目和对话分别保存。</div></section>
+      <section className="card p-4 flex flex-col gap-2" aria-label="数据保护"><div className="t-headline">连接后就能管理服务器</div><div className="t-caption">连接后即可查看服务器文件和使用情况，分析所需环境会按需准备。结果按项目和对话保存，方便查找。</div></section>
       {error && <div role="alert" className="card p-3" style={{ color: 'var(--red)' }}>{error}</div>}
       {notice && <div role="status" className="card p-3 flex items-center gap-2" style={{ color: 'var(--green)' }}><Check size={16} />{notice}</div>}
       <div className={`grid gap-4 ${editing ? 'lg:grid-cols-[1fr_380px]' : ''}`}>

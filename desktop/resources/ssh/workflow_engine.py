@@ -17,7 +17,8 @@ def tables(db):
     db.execute('CREATE TABLE IF NOT EXISTS workflow_plans(id TEXT PRIMARY KEY,digest TEXT NOT NULL,plan TEXT NOT NULL,confirmed INTEGER NOT NULL DEFAULT 0,created REAL NOT NULL)');db.commit()
 def identity(r):return {'uid':os.getuid(),'server':r.SERVER_KEY,'root':str(r.ROOT)}
 def no_extra(v,keys):
-    if not isinstance(v,dict) or set(v)-keys:raise ValueError('存在未允许的执行参数；不能传入命令、脚本或自定义运行配置')
+    if not isinstance(v,dict):raise ValueError('参数须为对象')
+    if set(v)-keys:raise ValueError('无法识别参数：'+', '.join(sorted(set(v)-keys))+'；允许参数：'+', '.join(sorted(keys)))
 def flow_for(name):
     f=next((f for f in CATALOG['workflows'] if f['id']==name),None)
     if not f:raise ValueError('请选择已收录的一体化分析流程')
@@ -57,6 +58,27 @@ def select_steps(flow,requested):
     by_id={s['id']:s for s in flow['nodes']+flow['extraNodes']}
     if any(s not in by_id or not by_id[s]['entryPresent'] for s in ids):raise ValueError('所选步骤不属于此流程或暂不可用')
     return [by_id[s] for s in flow['order'] if s in ids]
+def normalize_step_parameters(step,parameters,config):
+    fields={a['key']:a for a in step['arguments'] if not a['managed']}
+    aliases={k:k for k in fields}
+    for key,arg in fields.items():
+        for flag in arg.get('flags',[]):
+            aliases[flag]=key;aliases[flag.lstrip('-')]=key
+    config_keys=set(step.get('configSchema',{}).get('properties',{}))|set(step.get('configDefaults',{}))|set(step.get('contract',{}).get('required_config',[]))
+    if step['kind']=='omics':config_keys|={'profile','expected_outputs'}
+    result={};cfg={}
+    for origin,source in [('parameters',parameters),('configs',config)]:
+        if source is None:continue
+        if not isinstance(source,dict):raise ValueError(step['id']+' 的 '+origin+' 须为对象')
+        for key,value in source.items():
+            if step['kind']=='omics' and key in config_keys and (origin=='configs' or key not in aliases):target,name=cfg,key
+            elif key in aliases:target,name=result,aliases[key]
+            elif step['kind']=='omics' and origin=='configs':target,name=cfg,key
+            else:raise ValueError(step['id']+' 无法识别参数：'+key+'；允许参数：'+', '.join(sorted(set(fields)|config_keys)))
+            if name in target and target[name]!=value:raise ValueError(step['id']+' 参数 '+name+' 重复且值不一致，请保留一个明确值')
+            target[name]=value
+    return result,cfg
+
 def resolve_parameters(flow,steps,body):
     params=body.get('parameters',{});configs=body.get('configs',{})
     if not isinstance(params,dict) or not isinstance(configs,dict):raise ValueError('步骤参数须按步骤名称填写')
@@ -64,7 +86,7 @@ def resolve_parameters(flow,steps,body):
     if set(params)-selected or set(configs)-selected:raise ValueError('参数包含未选择的步骤')
     result={};effective={}
     for step in steps:
-        sid=step['id'];given=params.get(sid,{})
+        sid=step['id'];given,step_config=normalize_step_parameters(step,params.get(sid,{}),configs.get(sid,{}))
         fields={a['key']:a for a in step['arguments'] if not a['managed']}
         no_extra(given,set(fields));safe_values(given)
         values={a['key']:a['default'] for a in fields.values() if 'default' in a and a['default'] is not None};values.update({k:v for k,v in step.get('parameterDefaults',{}).items() if k in fields});values.update({k:v for k,v in given.items() if v!='' or fields[k].get('required')})
@@ -74,7 +96,7 @@ def resolve_parameters(flow,steps,body):
         if missing:raise ValueError(step['name']+'需要填写：'+', '.join(missing))
         result[sid]=values
         if step['kind']=='omics':
-            cfg=dict(step.get('configDefaults',{}));cfg.update(configs.get(sid,{}));cfg.pop('outdir',None);safe_values(cfg)
+            cfg=dict(step.get('configDefaults',{}));cfg.update(step_config);cfg.pop('outdir',None);safe_values(cfg)
             if step.get('nextflowSource'):
                 known=set(step.get('configSchema',{}).get('properties',{}))|set(step['contract']['required_config'])|{'profile','expected_outputs'}
                 if set(cfg)-known:raise ValueError('上游参数不在固定软件的声明中')
@@ -91,7 +113,6 @@ def resolve_parameters(flow,steps,body):
             missing=[k for k in step['contract']['required_config'] if cfg.get(k) in (None,'',[],{})]
             if missing:raise ValueError(step['name']+'需要填写：'+', '.join(missing))
             effective[sid]=cfg
-        elif sid in configs:raise ValueError('此步骤使用正式 CLI 参数，不接受额外配置对象')
     return result,effective
 def signature(p):
     s=p.stat(follow_symlinks=False)
@@ -425,6 +446,9 @@ def dispatch(r,action,body,actor='user'):
     if action=='workflow_readiness':
         no_extra(body,{'workflow','steps','parameters','configs'});safe_values(body.get('parameters',{}));safe_values(body.get('configs',{}));flow=flow_for(body.get('workflow'));env=cfg.get('workflowEnvironments',{}).get(flow['id'],{})
         steps=select_steps(flow,body['steps']) if 'steps' in body else flow['nodes']+flow['extraNodes']
+        body=dict(body);body['parameters']=dict(body.get('parameters',{}));body['configs']=dict(body.get('configs',{}))
+        for step in steps:
+            sid=step['id'];body['parameters'][sid],body['configs'][sid]=normalize_step_parameters(step,body['parameters'].get(sid,{}),body['configs'].get(sid,{}))
         probes={};checks={}
         import workflow_environments as environments
         wanted=environments.combined([environments.requirements(step,body.get('parameters',{}).get(step['id'],{}),body.get('configs',{}).get(step['id'],{})) for step in steps])
