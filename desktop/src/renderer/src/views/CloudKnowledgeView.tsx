@@ -33,7 +33,7 @@ export default function CloudKnowledgeView(){
   finally{pending.current=false;if(alive.current){setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
  }
  async function select(id:string){if(pending.current||unsaved)return;const revision=++version.current;setBusy(true);setError('');pending.current=true;try{const d=cloudMessages(await call('detail',{id}));if(alive.current&&revision===version.current){setSelected(id);setMessages(d);}}catch{if(alive.current)setError('会话加载失败，请刷新后重试');}finally{pending.current=false;if(alive.current)setBusy(false);}}
- function stop(){const requestId=requestRef.current;if(!requestId)return;const revision=++version.current;requestRef.current=null;setActiveRequest(null);pending.current=false;setBusy(false);setError('已中止本次请求');void call('cancel',{requestId}).catch(()=>{if(alive.current&&version.current===revision)setError('已停止接收回答，但未能确认请求已断开');});}
+ function stop(){const requestId=requestRef.current;if(!requestId)return;const revision=++version.current;requestRef.current=null;setActiveRequest(null);pending.current=false;setBusy(false);setError('已取消本次查询');const unconfirmed=()=>{if(alive.current&&version.current===revision)setError('已停止接收回答，但云端取消未确认，查询可能仍在处理');};void call<{cloud_cancelled?:boolean}>('cancel',{requestId}).then(result=>{if(result.cloud_cancelled===false)unconfirmed();}).catch(unconfirmed);}
  async function ask(search:boolean){
   const q=question.trim();if(pending.current||unsaved)return;
   if(!q){questionInput.current?.focus();return;}
@@ -55,7 +55,7 @@ export default function CloudKnowledgeView(){
    const answer:Message={role:'assistant',text,blocks:[{type:'sources',items:sources}]};setMessages(prev=>[...prev,answer]);
    try{await call('message',{id,...answer});}catch{if(valid())setUnsaved({id,answer});}
    if(valid())void refresh();
-  }catch(e){if(valid()){setQuestion(q);setError(String(e).replace(/^(Error:|UNAUTHORIZED:|FORBIDDEN:)\s*/,'').slice(0,180));}}
+  }catch(e){if(valid()){const cancelled=String(e).replace(/^Error:\s*/,'')==='QUERY_CANCELLED';if(!cancelled)setQuestion(q);setError(cancelled?'已取消本次查询':String(e).replace(/^(Error:|UNAUTHORIZED:|FORBIDDEN:)\s*/,'').slice(0,180));}}
   finally{if(valid()){requestRef.current=null;setActiveRequest(null);pending.current=false;setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
  }
  async function retrySave(){
@@ -85,7 +85,7 @@ export default function CloudKnowledgeView(){
  <footer className="knowledge-composer-area">
   <div className="knowledge-composer-inner">
    {unsaved&&<div className="knowledge-notice"><p role="status">回答已显示，但保存失败。请重试保存，或复制需要的内容后再放弃保存。退出账号或关闭软件会丢失未保存回答。</p><button className="btn" disabled={busy} onClick={()=>void retrySave()}>重试保存</button><button className="btn" disabled={busy} onClick={()=>{if(window.confirm('确认放弃保存这条回答？请先复制需要的内容。'))setUnsaved(null);}}>放弃保存</button></div>}
-   {error&&<p role="alert" className="knowledge-error">{error}</p>}
+   {error&&<p role={error==='已取消本次查询'?'status':'alert'} className={error==='已取消本次查询'?'knowledge-footnote':'knowledge-error'}>{error}</p>}
    <form className="knowledge-composer" onSubmit={e=>{e.preventDefault();void ask(false);}}>
     <label htmlFor="knowledge-question">科研问题</label>
     <textarea ref={questionInput} id="knowledge-question" rows={2} maxLength={8000} value={question} disabled={busy||!!unsaved} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229){e.preventDefault();void ask(false);}}} placeholder="输入科研问题或文献关键词…"/>

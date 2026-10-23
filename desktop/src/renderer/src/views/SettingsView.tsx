@@ -3,6 +3,7 @@ import { RefreshCw, Plug, Plus, Trash2, Palette, Info, ChevronRight } from 'luci
 import InfoDot, { useHelp } from '../components/HelpTip';
 export { default as InfoDot } from '../components/HelpTip';
 import AccountView from './AccountView';
+import AboutHelp from './AboutHelp';
 import ModelUsage from '../components/ModelUsage';
 import { ExternalLink, FolderOpen, CreditCard } from 'lucide-react';
 import {useAuth} from '../AuthGate';
@@ -15,7 +16,7 @@ const SETTINGS_PANES = [
   { id: 'tools', label: '工具与服务', detail: '分析工具使用说明', icon: Plug },
   { id: 'workspace', label: '文件与软件', detail: '保存位置与软件下载', icon: FolderOpen },
   { id: 'appearance', label: '界面偏好', detail: '主题与显示语言', icon: Palette },
-  { id: 'about', label: '关于 OMaaX', detail: '版本、引导与许可', icon: Info },
+  { id: 'about', label: '关于 OMaaX', detail: '帮助、版本与许可', icon: Info },
 ] as const;
 type SettingsPane = typeof SETTINGS_PANES[number]['id'];
 
@@ -62,7 +63,7 @@ export default function SettingsView({initialPane='account'}:{initialPane?:Setti
           </Section>
 
 </div>
-          <div className="omaax-settings-content" data-pane="about" role="tabpanel" id="settings-pane-about" aria-labelledby="settings-tab-about" hidden={pane!=='about'} tabIndex={0}>          <Section title="关于 OMaaX" wide><div className="omaax-wordmark">OMaa<span>X</span></div><p className="t-body mt-2">One Model, Beyond the Max.</p><p className="t-caption mt-2">连接数据、工具与计算资源的智能分析工作台。</p><div className="flex gap-3 mt-4"><button className="btn btn-tint" onClick={()=>info&&window.biodsh.openPath(info.paths.root)}><FolderOpen size={14}/>打开数据目录</button><button className="btn btn-ghost" onClick={()=>updateSettings({onboarded:false})}>使用引导</button></div><details className="mt-4 t-caption"><summary>版本与许可说明</summary><p className="mt-2">OMaaX {info?.version} · 助手组件 {dshVersion}</p><p>基于开源组件构建。原始版权和 MIT 许可证随软件保留。</p><p>应用文件由 OMaaX 管理，可通过“打开数据目录”查看。</p></details></Section></div>
+          <div className="omaax-settings-content" data-pane="about" role="tabpanel" id="settings-pane-about" aria-labelledby="settings-tab-about" hidden={pane!=='about'} tabIndex={0}>          <Section title="关于 OMaaX" wide><div className="omaax-wordmark">OMaa<span>X</span></div><p className="t-body mt-2">One Model, Beyond the Max.</p><p className="t-caption mt-2">连接数据、工具与计算资源的智能分析工作台。</p><div className="flex gap-3 mt-4"><button className="btn btn-tint" onClick={()=>info&&window.biodsh.openPath(info.paths.root)}><FolderOpen size={14}/>打开数据目录</button><button className="btn btn-ghost" onClick={()=>updateSettings({onboarded:false})}>使用引导</button></div><details className="mt-4 t-caption"><summary>版本与许可说明</summary><p className="mt-2">OMaaX {info?.version} · 助手组件 {dshVersion}</p><p>基于开源组件构建。原始版权和 MIT 许可证随软件保留。</p><p>应用文件由 OMaaX 管理，可通过“打开数据目录”查看。</p></details><AboutHelp/></Section></div>
 
         </div>
       </div>

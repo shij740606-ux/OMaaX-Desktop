@@ -4,17 +4,21 @@ import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
 const desktop=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const base=path.resolve(desktop,'../deploy/local/fixed-workflows-20261013/sdk-tests');mkdirSync(base,{recursive:true});
 const home=mkdtempSync(path.join(base,'home-'));const bindings=path.join(home,'workflow-bindings');mkdirSync(bindings);
-const sdk=path.join(desktop,'dsh-runtime/node_modules/@deepseek-ai/dsh');
+const runtime=process.env.OMAAX_TEST_DSH_RUNTIME?path.resolve(process.env.OMAAX_TEST_DSH_RUNTIME):path.join(desktop,'dsh-runtime');
+const sdk=path.join(runtime,'node_modules/@deepseek-ai/dsh');
+const runtimeRequire=createRequire(path.join(sdk,'package.json'));
+const moduleFile=name=>runtimeRequire.resolve('@deepseek-ai/'+name);
 const fixture=path.join(home,'probe.mjs');
 writeFileSync(fixture,[
- "import {defineContentToolFixture} from "+JSON.stringify(pathToFileURL(path.join(sdk,'node_modules/@deepseek-ai/dsh-tools/lib/index.js')).href)+";",
+ "import {defineContentToolFixture} from "+JSON.stringify(pathToFileURL(moduleFile('dsh-tools')).href)+";",
  "import {readFileSync,writeFileSync,existsSync} from 'node:fs';",
  "import path from 'node:path';",
- "import {renderPrompt} from "+JSON.stringify(pathToFileURL(path.join(sdk,'node_modules/@deepseek-ai/dsh-system-prompt/lib/index.js')).href)+";",
- "import {agentEvents} from "+JSON.stringify(pathToFileURL(path.join(sdk,'node_modules/@deepseek-ai/dsh-agent/lib/index.js')).href)+";",
+ "import {renderPrompt} from "+JSON.stringify(pathToFileURL(moduleFile('dsh-system-prompt')).href)+";",
+ "import {agentEvents} from "+JSON.stringify(pathToFileURL(moduleFile('dsh-agent')).href)+";",
  "import {createGuard} from "+JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/auth-guard/index.js')).href)+";",
  "export const inject=['tools','agents','systemPrompt'];",
  "export function apply(ctx) {",
@@ -22,7 +26,7 @@ writeFileSync(fixture,[
  " ctx.tools.register(defineContentToolFixture({name:'workflow_probe_forbidden',description:'Harmless test marker',parameters:{},execute:async()=>{bodies++;return [{type:'text',text:'FORBIDDEN_BODY'}];}}));",
  " ctx.tools.register(defineContentToolFixture({name:'mcp__biodsh_ssh__workflow_catalog',description:'Harmless allowed marker',parameters:{},execute:async()=>[{type:'text',text:'ALLOWED_BODY'}]}));",
  " ctx.tools.register(defineContentToolFixture({name:'mcp__biodsh_ssh__server_write',description:'Identity test only, writes nothing',parameters:{},execute:async args=>[{type:'text',text:JSON.stringify(args)}]}));",
- " for(const name of ['workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment','server_delete_confirm'])ctx.tools.register(defineContentToolFixture({name:'mcp__biodsh_ssh__'+name,description:'Local permission probe',parameters:{},execute:async()=>{if(name==='server_delete_confirm')bodies++;return [{type:'text',text:'ENV_ALLOWED_'+name}];}}));",
+ " for(const name of ['execute','server_environment','workflow_resume','workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment','server_delete_confirm','protected_path_remove'])ctx.tools.register(defineContentToolFixture({name:'mcp__biodsh_ssh__'+name,description:'Local permission probe',parameters:{},execute:async()=>{if(name==='server_delete_confirm')bodies++;return [{type:'text',text:'ENV_ALLOWED_'+name}];}}));",
  " ctx.on('tools/pre-execute',async()=>({kind:'allow'}));",
  " let busy=false;const dir="+JSON.stringify(home)+";const timer=setInterval(async()=>{",
  "  if(busy||!existsSync(path.join(dir,'request.json')))return;",
@@ -39,7 +43,7 @@ writeFileSync(fixture,[
  "   const beforePrompt=renderPrompt(await ctx.systemPrompt.assemble({agent,scope:agent}));",
  "   writeFileSync(path.join(dir,'workflow-bindings',sessionId+'.json'),JSON.stringify({schema:1,sessionId,workflow:'rnaseq',version:'20261014.1',selection}));",
  "   const workflowBudget=await preStep();",
- "   const environmentTools={};for(const name of ['workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment','server_delete_confirm'])environmentTools[name]=await run('mcp__biodsh_ssh__'+name);",
+ "   const environmentTools={};for(const name of ['execute','server_environment','workflow_resume','workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment','server_delete_confirm','protected_path_remove'])environmentTools[name]=await run('mcp__biodsh_ssh__'+name);",
  "   const prompt=renderPrompt(await ctx.systemPrompt.assemble({agent,scope:agent}));",
  "   const denied=await run('workflow_probe_forbidden');const allowed=await run('mcp__biodsh_ssh__workflow_catalog');",
  "   let authenticated=true;ctx.tools.guard(createGuard(()=>({ok:authenticated})));",
@@ -53,6 +57,11 @@ writeFileSync(fixture,[
 ].join('\n'));
 writeFileSync(path.join(home,'cordis.patch.yml'),'- insert:\n    - id: omaax-workflow-guard\n      name: '+JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/workflow-guard/index.js')).href)+'\n    - id: biodsh-step-guard\n      name: '+JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/step-guard/index.js')).href)+'\n    - id: workflow-sdk-probe\n      name: '+JSON.stringify(pathToFileURL(fixture).href)+'\n');
 const workspace=path.join(home,'workspace');mkdirSync(workspace);writeFileSync(path.join(workspace,'environment-guide.txt'),'ENV_REPAIR_PROBE: use Conda packages and inspect logs.');
+if (process.env.OMAAX_TEST_PROFILE) {
+ const file=path.join(home,'cordis.patch.yml');
+ const production=readFileSync(process.env.OMAAX_TEST_PROFILE,'utf8');
+ writeFileSync(file,production+'\n'+readFileSync(file,'utf8'));
+}
 const child=spawn(process.execPath,['--expose-internals',path.join(sdk,'lib/bin.js'),'web','--port','0','--no-open'],{cwd:workspace,windowsHide:true,env:{...process.env,DSH_HOME:home,DSH_TELEMETRY_DISABLED:'1',OMAAX_WORKFLOW_GUARD_DIR:bindings,DEEPSEEK_API_KEY:'',OPENAI_API_KEY:''}});
 let log='';
 const url=await new Promise((resolve,reject)=>{
@@ -80,20 +89,22 @@ try {
  assert.ok(JSON.stringify(result.authAllowed).includes("ENV_ALLOWED_workflow_prepare"));
  assert.ok(!JSON.stringify(result.authDenied).includes("ENV_ALLOWED_"));
  assert.ok(JSON.stringify(result.authDenied).includes("账号未登录"));
- assert.ok(JSON.stringify(result.ordinaryBudget).includes('不要再调用任何工具'));
+ assert.ok(!JSON.stringify(result.ordinaryBudget).includes('不要再调用任何工具'));
  assert.ok(!JSON.stringify(result.workflowBudget).includes('不要再调用任何工具'));
  assert.ok(JSON.stringify(result.ordinary).includes('FORBIDDEN_BODY'),'Fixture must be callable before workflow selection');
- assert.ok(JSON.stringify(result.denied).includes('一体化分析流程对话'),'Real SDK must report our guard denial, not an unknown-tool error');
+ assert.ok(JSON.stringify(result.denied).includes('FORBIDDEN_BODY'),'Workflow selection must not block ordinary tools');
  assert.ok(JSON.stringify(result.allowed).includes('ALLOWED_BODY'));
  assert.ok(JSON.stringify(result.provenance).includes(result.sessionId),'Real SDK must pass agent identity to the execution body');
  assert.ok(!JSON.stringify(result.provenance).includes('forged'),'Model cannot choose another conversation identity');
- for(const name of ['workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment'])assert.ok(JSON.stringify(result.environmentTools[name]).includes('ENV_ALLOWED_'+name));
+ for(const name of ['execute','server_environment','workflow_resume','workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment'])assert.ok(JSON.stringify(result.environmentTools[name]).includes('ENV_ALLOWED_'+name));
  assert.ok(!JSON.stringify(result.environmentTools.server_delete_confirm).includes('ENV_ALLOWED_'));
- assert.equal(result.before,result.after,'An allow pre-execute listener must not override the monotonic guard');
+ assert.equal(result.after,result.before+1,'Ordinary tool executes while protection management remains blocked');
+ assert.ok(JSON.stringify(result.environmentTools.protected_path_remove).includes('保护设置只能由用户管理'));
  assert.ok(!result.beforePrompt.includes('OMaaX 内部流程选择'));
+ if(process.env.OMAAX_TEST_PROFILE){assert.match(result.beforePrompt,/You are OMaaX/);assert.match(result.beforePrompt,/Both local and selected-server tools are available/);assert.match(result.beforePrompt,/Never modify or delete registered protected/);}
  assert.ok(result.prompt.includes(JSON.stringify(result.selection)),'Real model prompt must keep exact selection including resources and literal braces');
  assert.ok(result.prompt.includes('workflow_catalog')&&result.prompt.includes('workflow_plan'));
- assert.ok(result.prompt.includes('普通用户的新 Conda 环境')&&result.prompt.includes('临时安装和分析应放在同一次任务中')&&result.prompt.includes('read、grep、glob'));
+ assert.ok(result.prompt.includes('host:direct')&&result.prompt.includes('server_environment action=execute')&&result.prompt.includes('read、grep、glob'));
  assert.ok(!result.prompt.includes('脚本只能写 /output'));
  writeFileSync(path.join(base,'latest.json'),JSON.stringify({home,sdkGuardVerified:true,result},null,2));
  console.log(JSON.stringify({sdkGuardVerified:true,bodiesBefore:result.before,bodiesAfter:result.after,home}));

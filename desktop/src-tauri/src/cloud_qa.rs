@@ -2,7 +2,16 @@ use std::{path::Path,time::Duration};
 use serde_json::{json,Value};
 use crate::hub_auth;
 use std::{collections::HashMap,sync::{Arc,Mutex,LazyLock,atomic::{AtomicBool,Ordering}},time::Instant};
-static REQUESTS:LazyLock<Mutex<HashMap<String,(Arc<AtomicBool>,Instant)>>>=LazyLock::new(||Mutex::new(HashMap::new()));
+struct QueryRequest {
+    cancelled:Arc<AtomicBool>,
+    started:AtomicBool,
+    session:Mutex<Option<(String,String)>>,
+    created:Instant,
+}
+static REQUESTS:LazyLock<Mutex<HashMap<String,Arc<QueryRequest>>>>=LazyLock::new(||Mutex::new(HashMap::new()));
+fn request_id(body:&Value)->Result<String,String>{
+    uuid::Uuid::parse_str(body["requestId"].as_str().unwrap_or("")).map(|v|v.to_string()).map_err(|_|"请求标识无效".into())
+}
 pub fn image_bytes(data:&str)->Result<(Vec<u8>,&'static str),String>{
     use base64::Engine;
     if data.len()>17_000_000{return Err("图片超过大小限制".into());}
@@ -13,20 +22,49 @@ pub fn image_bytes(data:&str)->Result<(Vec<u8>,&'static str),String>{
     Ok((bytes,ext))
 }
 pub fn control(action:&str,body:&Value)->Result<Value,String>{
-    let key=uuid::Uuid::parse_str(body["requestId"].as_str().unwrap_or("")).map_err(|_|"请求标识无效")?.to_string();
+    let key=request_id(body)?;
     let mut requests=REQUESTS.lock().map_err(|_|"请求状态不可用")?;
-    if action=="cancel" {
-        if let Some((flag,_))=requests.remove(&key){flag.store(true,Ordering::SeqCst);}
-    } else {
-        requests.retain(|_,(_,at)|at.elapsed()<Duration::from_secs(600));
-        if requests.len()>=32 || requests.contains_key(&key){return Err("知识库请求过多，请稍后重试".into());}
-        requests.insert(key,(Arc::new(AtomicBool::new(false)),Instant::now()));
-    }
+    if action!="begin" {return Err("不支持此知识库操作".into());}
+    requests.retain(|_,request|request.created.elapsed()<Duration::from_secs(600));
+    if requests.len()>=32 || requests.contains_key(&key){return Err("知识库请求过多，请稍后重试".into());}
+    requests.insert(key,Arc::new(QueryRequest{cancelled:Arc::new(AtomicBool::new(false)),started:AtomicBool::new(false),session:Mutex::new(None),created:Instant::now()}));
     Ok(json!({"ok":true}))
 }
+pub async fn cancel(body:&Value)->Result<Value,String>{
+    let key=request_id(body)?;
+    let request=REQUESTS.lock().map_err(|_|"请求状态不可用")?.remove(&key);
+    let Some(request)=request else{return Ok(json!({"ok":true}));};
+    // Capture the original account, including when logout races with cancellation.
+    let session={
+        let session=request.session.lock().map_err(|_|"请求状态不可用")?;
+        request.cancelled.store(true,Ordering::SeqCst);
+        session.clone()
+    };
+    if let Some((hub,token))=session {return cancel_remote(&hub,&token,&key).await;}
+    Ok(json!({"ok":true}))
+}
+async fn cancel_remote(hub:&str,token:&str,key:&str)->Result<Value,String>{
+    let client=reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(4)).timeout(Duration::from_secs(8)).build().map_err(|_|"取消请求未能送达云端")?;
+    let url=format!("{}/api/qa/cancel/{key}",hub_auth::normalize(hub)?);
+    for attempt in 0..4 {
+        let res=client.post(&url).bearer_auth(token).send().await.map_err(|_|"取消请求未能送达云端")?;
+        let status=res.status().as_u16();
+        if status==404 {
+            // A very early click can arrive before the cloud registers the query.
+            if attempt<3 {tokio::time::sleep(Duration::from_millis(250*(1<<attempt))).await;continue;}
+            // The query may be finished, or this endpoint may not track cancellations.
+            return Ok(json!({"ok":true,"cloud_cancelled":false}));
+        }
+        let value=res.json::<Value>().await.map_err(|_|"云端取消状态暂时无法确认")?;
+        return response(status,value);
+    }
+    unreachable!()
+}
 pub async fn generate(root:std::path::PathBuf,action:String,body:Value)->Result<Value,String>{
-    let key=body["requestId"].as_str().unwrap_or("").to_string();
-    let flag=REQUESTS.lock().map_err(|_|"请求状态不可用")?.get(&key).map(|(v,_)|v.clone()).ok_or("已中止")?;
+    let key=request_id(&body)?;
+    let request=REQUESTS.lock().map_err(|_|"请求状态不可用")?.get(&key).cloned().ok_or("QUERY_CANCELLED")?;
+    if request.started.swap(true,Ordering::SeqCst){return Err("该查询已提交".into());}
     let work=async {
         let (method,path,payload)=route(&action,&body)?;
         let auth_root=root.clone();
@@ -34,14 +72,21 @@ pub async fn generate(root:std::path::PathBuf,action:String,body:Value)->Result<
         let client=reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(12)).timeout(Duration::from_secs(if action=="chat" {310}else{60})).build().map_err(|_|"无法连接知识库")?;
         let mut req=client.request(reqwest::Method::from_bytes(method.as_bytes()).unwrap(),format!("{}{path}",hub_auth::normalize(&hub)?)).bearer_auth(&token);
         if let Some(value)=payload{req=req.json(&value);}
+        {
+            let mut session=request.session.lock().map_err(|_|"请求状态不可用")?;
+            if request.cancelled.load(Ordering::SeqCst){return Err("QUERY_CANCELLED".into());}
+            *session=Some((hub.clone(),token.clone()));
+        }
         let res=req.send().await.map_err(|_|"知识库连接中断，请重试")?;
         let status=res.status().as_u16();let value=res.json::<Value>().await.map_err(|_|"知识库返回异常，请稍后重试")?;
         let current=tauri::async_runtime::spawn_blocking(move||hub_auth::cloud_session(&root)).await.map_err(|_|"登录状态不可用")??;
         if current!=(hub,token){return Err("UNAUTHORIZED: 登录已变化，请重新登录".into());}
         response(status,value)
     };
-    let result=cancelable(work,flag).await;
-    if let Ok(mut requests)=REQUESTS.lock(){requests.remove(&key);}
+    let result=cancelable(work,request.cancelled.clone()).await;
+    if let Ok(mut requests)=REQUESTS.lock(){
+        if requests.get(&key).is_some_and(|current|Arc::ptr_eq(current,&request)){requests.remove(&key);}
+    }
     result
 }
 
@@ -50,7 +95,7 @@ async fn cancelable(work:impl std::future::Future<Output=Result<Value,String>>,f
     let mut tick=tokio::time::interval(Duration::from_millis(50));
     std::future::poll_fn(|cx| {
         use std::{future::Future,task::Poll};
-        if flag.load(Ordering::SeqCst){return Poll::Ready(Err("已中止".into()));}
+        if flag.load(Ordering::SeqCst){return Poll::Ready(Err("QUERY_CANCELLED".into()));}
         while tick.poll_tick(cx).is_ready(){}
         work.as_mut().poll(cx)
     }).await
@@ -82,7 +127,7 @@ pub fn route(action:&str,body:&Value)->Result<(&'static str,String,Option<Value>
         "chat"|"search" => {
             let q=body["question"].as_str().unwrap_or("").trim();
             if q.is_empty() || q.chars().count()>8000 {return Err("请输入 1–8000 字的问题".into());}
-            ("POST",format!("/api/qa/{action}"),Some(json!({"question":q,"use_llm":action=="chat"})))
+            ("POST",format!("/api/qa/{action}"),Some(json!({"question":q,"use_llm":action=="chat","request_id":request_id(body)?})))
         },
         _=>return Err("不支持此知识库操作".into())
     })
@@ -96,6 +141,7 @@ fn image_path(value:&str,hub:&str)->Result<String,String>{
     Ok(format!("{}?{}",url.path(),url.query().unwrap()))
 }
 fn response(status:u16,value:Value)->Result<Value,String>{
+    if status==409 && value["error"]["code"]=="QUERY_CANCELLED" {return Err("QUERY_CANCELLED".into());}
     match status {
         200..=299 if value.get("ok")!=Some(&json!(false)) && value.get("success")!=Some(&json!(false)) => Ok(value),
         401=>Err("UNAUTHORIZED: 登录已过期，请重新登录".into()),
@@ -161,12 +207,12 @@ pub fn call(root:&Path,action:&str,body:Value)->Result<Value,String>{
     #[test] fn cancel_pending_work_and_release_request(){
         let key=uuid::Uuid::new_v4().to_string();let body=json!({"requestId":key});
         control("begin",&body).unwrap();
-        let flag=REQUESTS.lock().unwrap().get(&key).unwrap().0.clone();
-        let worker=std::thread::spawn(move||{std::thread::sleep(Duration::from_millis(80));control("cancel",&body).unwrap();});
+        let flag=REQUESTS.lock().unwrap().get(&key).unwrap().cancelled.clone();
+        let worker=std::thread::spawn(move||{std::thread::sleep(Duration::from_millis(80));tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(cancel(&body)).unwrap();});
         let runtime=tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
         let started=Instant::now();
         let result=runtime.block_on(async{tokio::time::timeout(Duration::from_secs(2),cancelable(std::future::pending(),flag)).await});
-        assert_eq!(result.unwrap().unwrap_err(),"已中止");assert!(started.elapsed()<Duration::from_secs(2));
+        assert_eq!(result.unwrap().unwrap_err(),"QUERY_CANCELLED");assert!(started.elapsed()<Duration::from_secs(2));
         worker.join().unwrap();assert!(!REQUESTS.lock().unwrap().contains_key(&key));
     }
     #[test] fn image_failures_are_bounded_and_not_mislabeled(){
@@ -181,13 +227,64 @@ pub fn call(root:&Path,action:&str,body:Value)->Result<Value,String>{
         for action in ["detail","delete","message"] {assert!(route(action,&json!({"id":"../admin/users"})).is_err());}
         assert!(route("chat",&json!({"question":"  "})).is_err());
         assert!(route("chat",&json!({"question":"a".repeat(8001)})).is_err());
-        let (_,p,b)=route("search",&json!({"question":"SPL","token":"secret","use_llm":true})).unwrap();
-        assert_eq!(p,"/api/qa/search");assert_eq!(b.unwrap(),json!({"question":"SPL","use_llm":false}));
+        let key=uuid::Uuid::new_v4().to_string();
+        for action in ["chat","search"] {
+            let (_,p,b)=route(action,&json!({"question":"SPL","requestId":key,"token":"secret","use_llm":true})).unwrap();
+            assert_eq!(p,format!("/api/qa/{action}"));assert_eq!(b.unwrap(),json!({"question":"SPL","use_llm":action=="chat","request_id":key}));
+            assert!(route(action,&json!({"question":"SPL","requestId":"../other"})).is_err());
+        }
     }
     #[test] fn failures_never_become_answers(){
         for s in [401,403,404,422,500,502,503,504] {assert!(response(s,json!({"error":{"message":"secret stack"}})).is_err());}
         assert!(response(200,json!({"success":false})).is_err());
         assert_eq!(response(200,json!({"answer":"ok","sources":[]})).unwrap()["answer"],"ok");
+        assert_eq!(response(409,json!({"ok":false,"error":{"code":"QUERY_CANCELLED","message":"查询已被取消"}})).unwrap_err(),"QUERY_CANCELLED");
+        assert_ne!(response(409,json!({"error":{"code":"OTHER"}})).unwrap_err(),"QUERY_CANCELLED");
+    }
+    #[test] fn cancel_before_dispatch_is_idempotent_and_prevents_generation(){
+        let body=json!({"requestId":uuid::Uuid::new_v4().to_string()});
+        control("begin",&body).unwrap();
+        assert!(control("begin",&body).is_err());
+        let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            REQUESTS.lock().unwrap().get(&request_id(&body).unwrap()).unwrap().started.store(true,Ordering::SeqCst);
+            assert_eq!(generate(std::path::PathBuf::new(),"chat".into(),body.clone()).await.unwrap_err(),"该查询已提交");
+            assert_eq!(cancel(&body).await.unwrap()["ok"],true);
+            assert_eq!(cancel(&body).await.unwrap()["ok"],true);
+            assert_eq!(generate(std::path::PathBuf::new(),"chat".into(),body).await.unwrap_err(),"QUERY_CANCELLED");
+        });
+    }
+    #[test] fn cancel_cloud_retries_registration_race_and_uses_original_credentials(){
+        use std::io::{Read,Write};
+        for statuses in [vec![404,200],vec![404,404,404,404],vec![401],vec![502]] {
+        let last=*statuses.last().unwrap();
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let hub=format!("http://{}",listener.local_addr().unwrap());
+        let body=json!({"requestId":uuid::Uuid::new_v4().to_string()});let key=request_id(&body).unwrap();
+        control("begin",&body).unwrap();
+        let request=REQUESTS.lock().unwrap().get(&key).unwrap().clone();
+        *request.session.lock().unwrap()=Some((hub,"original-test-token".into()));
+        let server=std::thread::spawn(move||{
+            for status in statuses {
+                let (mut socket,_)=listener.accept().unwrap();socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                let mut bytes=Vec::new();let mut b=[0;1024];
+                while !bytes.windows(4).any(|w|w==b"\r\n\r\n") {let n=socket.read(&mut b).unwrap();assert!(n>0);bytes.extend_from_slice(&b[..n]);}
+                let headers=String::from_utf8(bytes).unwrap();
+                assert!(headers.starts_with(&format!("POST /api/qa/cancel/{key} HTTP/1.1")));
+                assert!(headers.to_lowercase().contains("authorization: bearer original-test-token"));
+                let payload=if status==200 {json!({"ok":true,"cancelled":key})}else{json!({"ok":false,"error":{"code":"UPSTREAM_ERROR"}})}.to_string();
+                write!(socket,"HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",payload.len()).unwrap();
+            }
+        });
+        let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let result=rt.block_on(cancel(&body));
+        match last {
+            200=>assert_eq!(result.unwrap()["ok"],true),
+            404=>assert_eq!(result.unwrap()["cloud_cancelled"],false),
+            _=>assert!(result.is_err()),
+        }
+        assert!(request.cancelled.load(Ordering::SeqCst));server.join().unwrap();
+        }
     }
     #[test] fn image_credentials_only_go_to_the_configured_proxy(){
         let hub="https://cloud.example";

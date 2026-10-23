@@ -3,9 +3,9 @@
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync, cpSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
-import { patchGuard } from './patch-dsh-guard.mjs';
 import { patchToolcall } from './patch-dsh-toolcall.mjs';
 import { patchSse } from './patch-dsh-sse.mjs';
+import { patchContinuation } from './patch-dsh-continuation.mjs';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -14,8 +14,8 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const version = pkg.devDependencies['@deepseek-ai/dsh'];
 const dir = path.join(root, 'dsh-runtime');
 mkdirSync(dir, { recursive: true });
-writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'biodsh-dsh-runtime', private: true, dependencies: { '@deepseek-ai/dsh': version } }, null, 2));
-const registry = process.env.NPM_REGISTRY ?? (process.env.CI ? 'https://registry.npmjs.org/' : 'https://registry.npmmirror.com/');
+writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'omaax-dsh-runtime', private: true, dependencies: { '@deepseek-ai/dsh': version } }, null, 2));
+const registry = process.env.NPM_REGISTRY ?? 'https://registry.npmjs.org/';
 const platformsOnly = process.argv.includes('--platforms-only');
 if (!platformsOnly) {
   console.log(`staging @deepseek-ai/dsh@${version} into dsh-runtime/ (registry ${registry})`);
@@ -53,10 +53,9 @@ if (missing.length) {
 }
 // .bin 里全是符号链接，运行时用不到；在 WSL 装出来的链接会让 Windows 侧 7-Zip 打包失败。
 rmSync(path.join(dir, 'node_modules', '.bin'), { recursive: true, force: true });
-patchGuard(dir);
-patchToolcall(dir);
-patchSse(dir);
-// OMaaX 的 cordis 插件(官方扩展面,不打补丁改 dsh 代码):skill-router=技能语义路由;step-guard=收敛护栏(治跑飞)。
+if (version.startsWith('0.1.')) { patchToolcall(dir); patchSse(dir); }
+patchContinuation(dir);
+// OMaaX 插件沿用官方扩展面；step-guard 仅保留为空的旧配置兼容入口。
 // 把插件包拷进运行时,由 cordis.patch.yml(ensure_home 生成)以 `@biodsh/<name>` 加载。
 for (const p of ['skill-router', 'step-guard', 'workflow-guard', 'auth-guard']) {
   const src = path.join(root, 'dsh-plugins', p);

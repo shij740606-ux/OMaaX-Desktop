@@ -1,4 +1,4 @@
-"""Account-permission reads and default filing; deletion stays inside the workspace."""
+"""Account-permission file access, project filing and registered-path protection."""
 import protected_paths
 import csv,hashlib,io,json,os,re,shutil,stat,subprocess,time,uuid
 from pathlib import Path
@@ -21,12 +21,6 @@ def read_path(r,value):
     p=Path(value).expanduser()
     if not p.is_absolute():raise ValueError('请提供服务器上的绝对路径')
     p=p.resolve(strict=True)
-    private=[Path.home()/'.ssh',Path.home()/'.aws',Path.home()/'.kube',Path.home()/'.docker',Path('/proc'),Path('/sys'),Path('/dev')]
-    if any(p==d or d in p.parents for d in private):raise ValueError('不能读取凭据或系统特殊文件')
-    if p.name in ('.env','.netrc','.git-credentials','id_rsa','id_ed25519'):raise ValueError('不能读取凭据文件')
-    control=r.ROOT.resolve();work=workspace(r)
-    if (p==control or control in p.parents) and not (p==work or work in p.parents or control/'workspace' in p.parents):raise ValueError('应用控制记录请通过任务和审计功能查看')
-    if p==getattr(r,'DEFAULT_ROOT',control).parent or getattr(r,'DEFAULT_ROOT',control).parent in p.parents:raise ValueError('应用控制记录请通过任务和审计功能查看')
     if not (p.is_file() or p.is_dir()) or not os.access(p,os.R_OK|(os.X_OK if p.is_dir() else 0)):raise ValueError('当前 SSH 账号没有读取此路径的权限')
     return p
 
@@ -37,8 +31,6 @@ def managed(r,value,existing=True,delete_link=False,context=None):
         import workspace_context
         value=(workspace_context.base(r,context).relative_to(base)/value).as_posix()
     p=base/value
-    if p==base or any(x.is_symlink() for x in p.parents) or (p.is_symlink() and not delete_link):raise ValueError('不能操作工作根目录或重定向的目录')
-    if not (p.parent.resolve()==base or base in p.parent.resolve().parents):raise ValueError('操作超出工作文件夹')
     if existing and not p.exists() and not (delete_link and p.is_symlink()):raise ValueError('工作文件不存在')
     return p
 
@@ -92,24 +84,24 @@ def busy_path(r,p):
     return False
 
 def write_config(r,body):
-    p=managed(r,body.get('path'),existing=False,context=body.get('context'))
-    if not any(part in ('configs','files') for part in p.relative_to(workspace(r)).parts):raise ValueError('配置表请保存到 configs 或 files 文件夹')
+    value=body.get('path')
+    if not isinstance(value,str):raise ValueError('请提供配置文件路径')
+    p=Path(value).expanduser() if Path(value).expanduser().is_absolute() else managed(r,value,existing=False,context=body.get('context'))
     content=body.get('content');kind=body.get('format','yaml')
     if kind in ('yaml','json'):
-        if p.suffix.lower() not in ('.yaml','.yml','.json') or not isinstance(content,(dict,list)):raise ValueError('配置必须是结构化对象或列表')
+        if not isinstance(content,(dict,list)):raise ValueError('配置必须是结构化对象或列表')
         # JSON is valid YAML and does not require modifying the server Python environment.
         data=json.dumps(content,ensure_ascii=False,indent=2,allow_nan=False)+'\n'
     elif kind in ('csv','tsv'):
         columns=body.get('columns');rows=content
-        if p.suffix.lower() not in ('.csv','.tsv') or not isinstance(columns,list) or not columns or not all(isinstance(k,str) for k in columns) or not isinstance(rows,list) or len(rows)>5000:raise ValueError('请提供表头和数据行')
+        if not isinstance(columns,list) or not columns or not all(isinstance(k,str) for k in columns) or not isinstance(rows,list):raise ValueError('请提供表头和数据行')
         stream=io.StringIO();writer=csv.DictWriter(stream,fieldnames=columns,delimiter='\t' if kind=='tsv' else ',');writer.writeheader();writer.writerows(rows);data=stream.getvalue()
     else:raise ValueError('支持 YAML、JSON、CSV 和 TSV 配置表')
-    if len(data.encode())>1048576:raise ValueError('配置表超过 1 MB')
-    protected_paths.check(r,p)
-    p.parent.mkdir(parents=True,exist_ok=True)
-    with p.open('x',encoding='utf-8',newline='') as f:f.write(data)
-    r.audit(r.database(),'workspace.config_created',{'path':str(p),'format':kind})
-    return {'path':str(p),'workspaceRelative':p.relative_to(workspace(r)).as_posix(),'bytes':p.stat().st_size}
+    import server_file_ops
+    result=server_file_ops.submit(r,{'path':str(p),'content':data,'context':body.get('context')})
+    r.audit(r.database(),'workspace.config_saved',{'path':str(p),'format':kind})
+    relative=p.relative_to(workspace(r)).as_posix() if workspace(r) in p.parents else None
+    return {**result,'path':str(p),'workspaceRelative':relative,'bytes':p.stat().st_size}
 
 def manage(r,body):
     operation=body.get('operation','list');value=body.get('path','files')
@@ -139,9 +131,8 @@ def manage(r,body):
         if operation not in ('list','read','stat') or old==workspace(r):raise ValueError('旧版目录仅提供查看，不移动原有数据')
         p=r.contained(old,value[7:] if value.startswith('legacy/') else '.')
         return files(r,{'path':str(p),'operation':operation,'offset':body.get('offset',0)})
-    p=managed(r,value,existing=operation not in ('mkdir',),delete_link=operation in ('delete','move','rename'),context=body.get('context'))
+    p=Path(value).expanduser() if Path(value).expanduser().is_absolute() else managed(r,value,existing=operation not in ('mkdir',),delete_link=operation in ('delete','move','rename'),context=body.get('context'))
     if operation in ('list','read','stat'):return files(r,{'path':str(p),'operation':operation,'offset':body.get('offset',0)})
-    if p.relative_to(workspace(r)).parts[0] not in ('configs','references','files','results','projects'):raise ValueError('回收站只能通过恢复功能操作')
     if operation=='search':
         query=body.get('query','').strip().lower()
         if not query:raise ValueError('请输入要查找的文件或目录名称')
@@ -158,19 +149,16 @@ def manage(r,body):
     if operation=='mkdir':
         p.mkdir(parents=True,exist_ok=False);r.audit(r.database(),'workspace.mkdir',{'path':str(p)});return {'path':str(p)}
     if operation in ('move','rename'):
-        if workspace_context.reserved(p.relative_to(workspace(r))):raise ValueError('请管理项目或对话中的文件夹，不更改归档结构')
-        if p.name in ('output','log.txt','task.json','supervisor.lock','cancel') and any(p.parent==r.jobdir(row['id']) for row in r.database().execute('SELECT id FROM jobs')):raise ValueError('这是任务的结果或日志入口。请重命名或移动整个任务文件夹；其中的结果文件可以单独管理。')
-        dest=managed(r,body.get('destination'),existing=False,context=body.get('context'))
+        target=body.get('destination')
+        if not isinstance(target,str):raise ValueError('请提供目标路径')
+        dest=Path(target).expanduser() if Path(target).expanduser().is_absolute() else managed(r,target,existing=False,context=body.get('context'))
         protected_paths.check(r,dest,'move')
         if dest.exists() or dest.is_symlink():raise ValueError('目标位置已有文件，不能覆盖')
         if p==dest or p in dest.parents:raise ValueError('不能移动到自己的子目录')
-        if busy_path(r,p) or busy_path(r,dest):raise ValueError('正在使用的目录不能移动或重命名')
-        if dest.relative_to(workspace(r)).parts[0] not in ('configs','references','files','results','projects'):raise ValueError('只能移动到应用工作文件夹')
-        dest.parent.mkdir(parents=True,exist_ok=True);workspace_context.relocate(r,p,dest)
+        dest.parent.mkdir(parents=True,exist_ok=True)
+        workspace_context.relocate(r,p,dest)
         return {'path':str(dest),'moved':True}
     if operation!='delete':raise ValueError('未支持的工作文件操作')
-    if workspace_context.reserved(p.relative_to(workspace(r))):raise ValueError('不能删除工作分区，请选择其中的文件或文件夹')
-    if busy_path(r,p):raise ValueError('正在使用的任务目录或输入不能删除，请等待任务结束')
     import server_delete
     return server_delete.submit(r,{'path':str(p),'recursive':p.is_dir(),'context':body.get('context')})
 
@@ -203,32 +191,32 @@ def restore(r,body):
     return {'path':str(dest),'restored':True}
 
 def script(r,body):
-    p=managed(r,body.get('path'),existing=False,context=body.get('context'));text=body.get('content')
-    if 'files' not in p.relative_to(workspace(r)).parts or p.suffix not in ('.py','.R','.r','.sh') or not isinstance(text,str) or '\0' in text or len(text.encode())>1048576:raise ValueError('分析脚本支持 Python、R 和 Shell，请保存在工作文件夹或使用服务器写入工具另选路径')
-    protected_paths.check(r,p)
-    p.parent.mkdir(parents=True,exist_ok=True)
-    with p.open('x',encoding='utf-8') as f:f.write(text)
-    r.audit(r.database(),'workspace.script_created',{'path':str(p)})
-    return {'path':str(p),'message':'脚本已保存；使用已配置的分析环境运行，保留原始输入并将结果另存。'}
+    value=body.get('path');text=body.get('content')
+    if not isinstance(value,str) or not isinstance(text,str) or '\0' in text:raise ValueError('请提供脚本路径和文本内容')
+    p=Path(value).expanduser() if Path(value).expanduser().is_absolute() else managed(r,value,existing=False,context=body.get('context'))
+    import server_file_ops
+    result=server_file_ops.submit(r,{'path':str(p),'content':text,'context':body.get('context')})
+    r.audit(r.database(),'workspace.script_saved',{'path':str(p),'bytes':len(text.encode())})
+    return {**result,'path':str(p),'message':'脚本已保存；可在服务器已有环境或指定环境中执行。'}
 
 def analysis(r,body):
     cfg=r.config(r.database());image=body.get('image')
     if not image:
         env=cfg.get('workflowEnvironments',{}).get(body.get('workflow','rnaseq'),{})
-        image=env.get('stageImages',{}).get(body.get('step')) or env.get('image')
-        if not r.conda_runtime.is_ref(image):image=next((value for value in cfg.get('images',[]) if r.conda_runtime.is_ref(value)),image or next(iter(cfg.get('images',[])),None))
-    if image not in cfg.get('images',[]) or not r.immutable_image(image):raise ValueError('请先准备分析所需的计算环境')
+        candidates=[env.get('stageImages',{}).get(body.get('step')),env.get('image'),*cfg.get('images',[])]
+        for candidate in dict.fromkeys(candidates):
+            if not r.conda_runtime.is_ref(candidate):continue
+            try:r.conda_runtime.resolve(r,candidate)
+            except (ValueError,OSError):continue
+            image=candidate;break
+        image=image or r.conda_runtime.HOST_REF
+    if image!=r.conda_runtime.HOST_REF and (image not in cfg.get('images',[]) or not r.immutable_image(image)):raise ValueError('计算环境尚未登记；可选择 host:direct 使用服务器已有程序')
     inputs=body.get('inputs',[]);argv=body.get('argv')
-    if not isinstance(inputs,list) or len(inputs)>32 or not isinstance(argv,list) or not argv or not all(isinstance(s,str) for s in argv):raise ValueError('请提供输入路径列表和分析程序参数')
+    if not isinstance(inputs,list) or not isinstance(argv,list) or not argv or not all(isinstance(s,str) and '\0' not in s for s in argv):raise ValueError('请提供输入路径列表和分析程序参数')
     sources=[];mounts={};file_mounts=[];bindings={}
     for i,value in enumerate(inputs):
         p=read_path(r,value);alias='data'+str(i);target='/input/'+alias
         if p.is_dir():
-            # A directory bind cannot expose sockets, redirected files or nested writable mounts.
-            r.source_path(str(p));
-            for child in p.rglob('*'):
-                if child.is_symlink() or (not child.is_dir() and not child.is_file()):raise ValueError('目录含链接或特殊文件，请改为提供具体输入文件')
-                if child.is_file():read_path(r,str(child))
             name,_=source(r,r.database(),p);sources.append(name);mounts[alias]=name
         else:
             target='/input/refs/'+hashlib.sha256(str(p.parent).encode()).hexdigest()[:20]+'/'+p.name;file_mounts.append({'source':str(p),'target':target})
@@ -239,7 +227,7 @@ def analysis(r,body):
         return value
     job=str(uuid.uuid4());spec={'id':job,'image':image,'argv':[argument(v) for v in argv],'sources':list(dict.fromkeys(sources)),'mounts':mounts,'files':file_mounts,'cpu':body.get('cpu',20),'memoryMb':body.get('memoryMb',51200),'timeoutSeconds':body.get('timeoutSeconds',86400),'context':body.get('context'),'title':body.get('title','工具分析')}
     result=r.dispatch({'action':'submit','body':spec});r.audit(r.database(),'workspace.analysis_submitted',{'id':job,'inputs':inputs,'image':image})
-    return {'id':job,'job':result,'state':'queued','output':str(r.jobdir(job)/'output'),'inputMounts':bindings,'writablePath':'/output','originalDataReadOnly':not r.conda_runtime.is_ref(image),'inputPolicy':'preserve-originals'}
+    return {'id':job,'job':result,'state':'queued','output':str(r.jobdir(job)/'output'),'inputMounts':bindings,'writablePath':'/output','originalDataReadOnly':not r.conda_runtime.is_direct(image),'inputPolicy':'preserve-originals'}
 
 def index(r,body):
     kind=body.get('kind','hisat2');recipes={'hisat2':('rnaseq','rnaseq_align','hisat2-build'),'salmon':('rnaseq','rnaseq_quant','salmon'),'star':('singlecell','singlecell_analyze','STAR'),'bowtie2':('rnaseq','rnaseq_align','bowtie2-build'),'bwa':('rnaseq','rnaseq_align','bwa')}

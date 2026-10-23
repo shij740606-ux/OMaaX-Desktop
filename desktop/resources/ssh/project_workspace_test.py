@@ -41,7 +41,6 @@ class ProjectWorkspaceTests(unittest.TestCase):
  def test_move_task_keeps_result_export_and_log_location(self):
   job=storage.analysis(r,{'argv':['python3','--version'],'context':C1,'cpu':1,'memoryMb':128,'timeoutSeconds':10})['id']
   directory=r.jobdir(job);(directory/'output/result.txt').write_text('result');(directory/'log.txt').write_text('task log')
-  with self.assertRaisesRegex(ValueError,'正在使用'):storage.manage(r,{'operation':'rename','path':directory.relative_to(storage.workspace(r)).as_posix(),'destination':'files/new-task'})
   self.settle(job);old=directory.relative_to(storage.workspace(r)).as_posix();destination=(context.base(r,C2)/'tasks/我的分析').relative_to(storage.workspace(r)).as_posix()
   storage.manage(r,{'operation':'move','path':old,'destination':destination})
   self.assertEqual(r.jobdir(job),storage.workspace(r)/destination)
@@ -49,16 +48,31 @@ class ProjectWorkspaceTests(unittest.TestCase):
   self.assertEqual((r.jobdir(job)/'log.txt').read_text(),'task log')
   deleted=storage.manage(r,{'operation':'delete','path':destination});self.assertTrue(deleted['recoverable']);storage.restore(r,{'trashId':deleted['trashId']})
   self.assertEqual((r.jobdir(job)/'output/result.txt').read_text(),'result')
- def test_structural_roots_traversal_and_outside_deletion_are_rejected(self):
-  base=context.base(r,C1);rel=base.relative_to(storage.workspace(r)).as_posix()
-  for value in ['files',rel,rel+'/tasks',str(self.data), '../other']:
-   with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':value})
-  self.assertEqual((self.data/'input.txt').read_text(),'raw input')
- def test_task_result_and_log_entrypoints_are_not_detached_from_the_task(self):
-  job=storage.analysis(r,{'argv':['python3','--version'],'context':C1,'cpu':1,'memoryMb':128,'timeoutSeconds':10})['id'];self.settle(job)
+ def test_registered_paths_stay_protected_and_unregistered_absolute_paths_can_be_deleted(self):
+  self.call('protected_path_add',{'path':str(self.data)},actor='user')
+  with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':str(self.data)})
+  with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':'../other'})
+  outside=self.base/'outside';outside.mkdir();(outside/'file.txt').write_text('temporary')
+  deleted=storage.manage(r,{'operation':'delete','path':str(outside)})
+  self.assertFalse(outside.exists());storage.restore(r,{'trashId':deleted['trashId']})
+  self.assertEqual((outside/'file.txt').read_text(),'temporary');self.assertEqual((self.data/'input.txt').read_text(),'raw input')
+ def test_external_task_move_keeps_sources_registration_logs_and_export(self):
+  job=storage.analysis(r,{'argv':['python3','--version'],'context':C1,'cpu':1,'memoryMb':128,'timeoutSeconds':10})['id'];directory=r.jobdir(job)
+  (directory/'output/result.txt').write_text('result');(directory/'log.txt').write_text('task log');self.settle(job)
+  self.call('server_write',{'path':str(directory/'note.txt'),'content':'note','context':C1})
+  source,_=storage.source(r,r.database(),directory/'output');external=self.base/'external-task'
+  storage.manage(r,{'operation':'move','path':str(directory),'destination':str(external)})
+  self.assertEqual(r.jobdir(job),external);self.assertEqual(r.config(r.database())['sources'][source],str(external/'output'))
+  self.assertIn(str(external/'note.txt'),[row['path'] for row in storage.manage(r,{'operation':'external','context':C1})['files']])
+  self.assertEqual(self.call('export',{'job':job,'paths':['result.txt']})[0]['size'],6);self.assertEqual((r.jobdir(job)/'log.txt').read_text(),'task log')
+  storage.manage(r,{'operation':'move','path':str(external),'destination':str(directory)})
+  self.assertEqual(r.jobdir(job),directory);self.assertEqual(r.config(r.database())['sources'][source],str(directory/'output'))
+  self.assertEqual(self.call('export',{'job':job,'paths':['result.txt']})[0]['size'],6)
+ def test_task_files_can_be_managed_without_a_busy_task_approval(self):
+  job=storage.analysis(r,{'argv':['python3','--version'],'context':C1,'cpu':1,'memoryMb':128,'timeoutSeconds':10})['id']
   directory=r.jobdir(job);(directory/'log.txt').write_text('log')
-  for name in ['output','log.txt','task.json']:
-   with self.assertRaisesRegex(ValueError,'整个任务文件夹'):storage.manage(r,{'operation':'rename','path':(directory/name).relative_to(storage.workspace(r)).as_posix(),'destination':'files/detached'})
+  moved=storage.manage(r,{'operation':'rename','path':(directory/'log.txt').relative_to(storage.workspace(r)).as_posix(),'destination':'files/moved-log.txt'})
+  self.assertEqual(Path(moved['path']).read_text(),'log')
   (directory/'output/result.txt').write_text('result');storage.manage(r,{'operation':'rename','path':(directory/'output/result.txt').relative_to(storage.workspace(r)).as_posix(),'destination':(directory/'output/renamed.txt').relative_to(storage.workspace(r)).as_posix()})
   self.assertEqual((directory/'output/renamed.txt').read_text(),'result')
  def test_search_and_file_directory_operations(self):
@@ -92,9 +106,9 @@ class ProjectWorkspaceTests(unittest.TestCase):
   with patch.object(writes,'perform',side_effect=changed):
    with self.assertRaisesRegex(ValueError,'源文件已变化'):self.call('server_copy',{'source':str(source),'path':str(target)})
   self.assertEqual(target.read_text(),'raw input')
- def test_credentials_control_and_invalid_context_cannot_be_written(self):
-  for path in [r.ROOT/'state.sqlite',Path.home()/'.ssh/config']:
-   with self.assertRaises(ValueError):self.call('server_write',{'path':str(path),'content':'bad'})
+ def test_unregistered_special_names_can_be_written_but_context_is_validated(self):
+  for path in [r.ROOT/'ordinary-config',self.base/'.ssh/config',self.base/'.env']:
+   self.call('server_write',{'path':str(path),'content':'test fixture only'});self.assertEqual(path.read_text(),'test fixture only')
   with self.assertRaises(ValueError):self.call('server_write',{'path':str(self.base/'new'),'content':'bad','context':{'command':'bad'}})
  def test_strandedness_only_changes_derived_config_and_survives_steps(self):
   content={'samples':{'S1':{'r1':(self.data/'input.txt').as_posix(),'library_strandness':'non_stranded'}}}

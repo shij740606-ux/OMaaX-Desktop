@@ -151,9 +151,9 @@ def validate_recipes(recipes,steps):
         if not isinstance(recipe,dict) or set(recipe)-{'packages','channels','script'}:raise ValueError('安装方案字段无效')
         for key in ('packages','channels'):
             values=recipe.get(key,[])
-            if not isinstance(values,list) or len(values)>256 or any(not isinstance(v,str) or not v or len(v)>512 or v.startswith('-') or any(c in v for c in ('\n','\r','\x00')) for v in values):raise ValueError('安装软件或来源格式无效')
+            if not isinstance(values,list) or any(not isinstance(v,str) or not v or v.startswith('-') or any(c in v for c in ('\n','\r','\x00')) for v in values):raise ValueError('安装软件或来源格式无效')
         script=recipe.get('script','')
-        if not isinstance(script,str) or len(script.encode())>131072 or '\x00' in script:raise ValueError('安装脚本无效或过大')
+        if not isinstance(script,str) or '\x00' in script:raise ValueError('安装脚本无效或过大')
     return recipes
 
 def start(r,body):

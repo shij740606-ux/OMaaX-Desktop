@@ -67,7 +67,7 @@ export const EN: Record<string, string> = {
   "为对话添加文献检索工具；需要可用的服务和网络。": "Add literature search to chat. Requires a working service and network access.",
   "连接课题组或服务商已经提供的 MCP 服务地址。": "Connect an existing MCP endpoint from your team or provider.",
   "按运行位置准备环境": "Prepare the environment where analysis will run",
-  "在本机分析：安装本页组件。在服务器分析：选择 SSH 服务器后按流程准备。两边的环境不会自动共用。": "For local analysis, install components here. For server analysis, select the SSH server and prepare its workflow environment separately.",
+  "在本机分析：安装本页组件。在服务器分析：选择服务器后按流程准备。两边的环境不会自动共用。": "For local analysis, install components here. For server analysis, select the server and prepare its workflow environment separately.",
   "本机基础环境包含 Python、scanpy 等常用软件。需要在这台电脑分析时再安装，不会安装全部工具。": "The local base includes Python, scanpy and common packages. Install it for analyses on this computer; it does not install every tool.",
   "准备本机环境": "Prepare local environment",
   "按研究需要添加组件": "Add components for your research",

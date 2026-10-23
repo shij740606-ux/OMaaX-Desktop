@@ -14,9 +14,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : d; };
 
-const dshBin = path.join(root, 'dsh-runtime', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
-const dshVer = JSON.parse(readFileSync(path.join(root, 'dsh-runtime', 'node_modules', '@deepseek-ai', 'dsh', 'package.json'), 'utf8')).version;
-const home = arg('--home') || mkdtempSync(path.join(tmpdir(), 'dsh-compat-'));
+const runtime = process.env.OMAAX_TEST_DSH_RUNTIME ? path.resolve(process.env.OMAAX_TEST_DSH_RUNTIME) : path.join(root, 'dsh-runtime');
+const dshBin = path.join(runtime, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
+const dshVer = JSON.parse(readFileSync(path.join(runtime, 'node_modules', '@deepseek-ai', 'dsh', 'package.json'), 'utf8')).version;
+const home = path.resolve(arg('--home') || mkdtempSync(path.join(tmpdir(), 'dsh-compat-')));
 const ws = path.join(home, 'workspace'); mkdirSync(ws, { recursive: true });
 const patch = arg('--patch');
 if (patch && existsSync(patch)) { mkdirSync(home, { recursive: true }); copyFileSync(patch, path.join(home, 'cordis.patch.yml')); }
@@ -52,6 +53,23 @@ async function main() {
   // session/list
   const sl = await rpc('session/list', '_request', {});
   rec('session/list', sl?.ok === true, sl?.ok ? `${(sl.value?.items || []).length} sessions` : errStr(sl));
+  if (arg('--resume-existing')) {
+    rec('historical sessions remain discoverable', (sl?.value?.items || []).length > 0, 'migration requires at least one existing fixture');
+    for (const item of sl?.value?.items || []) {
+      const sessionId = item.sessionId || item.id;
+      const resumed = await rpc('session/prompt', 'request', {sessionId, mode:'queue', requestId:randomUUID(), content:[{type:'text',text:'Compatibility probe: preserve prior history.'}]});
+      rec('existing session migration and prompt', resumed?.ok === true, resumed?.ok ? sessionId : errStr(resumed));
+      if (dshVer.startsWith('0.2.') && resumed?.ok) {
+        const projected = await rpc('session/projections', 'request', {sessionId});
+        rec('historical projection restored', projected?.ok === true && !!projected.value, sessionId);
+        if (projected?.value?.values?.modelSelection) console.log('MODEL_ROUTE', JSON.stringify(projected.value.values.modelSelection));
+        if (projected?.value) {
+          const page = await rpc('session/page', 'request', {address:{kind:'session',sessionId},throughSeq:projected.value.asOfSeq,maxMessages:100});
+          rec('historical messages readable', page?.ok === true && Array.isArray(page.value?.records), page?.ok ? `${sessionId}: ${page.value.records.length} records` : errStr(page));
+        }
+      }
+    }
+  }
   // workspace/create (existing dir)
   const wc = await rpc('workspace/create', 'request', { path: ws });
   const wid = wc?.value?.workspace?.workspaceId || wc?.value?.workspaceId;
@@ -67,10 +85,18 @@ async function main() {
     rec('session/prompt (envelope accepted)', envelopeOk, sp?.ok ? 'ok' : errStr(sp));
   } else { rec('session/prompt (envelope accepted)', false, 'skipped: no session'); }
   console.log(`\n# ${results.filter(r => r.ok).length}/${results.length} passed`);
+  // Acceptance of a queued prompt precedes persistence; let fixture events flush.
+  await new Promise(resolve => setTimeout(resolve, 2000));
 }
-main().catch(e => { console.error('HARNESS ERROR:', e.message); }).finally(() => {
+let harnessFailed = false;
+main().catch(e => { harnessFailed = true; console.error('HARNESS ERROR:', e.message); }).finally(() => {
   if (process.env.BIODSH_ROUTER_DEBUG) { const lines = out.split('\n').filter(l => /skill-router|@biodsh|biodsh|plugin|cannot find|resolve|MODULE_NOT_FOUND|Error/i.test(l)); if (lines.length) console.log('--- dsh log (plugin-related) ---\n' + lines.join('\n')); }
   try { child.kill(); } catch {}
-  if (!arg('--home')) { try { rmSync(home, { recursive: true, force: true }); } catch {} }
-  setTimeout(() => process.exit(0), 500);
+  if (!arg('--home')) {
+    const resolved = path.resolve(home);
+    if (resolved.startsWith(path.resolve(tmpdir()) + path.sep) && path.basename(resolved).startsWith('dsh-compat-')) {
+      try { rmSync(resolved, { recursive: true, force: true }); } catch {}
+    }
+  }
+  setTimeout(() => process.exit(harnessFailed || results.some(r => !r.ok) ? 1 : 0), 500);
 });

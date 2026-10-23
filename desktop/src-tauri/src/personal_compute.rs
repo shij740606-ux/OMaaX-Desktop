@@ -162,8 +162,8 @@ pub fn bind_workflow(home:&Path, payload:&Value) -> Result<Value,String> {
 
 fn permitted(action:&str,agent:bool)->bool {
     match action {
-        "protected_paths" | "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" | "workflow_prepare" | "workflow_environment" => true,
-        "protected_path_add" | "protected_path_remove" | "initialize" | "setup_start" | "setup_status" | "server_environments" | "server_delete_requests" | "server_delete_notified" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_resume" | "workflow_bundle_status" => !agent,
+        "protected_paths" | "server_delete" | "server_write" | "server_copy" | "server_files" | "workspace_files" | "workspace_config" | "workspace_restore" | "workspace_index" | "workspace_script" | "workspace_analysis" | "status" | "jobs" | "logs" | "audit" | "cancel" | "export" | "workflow_inspect" | "workflow_readiness" | "workflow_plan" | "workflow_plans" | "workflow_result" | "workflow_prepare_status" | "workflow_validate" | "workflow_prepare" | "workflow_environment" | "initialize" | "setup_start" | "setup_status" | "server_environments" | "submit" | "configure" | "bootstrap" | "import_prepare" | "import_finish" | "workflow_confirm" | "workflow_resume" | "workflow_bundle_status" => true,
+        "protected_path_add" | "protected_path_remove" | "server_delete_requests" | "server_delete_notified" | "server_delete_confirm" | "server_delete_reject" | "server_write_requests" | "server_write_confirm" | "server_write_reject" => !agent,
         _ => false,
     }
 }
@@ -181,8 +181,9 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
         let file=root.join("workflow-inbox.json");
         return if file.exists(){serde_json::from_slice(&std::fs::read(file).map_err(|e|e.to_string())?).map_err(|e|e.to_string())}else{Ok(Value::Null)};
     }
-    let record = crate::ssh_hosts::list(root)?.into_iter().find(|h| h.id == host).ok_or("服务器不存在")?;
-    if agent && !record.selected { return Err("该服务器未被用户选择".into()); }
+    let server=crate::ssh_hosts::list(root)?.into_iter().find(|h| h.id == host).ok_or("服务器不存在")?;
+    if agent && !server.selected { return Err("该服务器未被用户选择，禁止连接".into()); }
+
     let allowed = permitted(action,agent);
     if !allowed { return Err("不允许的服务器操作".into()); }
     if matches!(action,"workflow_plan"|"workflow_environment"|"workflow_prepare") {
@@ -197,10 +198,11 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
             if let Some(error)=result["error"].as_str(){return Err(error.into());}
         }
     }
-    let intent=if action=="workflow_plan" && agent { execution_intent(root,&body)? } else { None };
+    let intent=if matches!(action,"workflow_plan"|"workflow_confirm"|"workflow_resume") && agent { execution_intent(root,&body)? } else { None };
+    let body=workflow_lifecycle_body(action,body,agent,intent.as_ref())?;
     let remote_action=if action=="workflow_plan" {"workflow_deferred_plan"} else {action};
     let remote_body=if action=="workflow_plan" {json!({"body":body,"intent":intent,"actor":if agent{"agent"}else{"user"}})} else {body.clone()};
-    let payload = STANDARD.encode(serde_json::to_vec(&json!({"action":remote_action,"body":remote_body,"actor":if action=="workflow_plan" || !agent{"user"}else{"agent"}})).map_err(|e| e.to_string())?);
+    let payload = STANDARD.encode(serde_json::to_vec(&json!({"action":remote_action,"body":remote_body,"actor":if matches!(action,"workflow_plan"|"workflow_confirm"|"workflow_resume") || !agent{"user"}else{"agent"}})).map_err(|e| e.to_string())?);
     // Only bundled code and base64 data enter the shell; no agent-provided shell text.
     let frozen=frozen_runner(node)?;
     let cached=runner_command(&frozen.hash,&payload);
@@ -226,6 +228,16 @@ pub fn request(root: &Path, node: &Path, script: &Path, host: &str, action: &str
         save_workflow_inbox(root,host,id,&body,if reply["state"]=="preparing" {"preparing"} else if reply["confirmed"]==true {"queued"} else {"planned"})?;
     }
     Ok(result["result"].clone())
+}
+
+fn workflow_lifecycle_body(action:&str,mut body:Value,agent:bool,intent:Option<&Value>)->Result<Value,String>{
+    if matches!(action,"workflow_confirm"|"workflow_resume") {
+        if agent && intent.is_none(){return Err("当前对话没有执行任务的用户指令；请遵循用户要求，仅检查或说明结果".into());}
+        let object=body.as_object_mut().ok_or("流程操作参数无效")?;
+        object.remove("context");
+        if action=="workflow_confirm" && agent {object.insert("intent".into(),intent.unwrap().clone());}
+    }
+    Ok(body)
 }
 
 fn execution_intent(root:&Path,body:&Value)->Result<Option<Value>,String>{
@@ -277,8 +289,19 @@ mod tests {
         assert!(command.len()<4096);assert!(command.contains("OMAAX_RUNNER_MISSING"));
         assert!(command.contains("hashlib.sha256(p.read_bytes())"));
         assert!(!command.contains("gzip.decompress"));
-        for action in ["server_delete_notified","server_delete_confirm","server_delete_reject","setup_start","server_environments"]{assert!(!permitted(action,true));assert!(permitted(action,false));}
+        for action in ["server_delete_notified","server_delete_confirm","server_delete_reject"]{assert!(!permitted(action,true));assert!(permitted(action,false));}
+        for action in ["setup_start","server_environments","workflow_confirm","workflow_resume"]{assert!(permitted(action,true));}
         assert!(permitted("server_delete",true));
+    }
+    #[test]
+    fn model_runner_preserves_user_selected_connection_scope() {
+        let root=std::env::current_dir().unwrap().join("target/runner-host-scope-tests").join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(root.join("ssh")).unwrap();
+        std::fs::write(root.join("ssh/hosts.json"),json!([{"id":"test","name":"test","host":"127.0.0.1","port":22,"username":"test","auth":"password","selected":false,"fingerprint":null,"hostKey":null}]).to_string()).unwrap();
+        for action in ["status","server_write","workspace_analysis","workflow_resume"] {
+            let error=request(&root,Path::new("missing-node"),Path::new("missing-script"),"test",action,json!({}),true).unwrap_err();
+            assert!(error.contains("未被用户选择"),"{error}");
+        }
     }
     #[test]
     fn bundled_server_modules_load_together() {
@@ -312,16 +335,26 @@ mod tests {
     }
     #[test]
     fn agent_can_prepare_workflow_software_but_cannot_bypass_data_protection() {
-        for action in ["configure","bootstrap","install_environment","import_prepare","import_finish","execute","delete","submit","workflow_confirm","workflow_resume"] { assert!(!permitted(action,true)); }
-        for action in ["status","jobs","logs","cancel","workflow_plan","workflow_plans","workflow_prepare","workflow_environment"] { assert!(permitted(action,true)); }
+        for action in ["protected_path_add","protected_path_remove","install_environment","execute","delete"] { assert!(!permitted(action,true)); }
+        for action in ["status","jobs","logs","cancel","workflow_plan","workflow_plans","workflow_prepare","workflow_environment","configure","bootstrap","import_prepare","import_finish","submit","workflow_confirm","workflow_resume"] { assert!(permitted(action,true)); }
         assert!(permitted("bootstrap",false));
+    }
+    #[test]
+    fn model_resume_uses_recorded_execution_intent_without_ui_approval(){
+        let body=json!({"id":"task","digest":"sha","context":{"sessionId":"session-a"}});
+        let intent=json!({"source":"user","executionRequested":true});
+        assert!(workflow_lifecycle_body("workflow_resume",body.clone(),true,None).is_err());
+        let resumed=workflow_lifecycle_body("workflow_resume",body.clone(),true,Some(&intent)).unwrap();
+        assert_eq!(resumed,json!({"id":"task","digest":"sha"}));
+        let confirmed=workflow_lifecycle_body("workflow_confirm",body,true,Some(&intent)).unwrap();
+        assert_eq!(confirmed["intent"],intent);assert!(confirmed.get("context").is_none());
     }
     #[test]
     fn dispatch_rejects_invalid_identity_before_network() {
         let p=Path::new("does-not-exist");
         assert!(schedule(p,p,p,&[],json!({}),true).is_err());
         assert!(schedule(p,p,p,&["host".into()],json!({"id":"../bad"}),false).unwrap_err().contains("编号"));
-        assert!(schedule(p,p,p,&["host".into()],json!({"id":"valid"}),true).unwrap_err().contains("确认"));
+        assert!(schedule(p,p,p,&["host".into()],json!({"id":"../bad"}),true).unwrap_err().contains("编号"));
     }
     #[test]
     fn fixed_dialogue_requires_live_guard_and_catalog_version() {
@@ -408,9 +441,7 @@ mod tests {
 }
 
 pub fn schedule(root: &Path, node: &Path, script: &Path, ids: &[String], spec: Value, agent: bool) -> Result<Value,String> {
-    if agent { return Err("智能体不能直接提交任意命令；请使用一体化分析流程生成计划，在桌面确认后运行".into()); }
-    if ids.is_empty() || ids.len()>32 { return Err("请选择 1–32 台候选服务器".into()); }
-    if spec["gpu"].as_u64().unwrap_or(0)>0 {return Err("尚未启用 GPU 隔离执行；不会降级为不受保护的任务".into());}
+    if ids.is_empty() { return Err("请选择候选服务器".into()); }
     let job=spec["id"].as_str().ok_or("提交必须带稳定任务编号")?.to_string();
     if job.is_empty() || job.len()>80 || !job.chars().all(|c|c.is_ascii_alphanumeric()||c=='-'||c=='_'){return Err("任务编号无效".into());}
     let dir=root.join("ssh-dispatch");std::fs::create_dir_all(&dir).map_err(|e|e.to_string())?;

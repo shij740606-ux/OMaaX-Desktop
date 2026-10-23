@@ -1,0 +1,29 @@
+{
+ "植物与藻类": {
+  "DicotSeedling.svg":"双子叶幼苗", "Dicot_ApicalHook.svg":"幼苗顶端弯钩", "Leaf.svg":"叶片", "Lemna.svg":"浮萍", "ArabidopsisSeedlings.svg":"拟南芥幼苗", "ArabidopsisTopView.svg":"拟南芥莲座叶", "Arabidopsis_DeepRoots.svg":"拟南芥深根系", "Arabidopsis_NormalRoots.svg":"拟南芥正常根系", "Arabidopsis_ShallowRoots.svg":"拟南芥浅根系", "MossColony.svg":"苔藓群落", "Moss_Gametophore.svg":"苔藓配子体", "Moss_Protonema.svg":"苔藓原丝体", "Moss_Protonema_Buds.svg":"苔藓原丝体芽", "TomatoFruit.svg":"番茄果实", "Utricularia_trap.svg":"狸藻捕虫囊"
+ },
+ "动物与模式生物": {
+  "Mouse.svg":"实验小鼠", "SmilingMouseHead.svg":"小鼠头部", "Macaque.svg":"猕猴", "Alpaca.svg":"羊驼", "drosophila_fruit_fly.svg":"果蝇", "Celegans.svg":"秀丽隐杆线虫", "Xenopus_new.svg":"爪蟾", "avocet.svg":"反嘴鹬", "Mosquito_gender.svg":"雌雄蚊虫"
+ },
+ "细胞与组织": {
+  "Smooth_muscle_cell_v2.svg":"平滑肌细胞", "simple_cardiomyocyte.svg":"心肌细胞", "1cell_pn4_zygote.svg":"受精卵", "2c_embryo.svg":"二细胞胚胎", "4c_embryo_style1.svg":"四细胞胚胎", "8c_embryo.svg":"八细胞胚胎", "MII_Oocyte.svg":"卵母细胞", "early_blastocyst_embryo.svg":"早期囊胚", "morula_embryo.svg":"桑椹胚", "Pyramidal_Neuron.svg":"锥体神经元", "stem_cell_colony.svg":"干细胞克隆", "cell_clumps.svg":"细胞团", "cells_bilayer.svg":"双层细胞", "cells_feeder_coculture.svg":"饲养层共培养", "cells_matrix.svg":"细胞与基质", "embedded_organoid.svg":"包埋类器官", "emybroid_bodies.svg":"胚状体"
+ },
+ "器官与生理": {
+  "Human_heart.svg":"人心脏", "healthy_liver.svg":"健康肝脏", "fibrotic_liver.svg":"纤维化肝脏", "nephron_2d.svg":"肾单位", "mousekidney_cystic_sagittal.svg":"小鼠囊肿肾脏切面", "blood_sample.svg":"血液样本", "blood_sample_tube.svg":"血液采样管", "syringe_with_blood.svg":"采血注射器"
+ },
+ "微生物与病毒": {
+  "Yeast.svg":"酵母", "Budding_yeast.svg":"出芽酵母", "Bacteria_Swimming.svg":"游动细菌", "generic-bacterium.svg":"细菌结构", "Bacteria_colonies.svg":"细菌菌落", "Phage.svg":"噬菌体", "virus-sketch.svg":"病毒示意图", "AAV_adenovirus.svg":"AAV 病毒载体", "12_wp_plaque.svg":"病毒噬斑检测", "Average_prokaryote_cell-_unlabled.svg":"原核细胞结构"
+ },
+ "蛋白与膜": {
+  "zincfinger.svg":"锌指结构", "histone_complex_acetylated.svg":"乙酰化组蛋白", "calcium_channel.svg":"钙离子通道", "protein-backbone-schematic.svg":"蛋白质骨架", "NLRP3_Complex.svg":"NLRP3 炎症小体", "antibody_heavy_chain_vdj_recombination.svg":"抗体重链 VDJ 重排", "N-terminal_signal_peptide_scheme.svg":"N 端信号肽", "C-terminal_signal_peptide_scheme.svg":"C 端信号肽", "internal_signal_peptide_scheme.svg":"内部信号肽"
+ },
+ "核酸": {
+  "chromatin-histones.svg":"染色质与组蛋白", "ssDNA-single-stranded.svg":"单链 DNA", "CRISPR_Cas9.svg":"CRISPR Cas9", "CRISPR_plasmid.svg":"CRISPR 质粒", "CRISPR_Cas9_expression_vector.svg":"Cas9 表达载体", "Transposase_Tn5_ATAC_chromatin.svg":"Tn5 转座酶与染色质", "Sanger_sequencing.svg":"桑格测序", "Illumina_sequencing_reads.svg":"测序读段", "restriction_enzyme.svg":"限制性内切酶", "adenine.svg":"腺嘌呤 A", "cytosine.svg":"胞嘧啶 C", "guanine.svg":"鸟嘌呤 G", "thymine.svg":"胸腺嘧啶 T", "uracil.svg":"尿嘧啶 U", "atp.svg":"ATP 三磷酸腺苷", "adp.svg":"ADP 二磷酸腺苷", "camp.svg":"环磷酸腺苷 cAMP", "5-methylcytosine.svg":"5 甲基胞嘧啶"
+ },
+ "实验器材": {
+  "96_well_plate.svg":"96 孔板", "CC_dish.svg":"细胞培养皿", "cryo_vial.svg":"冻存管", "flow-cytometer-cell-sorter.svg":"流式细胞分选仪", "round-bottomed-flask-cartoon.svg":"圆底烧瓶", "simple-syringe-cartoon.svg":"注射器", "chromatography.svg":"层析装置", "erlenmeyer_filled.svg":"锥形瓶与培养液", "incubator.svg":"培养箱", "ln2_tank.svg":"液氮罐", "qpcr_machine.svg":"定量 PCR 仪", "sonicator.svg":"超声处理仪", "vortex_mixer.svg":"涡旋混匀仪", "water_bath.svg":"水浴锅", "T75_flask.svg":"T75 细胞培养瓶", "bioreactor.svg":"生物反应器", "microfluids_chip.svg":"微流控芯片", "agarose-gel.svg":"琼脂糖凝胶", "Agilent_HPLC.svg":"高效液相色谱仪", "mass-spectrometer-MS.svg":"质谱仪", "tecan-plate-reader.svg":"酶标仪", "Beakers.svg":"烧杯", "bacteria_culture_loop.svg":"接种环", "bacteria_culture_cotton_swap.svg":"接种棉签"
+ },
+ "氨基酸": {
+  "alanine.svg":"丙氨酸 Ala", "arginine.svg":"精氨酸 Arg", "asparagine.svg":"天冬酰胺 Asn", "aspartic_acid.svg":"天冬氨酸 Asp", "cysteine.svg":"半胱氨酸 Cys", "glutamic_acid.svg":"谷氨酸 Glu", "glutamine.svg":"谷氨酰胺 Gln", "glycine.svg":"甘氨酸 Gly", "histidine.svg":"组氨酸 His", "isoleucine.svg":"异亮氨酸 Ile", "leucin.svg":"亮氨酸 Leu", "lysine.svg":"赖氨酸 Lys", "methionine.svg":"甲硫氨酸 Met", "phenylalanine.svg":"苯丙氨酸 Phe", "proline.svg":"脯氨酸 Pro", "serine.svg":"丝氨酸 Ser", "threonine.svg":"苏氨酸 Thr", "tryptophan.svg":"色氨酸 Trp", "tyrosine.svg":"酪氨酸 Tyr", "valine.svg":"缬氨酸 Val"
+ }
+}

@@ -118,28 +118,16 @@ def protection():
 
 
 def image_command(image,argv):
-    if conda_runtime.is_ref(image):return conda_runtime.args(types.SimpleNamespace(**globals()),image,argv)
+    if conda_runtime.is_direct(image):return conda_runtime.args(types.SimpleNamespace(**globals()),image,argv)
     return ['podman','run','--rm','-i','--pull=never','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--cpus=1','--memory=2048m',image,*argv]
 
 
 def source_path(value, imported=False):
     p = Path(value).expanduser()
-    if not p.is_absolute() or any(x.is_symlink() for x in [p, *p.parents]):
-        raise ValueError('Select an absolute, non-symlink data directory')
+    if not p.is_absolute():raise ValueError('请选择服务器上的绝对路径')
     p = p.resolve(strict=True)
-    managed_import = (imported and p.parent == ROOT/'imports' and re.fullmatch(r'[a-f0-9-]{36}', p.name)) or p == ROOT/'shared'
-    managed_workspace = p == workspace_root() or workspace_root() in p.parents
-    denied = [*([] if managed_import or managed_workspace else [ROOT]), Path('/proc'), Path('/sys'), Path('/dev'), Path.home()/'.ssh', Path.home()/'.aws', Path.home()/'.kube']
-    if not p.is_dir() or any(p == d or (d != Path('/') and d != Path.home() and (d in p.parents or p in d.parents)) for d in denied):
-        raise ValueError('System, home root, credentials and control directories cannot be shared')
-    if not os.access(p, os.R_OK | os.X_OK):
-        raise ValueError('SSH account cannot read this directory')
-    mounts = Path('/proc/self/mountinfo')
-    if mounts.exists():
-        for row in mounts.read_text().splitlines():
-            mounted = Path(row.split()[4].replace('\\040',' ').replace('\\134','\\'))
-            if p in mounted.parents:
-                raise ValueError('Register nested mount points separately; recursive read-only cannot be assumed')
+    if not p.is_dir() or not os.access(p, os.R_OK | os.X_OK):
+        raise ValueError('当前服务器账号不能读取此目录')
     return p
 
 
@@ -168,18 +156,18 @@ def disk_available():
 def validate_job(spec, cfg):
     identifier(spec.get('id'))
     image = spec.get('image')
-    if image not in cfg.get('images', []) or not immutable_image(image):
-        raise ValueError('Image must be an approved immutable sha256 image')
+    if image!=conda_runtime.HOST_REF and (image not in cfg.get('images', []) or not immutable_image(image)):
+        raise ValueError('计算环境尚未登记；可选择 host:direct 使用服务器已有程序')
+    if image==conda_runtime.HOST_REF and 'workflow' in spec:
+        raise ValueError('正式分析必须使用已登记的固定流程环境')
     argv = spec.get('argv')
-    if not isinstance(argv, list) or not 1 <= len(argv) <= 128 or any(not isinstance(a, str) or '\x00' in a or len(a)>8192 for a in argv):
+    if not isinstance(argv, list) or not argv or any(not isinstance(a, str) or '\x00' in a for a in argv):
         raise ValueError('Invalid container argument list')
     for key, low, high in [('cpu', 1, os.cpu_count() or 1), ('memoryMb', 128, 1048576), ('timeoutSeconds', 10, 604800)]:
         if type(spec.get(key)) is not int or not low <= spec[key] <= high:
             raise ValueError('Invalid '+key)
-    if spec.get('gpu', 0):
-        raise ValueError('GPU isolation is not enabled; refusing unprotected GPU execution')
     sources = spec.get('sources', [])
-    if not isinstance(sources, list) or len(sources)>32 or len(sources)!=len(set(sources)):
+    if not isinstance(sources, list) or len(sources)!=len(set(sources)):
         raise ValueError('Invalid source list')
     for name in sources:
         identifier(name)
@@ -191,7 +179,7 @@ def validate_job(spec, cfg):
         raise ValueError('Invalid source mount mapping')
     for alias in mounts: identifier(alias)
     files=spec.get('files',[])
-    if not isinstance(files,list) or len(files)>256:raise ValueError('参考文件数量过多')
+    if not isinstance(files,list):raise ValueError('参考文件列表无效')
     if files:
         import server_workspace
         for file in files:
@@ -219,7 +207,7 @@ def jobdir(job,spec=None):
         row=database().execute('SELECT path FROM job_locations WHERE job_id=?',(identifier(job),)).fetchone()
         if row:
             saved=Path(row['path']);old=root()/'workspace'/saved
-            path=old if not saved.is_absolute() and old.exists() else server_workspace.managed(types.SimpleNamespace(**globals()),row['path'],existing=False)
+            path=saved if saved.is_absolute() else old if old.exists() else server_workspace.managed(types.SimpleNamespace(**globals()),row['path'],existing=False)
         else:
             old=server_workspace.workspace(types.SimpleNamespace(**globals()))/'results'/identifier(job)
             if old.exists():path=old
@@ -240,10 +228,10 @@ def update(db, job, state, detail=''):
 
 def container_args(spec, cfg):
     out = jobdir(spec['id']) / 'output'
-    if conda_runtime.is_ref(spec['image']):
+    if conda_runtime.is_direct(spec['image']):
         mounts=[(str(source_path(cfg['sources'][name],imported=name.startswith('import_'))),'/input/'+alias) for alias,name in spec.get('mounts',{n:n for n in spec.get('sources',[])}).items()]
         mounts += [(v['source'],v['target']) for v in spec.get('files',[])]
-        payload={'opt':str(conda_runtime.resolve(types.SimpleNamespace(**globals()),spec['image'])/'opt'),'argv':spec['argv'],'output':str(out),'mounts':mounts,'cpu':spec['cpu'],'memoryMb':spec['memoryMb']}
+        payload={'opt':None if spec['image']==conda_runtime.HOST_REF else str(conda_runtime.resolve(types.SimpleNamespace(**globals()),spec['image'])/'opt'),'argv':spec['argv'],'output':str(out),'mounts':mounts,'cpu':spec['cpu'],'memoryMb':spec['memoryMb']}
         return [sys.executable,str(Path(__file__).resolve()),'--conda-exec',json.dumps(payload)]
     args = ['podman', 'run', '--name', 'biodsh-'+spec['id'], '--label', 'biodsh.personal='+spec['id'],
             '--pull=never', '--network=slirp4netns:allow_host_loopback=false', '--cap-drop=ALL', '--security-opt=no-new-privileges',
@@ -317,9 +305,9 @@ def append_task_log(log,chunk,limit=10*1024*1024):
 def execute_container(job,spec,cfg,directory,started,log):
     args=container_args(spec,cfg)
     if 'workflow' in spec:args.insert(2,'--rm')
-    if conda_runtime.is_ref(spec['image']) and 'workflow' in spec:args.remove('--rm')
+    if conda_runtime.is_direct(spec['image']) and 'workflow' in spec:args.remove('--rm')
     process=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
-    if conda_runtime.is_ref(spec['image']):
+    if conda_runtime.is_direct(spec['image']):
         (directory/'process.json').write_text(json.dumps({'pid':process.pid,'start':Path('/proc/'+str(process.pid)+'/stat').read_text().split(') ')[1].split()[19]}))
     poller=selectors.DefaultSelector();poller.register(process.stdout,selectors.EVENT_READ)
     stopping=False
@@ -330,7 +318,7 @@ def execute_container(job,spec,cfg,directory,started,log):
             chunk=os.read(key.fileobj.fileno(),65536)
             if not chunk:poller.unregister(key.fileobj)
             append_task_log(log,chunk)
-    if conda_runtime.is_ref(spec['image']):
+    if conda_runtime.is_direct(spec['image']):
         import signal
         # Finish the owned process group so background children cannot hold logs open.
         with contextlib.suppress(ProcessLookupError):os.killpg(process.pid,signal.SIGKILL)
@@ -415,8 +403,8 @@ def resume_job(job):
         spec=json.loads(row['spec'])
         if not spec.get('pipeline'):raise ValueError('此任务没有可续跑的固定步骤')
         validate_job(spec,config(db))
-        if conda_runtime.is_ref(spec['image']) and task_process_alive(directory):raise ValueError('任务进程仍在运行，不能恢复输出')
-        if not conda_runtime.is_ref(spec['image']) and json.loads(command(['podman','ps','--filter','name=^biodsh-'+job+'$','--format','json'])):raise ValueError('任务容器仍在运行，不能恢复输出')
+        if conda_runtime.is_direct(spec['image']) and task_process_alive(directory):raise ValueError('任务进程仍在运行，不能恢复输出')
+        if not conda_runtime.is_direct(spec['image']) and json.loads(command(['podman','ps','--filter','name=^biodsh-'+job+'$','--format','json'])):raise ValueError('任务容器仍在运行，不能恢复输出')
         if not (directory/'checkpoint.json').is_file():raise ValueError('尚无已完成步骤的续跑快照，请保留日志并重新准备任务')
         saved=json.loads((directory/'checkpoint.json').read_text())
         if saved.get('spec')!=spec or not re.fullmatch(r'checkpoint-[a-f0-9-]{36}',saved.get('directory','')):raise ValueError('续跑快照与原计划不一致')
@@ -565,8 +553,6 @@ def dispatch(req):
         progress('正在创建 OMaaX 专属目录')
         import server_workspace
         server_workspace.workspace(types.SimpleNamespace(**globals()))
-        if os.getuid() == 0:
-            raise ValueError('请使用普通 SSH 用户；不以 root 启用分析执行')
         shared = workspace_root()/'files/shared'
         if shared.is_symlink(): raise ValueError('共享目录不能是符号链接')
         shared.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -607,7 +593,7 @@ def dispatch(req):
                 'protectedPaths':cfg.get('protectedPaths',[]), 'sources': cfg.get('sources', {}), 'images': cfg.get('images', []), 'environmentCheckedAt':cached.get('at')}
     if action == 'configure':
         sources = body.get('sources', {}); images = body.get('images', [])
-        if not isinstance(sources, dict) or len(sources)>100 or not isinstance(images, list) or len(images)>100:
+        if not isinstance(sources, dict) or not isinstance(images, list):
             raise ValueError('Invalid configuration')
         sources = {identifier(k): str(source_path(v, imported=k.startswith('import_') and cfg.get('sources', {}).get(k)==v)) for k,v in sources.items()}
         if any(not immutable_image(i) for i in images):
@@ -625,7 +611,7 @@ def dispatch(req):
             launch(job); return {'id':job, 'reused':True}
         # Never pull an image during a task; the user provisions approved images explicitly.
         if conda_runtime.is_ref(spec['image']):conda_runtime.resolve(types.SimpleNamespace(**globals()),spec['image'])
-        else:command(['podman', 'image', 'inspect', spec['image']])
+        elif spec['image']!=conda_runtime.HOST_REF:command(['podman', 'image', 'inspect', spec['image']])
         directory = jobdir(job,spec)
         import protected_paths
         protected_paths.check(types.SimpleNamespace(**globals()),directory,'analysis-output')
@@ -738,7 +724,8 @@ if __name__ == '__main__':
         payload=json.loads(sys.argv[2]);limit=payload.pop('memoryMb')*1048576;cpu=payload.pop('cpu')
         resource.setrlimit(resource.RLIMIT_AS,(limit,limit));resource.setrlimit(resource.RLIMIT_CORE,(0,0))
         if hasattr(os,'sched_getaffinity'):os.sched_setaffinity(0,sorted(os.sched_getaffinity(0))[:cpu])
-        sys.exit(conda_runtime.network_run(Path(payload.pop('opt')),log=sys.stdout,writable=False,**payload))
+        opt=payload.pop('opt')
+        sys.exit(conda_runtime.network_run(Path(opt) if opt else None,log=sys.stdout,writable=False,**payload))
     elif len(sys.argv)>1 and sys.argv[1] == '--setup':
         import server_setup
         server_setup.run(types.SimpleNamespace(**globals()),sys.argv[2])

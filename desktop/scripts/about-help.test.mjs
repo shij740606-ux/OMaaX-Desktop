@@ -1,0 +1,22 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import React from 'react';
+import {act,create} from 'react-test-renderer';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),module={exports:{}};
+const code=ts.transpileModule(fs.readFileSync(new URL('../src/renderer/src/views/AboutHelp.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+new Function('require','exports',code)(require,module.exports);
+test('help is searchable, has empty-state feedback and restores all entries',()=>{
+ let view;act(()=>{view=create(React.createElement(module.exports.default));});
+ const total=view.root.findAllByType('details').length;assert.equal(total,14);
+ const input=view.root.findByType('input');
+ act(()=>input.props.onChange({target:{value:'服务器'}}));
+ assert.ok(view.root.findAllByType('details').length>0);assert.ok(view.root.findAllByType('details').length<total);
+ act(()=>input.props.onChange({target:{value:'not-a-topic-12345'}}));
+ assert.equal(view.root.findAllByType('details').length,0);
+ assert.match(JSON.stringify(view.toJSON()),/没有找到相关内容/);
+ act(()=>input.props.onChange({target:{value:''}}));assert.equal(view.root.findAllByType('details').length,total);
+ act(()=>view.unmount());
+});

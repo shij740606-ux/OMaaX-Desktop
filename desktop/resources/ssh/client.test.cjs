@@ -16,6 +16,7 @@ const server = new Server({ hostKeys: [key] }, connection => {
   connection.on('ready', () => connection.on('session', accept => accept().on('exec', (accept, reject, info) => {
     if(info.command==='disconnect'){accept();connection.destroy();return;}
     if(info.command==='timeout'){accept();return;}
+    if(info.command==='verbose'){const stream=accept();stream.write('x'.repeat(2*1048576));stream.exit(0);stream.end();return;}
     if (info.command === '/bin/bash -s') {
       const stream=accept();let text='';stream.on('data',chunk=>text+=chunk);
       stream.on('end',()=>{stream.write(JSON.stringify({bytes:Buffer.byteLength(text),text}));stream.exit(0);stream.end();});
@@ -44,11 +45,20 @@ function request(value) {
 server.listen(0, '127.0.0.1', async () => {
   try {
     const probe = await request({ operation: 'probe' });
+    assert.ok(!probe.error,probe.error);
     assert.match(probe.fingerprint, /^SHA256:/); assert.ok(probe.hostKey);
     assert.ok((await request({ operation: 'execute', command: 'hello', hostKey: 'wrong' })).error);
     assert.ok((await request({ operation: 'test', hostKey: probe.hostKey, password: 'wrong' })).error);
     const result = await request({ operation: 'execute', command: 'hello', hostKey: probe.hostKey });
     assert.equal(result.stdout, 'hello'); assert.equal(result.stderr, 'note'); assert.equal(result.exitCode, 0);
+    const verbose=await request({operation:'execute',command:'verbose',hostKey:probe.hostKey});
+    assert.equal(verbose.exitCode,0);assert.equal(verbose.stdout.length,1048576);assert.equal(verbose.outputBytes,2*1048576);assert.equal(verbose.outputTruncated,true);
+    for(const timeoutSeconds of [0,3601,3_000_000]) {
+      assert.equal((await request({operation:'execute',command:'hello',hostKey:probe.hostKey,timeoutSeconds})).exitCode,0);
+    }
+    for(const timeoutSeconds of [-1,0.5,'120']) {
+      assert.match((await request({operation:'execute',command:'hello',hostKey:probe.hostKey,timeoutSeconds})).error,/等待时间无效/);
+    }
     for (const accountOwner of [undefined, 'account-a', 'account-b']) {
       assert.equal((await request({operation:'execute',command:'hello',hostKey:probe.hostKey,accountOwner})).stdout,'hello');
       assert.ok((await request({operation:'test',hostKey:probe.hostKey,password:'wrong',accountOwner})).error);

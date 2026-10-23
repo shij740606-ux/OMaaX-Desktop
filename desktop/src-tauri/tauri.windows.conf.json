@@ -3,7 +3,7 @@
     "resources": {
       "../resources/node/win32-x64": "node",
       "../resources/bin/win32-x64": "bin",
-      "icons/icon.ico": "omaax-desktop-0.4.45.ico"
+      "icons/icon.ico": "omaax-desktop-0.4.49.ico"
     },
     "windows": {
       "nsis": {

@@ -1,5 +1,5 @@
 """Project/session filing without moving existing user or legacy task data."""
-import hashlib,json,time
+import hashlib,json,shutil,time
 from pathlib import Path
 
 def normalize(value):
@@ -40,18 +40,20 @@ def reserved(path):
 
 def relocate(r,source,destination):
     import server_workspace as storage
-    root=storage.workspace(r);old=source.relative_to(root).as_posix();new=destination.relative_to(root).as_posix()
+    root=storage.workspace(r)
+    def saved(path):return path.relative_to(root).as_posix() if path==root or root in path.parents else str(path)
+    old=saved(source);new=saved(destination)
     db=r.database();locations=[]
     for row in db.execute('SELECT id FROM jobs').fetchall():
         location=r.jobdir(row['id'])
         if location==source or source in location.parents:
-            rel=new if location==source else new+'/'+location.relative_to(source).as_posix()
+            rel=saved(destination/location.relative_to(source))
             locations.append((row['id'],rel))
     cfg=r.config(db);changed=False
     for name,value in cfg.get('sources',{}).items():
         p=Path(value)
         if p==source or source in p.parents:cfg['sources'][name]=str(destination/p.relative_to(source));changed=True
-    source.rename(destination)
+    shutil.move(str(source),str(destination))
     try:
         db.executemany('INSERT OR REPLACE INTO job_locations VALUES(?,?)',locations)
         if changed:db.execute('INSERT OR REPLACE INTO config VALUES(?,?)',('sources',json.dumps(cfg['sources'])))
@@ -62,4 +64,4 @@ def relocate(r,source,destination):
                 db.execute('INSERT OR REPLACE INTO workspace_external_files VALUES(?,?,?)',(str(destination/p.relative_to(source)),row['context'],row['created']))
         r.audit(db,'workspace.moved',{'from':old,'to':new})
     except BaseException:
-        db.rollback();destination.rename(source);raise
+        db.rollback();shutil.move(str(destination),str(source));raise

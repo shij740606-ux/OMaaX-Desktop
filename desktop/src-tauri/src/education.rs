@@ -9,10 +9,12 @@ pub fn start(app:&AppHandle,paths:&crate::paths::AppPaths)->Result<String,String
 
     let mut slot=SERVICE.lock().map_err(|_|"科研服务繁忙")?;
     if let Some(s)=slot.as_mut(){if s.child.try_wait().map_err(|_|"无法检查科研服务")?.is_none(){return Ok(s.url.clone());}}
+    // Reuse the authenticated company bridge; no saved provider key is needed.
+    let (model_url,model_key)=crate::company_llm::connection(app,paths)?;
     let root=&paths.root;
     let mut config=json!({"service":crate::paths::resource(app,"education-service"),
         "state":root.join("education"),"uv":crate::paths::uv_binary(app),
-        "llm":direct_model(paths,&crate::hub_auth::base()),
+        "llm":json!({"API_KEY":model_key,"BASE_URL":model_url,"MODEL":"omaax"}),
         "tectonic":crate::paths::resource(app,"bin").join(if cfg!(windows){"tectonic.exe"}else{"tectonic"})});
     let control=uuid::Uuid::new_v4().simple().to_string();
     config["control"]=json!(control);config["directory"]=json!(crate::paths::resource(app,"education"));
@@ -38,13 +40,3 @@ pub fn delete(app:&AppHandle,root:&std::path::Path,path:&str)->Result<Value,Stri
     reqwest::blocking::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(std::time::Duration::from_secs(30)).build().map_err(|_|"删除请求失败")?.post(url).header("X-OMaaX-Control",&s.control).send().map_err(|_|"删除请求失败，请重试")?.json().map_err(|_|"删除结果读取失败".into())
 }
 pub fn stop(){if let Ok(mut slot)=SERVICE.lock(){if let Some(mut s)=slot.take(){let _=s.child.kill();let _=s.child.wait();}}}
-
-fn direct_model(paths:&crate::paths::AppPaths,shared:&std::path::Path)->Value {
-    // Reuse the existing direct provider credential, never the company gateway token.
-    let settings=crate::settings::AppSettings::load(paths);
-    let mut legacy=paths.clone();legacy.dsh_home=shared.join("dsh-home");
-    let key=if !settings.offline_api_key.trim().is_empty(){settings.offline_api_key}
-        else {crate::settings::read_credential_value(paths).or_else(||crate::settings::read_credential_value(&legacy)).unwrap_or_default()};
-    json!({"API_KEY":key,"BASE_URL":if settings.offline_base_url.is_empty(){"https://api.deepseek.com/v1".to_string()}else{settings.offline_base_url},
-        "MODEL":if settings.offline_model.is_empty(){"deepseek-chat".to_string()}else{settings.offline_model}})
-}

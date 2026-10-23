@@ -48,3 +48,43 @@ test('stop discards late answer without unlocking the next request; copy include
  await ask(true);await act(async()=>button(view,'中止').props.onClick());assert.equal(calls.filter(c=>c[0]==='cancel').length,2);
  await ask();await act(async()=>view.unmount());assert.equal(calls.filter(c=>c[0]==='cancel').length,3);
 });
+
+test('cloud cancellation is a normal status and permits a new query',async()=>{
+ const h=harness({cloudQa:async(action)=>{if(action==='list')return [];if(action==='create')return {id:'s1'};if(action==='chat')throw Error('QUERY_CANCELLED');return {ok:true};}});
+ const View=h.load('views/CloudKnowledgeView.tsx').default;let view;
+ await act(async()=>{view=create(React.createElement(View));await settle();});
+ await act(async()=>view.root.findByType('textarea').props.onChange({target:{value:'test'}}));
+ await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});await settle();});
+ assert.ok(view.root.findAll(n=>n.props.role==='status').some(n=>text(n)==='已取消本次查询'));
+ assert.equal(view.root.findAll(n=>n.props.role==='alert').length,0);
+ assert.equal(view.root.findByType('textarea').props.disabled,false);
+ assert.doesNotMatch(text(view.root),/QUERY_CANCELLED/);
+ await act(async()=>view.unmount());
+});
+
+test('failed remote cancellation warns without accepting a late answer',async()=>{
+ let reply;
+ const h=harness({cloudQa:async(action)=>{if(action==='list')return [];if(action==='create')return {id:'s1'};if(action==='chat')return new Promise(resolve=>reply=resolve);if(action==='cancel')throw Error('offline');return {ok:true};}});
+ const View=h.load('views/CloudKnowledgeView.tsx').default;let view;
+ await act(async()=>{view=create(React.createElement(View));await settle();});
+ await act(async()=>view.root.findByType('textarea').props.onChange({target:{value:'test'}}));
+ await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});await settle();});
+ await act(async()=>{button(view,'中止').props.onClick();await settle();});
+ assert.match(text(view.root),/云端取消未确认/);
+ await act(async()=>{reply({answer:'STALE',sources:[]});await settle();});
+ assert.doesNotMatch(text(view.root),/STALE/);
+ assert.equal(view.root.findByType('textarea').props.disabled,false);
+ await act(async()=>view.unmount());
+});
+
+test('cloud without a tracked request never reports confirmed cancellation',async()=>{
+ const h=harness({cloudQa:async(action)=>{if(action==='list')return [];if(action==='create')return {id:'s1'};if(action==='search')return new Promise(()=>{});if(action==='cancel')return {ok:true,cloud_cancelled:false};return {ok:true};}});
+ const View=h.load('views/CloudKnowledgeView.tsx').default;let view;
+ await act(async()=>{view=create(React.createElement(View));await settle();});
+ await act(async()=>view.root.findByType('textarea').props.onChange({target:{value:'test'}}));
+ await act(async()=>{button(view,'仅检索文献').props.onClick();await settle();});
+ await act(async()=>{button(view,'中止').props.onClick();await settle();});
+ assert.match(text(view.root),/云端取消未确认/);
+ assert.equal(view.root.findByType('textarea').props.disabled,false);
+ await act(async()=>view.unmount());
+});

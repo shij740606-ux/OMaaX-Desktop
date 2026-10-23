@@ -145,11 +145,12 @@ class ManagementTests(unittest.TestCase):
   self.assertTrue(result['recoverable']);self.assertFalse(p.exists())
   row=r.database().execute("SELECT detail FROM audit WHERE action='server.deleted'").fetchone()
   self.assertEqual(json.loads(row['detail'])['bytes'],summary['bytes'])
- def test_credential_and_control_roots_and_active_inputs_are_protected(self):
-  for p in [Path.home(),Path.home()/'.ssh',r.ROOT,storage.workspace(r),self.data/'../other']:
-   with self.assertRaises(ValueError):self.call('server_delete',{'path':str(p),'recursive':True})
-  with patch.object(storage,'busy_path',return_value=True):
-   with self.assertRaisesRegex(ValueError,'正在使用'):self.call('server_delete',{'path':str(self.data/'original.txt')})
+ def test_unregistered_special_names_and_active_files_are_not_policy_blocked(self):
+  for p in [self.data/'.ssh/config',self.control/'ordinary-config',self.data/'.env']:
+   p.parent.mkdir(parents=True,exist_ok=True);p.write_text('test fixture only')
+   with patch.object(storage,'busy_path',return_value=True):result=self.call('server_delete',{'path':str(p)})
+   self.assertTrue(result['recoverable']);self.assertFalse(p.exists())
+   self.call('workspace_restore',{'trashId':result['trashId']});self.assertEqual(p.read_text(),'test fixture only')
  def test_import_resume_reuses_destination_and_does_not_register_partial_data(self):
   body={'id':'management-transfer','bytes':10,'context':C}
   with patch.object(r,'disk_available',return_value=100):a=self.call('import_prepare',body,'user');b=self.call('import_prepare',body,'user')

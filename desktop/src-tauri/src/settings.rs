@@ -194,6 +194,22 @@ pub fn migrate_credentials(p: &AppPaths) {
 mod mcp_validation_tests {
     use super::*;
     #[test]
+    fn saved_profile_configuration_roundtrips_without_changing_existing_values() {
+        let Ok(list)=std::env::var("OMAAX_UPGRADE_SETTINGS_TEST") else {return;};
+        let files:Vec<String>=serde_json::from_str(&fs::read_to_string(list).unwrap()).unwrap();
+        assert!(!files.is_empty());
+        for file in files {
+            let bytes=fs::read(&file).unwrap();
+            let original:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
+            let settings:AppSettings=serde_json::from_slice(&bytes).expect("Existing configuration must load without fallback defaults");
+            let encoded=serde_json::to_value(settings).unwrap();
+            for (key,value) in original.as_object().unwrap() {
+                if let Some(saved)=encoded.get(key) {assert_eq!(saved,value,"Saved configuration field changed: {key}");}
+            }
+            assert_eq!(fs::read(file).unwrap(),bytes);
+        }
+    }
+    #[test]
     fn reserved_duplicate_and_injected_names_are_rejected() {
         let good=McpServer {name:"papers".into(),transport:"streamable-http".into(),url:"http://127.0.0.1:3000/mcp".into(),..Default::default()};
         assert!(validate_mcp(&[good.clone()]).is_ok());

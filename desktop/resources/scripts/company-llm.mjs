@@ -13,6 +13,21 @@ const safeError = status => messages[status] || '对话服务暂不可用，请�
 export function authorizedModels(list) {
   return Array.isArray(list.models) ? list.models.filter(m => m && m.enabled !== false && typeof m.id==='string' && m.id.trim()) : [];
 }
+export function modelLimits(model) {
+  const positive=value=>Number.isSafeInteger(value)&&value>0?value:undefined;
+  // contextLength is the published context window, never a completion budget.
+  return {contextWindow:positive(model.contextLength),maxOutputTokens:positive(model.maxOutputTokens)};
+}
+export function applyOutputLimit(body, model) {
+  const {maxOutputTokens}=modelLimits(model);
+  if(body.stream===true){
+    // Old sessions and SDK defaults must not reintroduce a hard-coded chat cap.
+    delete body.max_tokens;delete body.max_completion_tokens;
+    if(maxOutputTokens!==undefined)body.max_tokens=maxOutputTokens;
+  }else if(maxOutputTokens!==undefined&&Number.isSafeInteger(body.max_tokens)&&body.max_tokens>maxOutputTokens){
+    body.max_tokens=maxOutputTokens;
+  }
+}
 export function modeEffort(model, requested) {
   const levels=model.modelEffort?.levels;
   if (!Array.isArray(levels) || !levels.length) {
@@ -60,7 +75,7 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
         const c=await credentials(s),m=c.models[0];
         const levels=m.modelEffort?.levels||[];
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        res.end(JSON.stringify({levels:['low','high','max'].filter(v=>levels.includes(v)),default:m.modelEffort?.default||null}));
+        res.end(JSON.stringify({levels:['low','high','max'].filter(v=>levels.includes(v)),default:m.modelEffort?.default||null,...modelLimits(m)}));
       }catch(e){reply(res,e.status||502,safeError(e.status));}
       return;
     }
@@ -94,6 +109,7 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
         if(effort===undefined)delete body.effort;else body.effort=effort;
         // Only the company gateway translates effort to provider-specific fields.
         delete body.reasoning_effort;delete body.thinking;
+        applyOutputLimit(body,c.models[0]);
         response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${c.token}`},body:JSON.stringify(body),redirect:'error',signal:controller.signal});
         if(attempt===0 && [400,401,403].includes(response.status)){
           let code;try{code=(await response.json()).error?.code;}catch{}

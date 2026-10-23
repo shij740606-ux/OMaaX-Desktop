@@ -1217,7 +1217,8 @@ async fn cloud_qa(app:AppHandle,state:State<'_,AppState>,action:String,body:serd
         }).await.map_err(|_|"图片保存未完成".to_string())?;
     }
     let root=state.paths.root.clone();
-    if matches!(action.as_str(),"begin"|"cancel"){return cloud_qa::control(&action,&body);}
+    if action=="begin"{return cloud_qa::control(&action,&body);}
+    if action=="cancel"{return cloud_qa::cancel(&body).await;}
     if matches!(action.as_str(),"chat"|"search") && body.get("requestId").is_some(){return cloud_qa::generate(root,action,body).await;}
     tauri::async_runtime::spawn_blocking(move||{
         cloud_qa::route(&action,&body)?;

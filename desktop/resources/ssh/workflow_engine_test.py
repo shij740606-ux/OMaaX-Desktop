@@ -261,14 +261,16 @@ class ContractTests(unittest.TestCase):
   ref=self.base/'reference';ref.mkdir();file=ref/'genome.fa';file.write_text('>chr1\nACGT\n');before=file.read_bytes()
   self.assertEqual(storage.files(r,{'operation':'read','path':str(file)})['text'],before.decode())
   self.assertEqual(storage.files(r,{'operation':'list','path':str(ref)})['fileCount'],1)
+  r.dispatch({'action':'protected_path_add','actor':'user','body':{'path':str(ref)}})
   with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':str(file)})
   with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':'../reference/genome.fa'})
   self.assertEqual(file.read_bytes(),before)
- def test_configs_and_tables_are_created_in_workspace_without_overwrite(self):
+ def test_configs_and_tables_preserve_registered_originals(self):
   import server_workspace as storage
   result=storage.write_config(r,{'path':'configs/samples.yaml','content':{'samples':{'S1':{'group':'A','r1':str(self.data/'input.txt')}}}})
   self.assertTrue(Path(result['path']).is_file())
-  with self.assertRaises(FileExistsError):storage.write_config(r,{'path':'configs/samples.yaml','content':{}})
+  r.dispatch({'action':'protected_path_add','actor':'user','body':{'path':result['path']}})
+  with self.assertRaises(ValueError):storage.write_config(r,{'path':'configs/samples.yaml','content':{}})
   result=storage.write_config(r,{'path':'configs/samples.tsv','format':'tsv','columns':['sample','group'],'content':[{'sample':'S1','group':'A'}]})
   self.assertEqual(Path(result['path']).read_text(),'sample\tgroup\nS1\tA\n')
  def test_reference_files_and_index_prefixes_are_exact_readonly_mounts(self):
@@ -308,15 +310,16 @@ class ContractTests(unittest.TestCase):
   configs=self.base/'derived';configs.mkdir();one=(self.base/'one.yaml').as_posix();two=(self.base/'two.yaml').as_posix();a.PATH_MAP.clear()
   a.prepare_documents({'configDocuments':{one:{'config':two},two:{'sample':'S1'}}},configs,self.data,self.base,str(self.data),True)
   self.assertEqual(json.loads(Path(a.PATH_MAP[one]).read_text())['config'],a.PATH_MAP[two])
- def test_workspace_delete_restore_and_active_job_protection(self):
+ def test_workspace_delete_restore_and_registered_path_protection(self):
   import server_workspace as storage
   file=Path(storage.write_config(r,{'path':'configs/safe.json','format':'json','content':{'sample':'A'}})['path'])
-  pending=storage.manage(r,{'operation':'delete','path':'configs/safe.json'});self.assertTrue(file.exists());row=r.dispatch({'action':'server_delete_requests','actor':'user','body':{}})[0];deleted=r.dispatch({'action':'server_delete_confirm','actor':'user','body':{'id':row['id'],'digest':row['digest']}});self.assertFalse(file.exists())
+  deleted=storage.manage(r,{'operation':'delete','path':'configs/safe.json'});self.assertFalse(file.exists())
   self.assertEqual(storage.manage(r,{'operation':'trash'})['files'][0]['trashId'],deleted['trashId'])
   storage.restore(r,{'trashId':deleted['trashId']});self.assertEqual(json.loads(file.read_text()),{'sample':'A'})
   job=r.dispatch({'action':'submit','body':{'id':'active-job','image':IMAGE,'argv':['python3','--version'],'sources':[],'files':[{'source':str(file),'target':'/input/refs/'+'b'*20+'/safe.json'}],'cpu':1,'memoryMb':128,'timeoutSeconds':10}})
-  with self.assertRaisesRegex(ValueError,'正在使用'):storage.manage(r,{'operation':'delete','path':'configs/safe.json'})
-  with self.assertRaisesRegex(ValueError,'正在使用'):storage.manage(r,{'operation':'delete','path':'results/'+job['id']})
+  r.dispatch({'action':'protected_path_add','actor':'user','body':{'path':str(file)}})
+  with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':'configs/safe.json'})
+  deleted=storage.manage(r,{'operation':'delete','path':'results/'+job['id']});self.assertTrue(deleted['recoverable'])
  def test_generated_plugin_scripts_and_indexes_use_protected_output(self):
   import server_workspace as storage
   script=storage.script(r,{'path':'files/analyze.py','content':'print("ok")'})['path']
@@ -332,9 +335,10 @@ class ContractTests(unittest.TestCase):
  def test_trash_renames_links_without_touching_external_targets(self):
   import server_workspace as storage
   base=storage.workspace(r);link=base/'files/link';link.symlink_to(self.data/'input.txt')
-  pending=storage.manage(r,{'operation':'delete','path':'files/link'});row=r.dispatch({'action':'server_delete_requests','actor':'user','body':{}})[0];deleted=r.dispatch({'action':'server_delete_confirm','actor':'user','body':{'id':row['id'],'digest':row['digest']}});self.assertEqual((self.data/'input.txt').read_text(),'raw input')
+  deleted=storage.manage(r,{'operation':'delete','path':'files/link'});self.assertEqual((self.data/'input.txt').read_text(),'raw input')
   storage.restore(r,{'trashId':deleted['trashId']});self.assertTrue(link.is_symlink())
   linked=base/'files/redirect';linked.symlink_to(self.data,target_is_directory=True)
+  r.dispatch({'action':'protected_path_add','actor':'user','body':{'path':str(self.data)}})
   with self.assertRaises(ValueError):storage.manage(r,{'operation':'delete','path':'files/redirect/input.txt'})
 
 if __name__=='__main__':unittest.main()

@@ -1,0 +1,11 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const runtime=new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/',import.meta.url);
+assert.equal(JSON.parse(readFileSync(new URL('package.json',runtime))).version,'0.1.5-rc.1','Stable release must retain the 47 CLI');
+const agent=new URL('node_modules/@deepseek-ai/dsh-agent-loop/',runtime);
+assert.equal(JSON.parse(readFileSync(new URL('package.json',agent))).version,'0.1.5-rc.3');
+const source=readFileSync(new URL('lib/index.js',agent),'utf8');
+assert.ok(source.includes('OMAAX_AUTO_CONTINUE_V1'),'Automatic continuation is missing');
+assert.ok(!source.includes('BIODSH_STEP_GUARD'),'Forced step cap found');
+assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).devDependencies['@deepseek-ai/dsh'],'0.1.5-rc.1');
+console.log('Stable 47 runtime and automatic continuation verified');

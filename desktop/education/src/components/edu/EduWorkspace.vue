@@ -1,7 +1,7 @@
 <!-- EduWorkspace.vue —— 教育科研全屏工作台（步骤4；覆盖层语义 D1）。
      App.vue 中用 v-show 挂载（始终存活，仅 display 切换）：
      左 200px EduSideNav + 右侧 <component :is> 按 edu.section 动态切面板。
-     面板进行中请求/草稿存于 edu store（面板卸载不中断、切菜单不丢）。 -->
+     面板首次打开后保留，切菜单不重复加载，也不丢失文件选择和草稿。 -->
 <script setup>
 import { computed } from 'vue';
 import { useEduStore } from '../../stores/edu.js';
@@ -39,7 +39,7 @@ const currentPanel = computed(() => panelMap[edu.section] || JournalsPanel);
   <div class="edu-workspace">
     <EduSideNav class="edu-nav" />
     <main class="edu-panel">
-      <KeepAlive include="PptPanel"><component :is="currentPanel" /></KeepAlive>
+      <KeepAlive><component :is="currentPanel" /></KeepAlive>
     </main>
   </div>
 </template>

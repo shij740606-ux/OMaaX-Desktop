@@ -9,7 +9,7 @@
      展开行承载凭证 4 项：JIF核对状态 / 官网核对状态（可靠=绿、未逐站复核=浅绿、
      未检得·待核实=橙）/ JIF数据来源链接 / 分区数据来源链接；zh 展开行无 JCR 字段
      （jcr_release_year 恒 null，年报版本年 metric_report_year 单独展示）。
-     底部固定表C长版数据源声明；顶部黄字按 Tab 切换（en/zh 两套口径）。
+     底部保留数据源声明，标题区仅展示期刊名称与数量。
      三态与 journals（FormatPanel 下拉的 5 本精选）完全隔离，edu.journals 链路零改动。
      读时归一化由后端承担：zh cas_partition 恒 null + note、jif_note 两类文案、
      缺值 source 归零（前端只管展示 tooltip/链接）。 -->
@@ -28,12 +28,6 @@ let searchTimer = null;
 const tab = computed(() => edu.journalsTab);
 const q = computed(() => edu.directoryQuery);
 
-/* 数据源声明：meta 到达且 lang 匹配 → 服务端文案；否则本地兜底（切 Tab 即时切换）。
-   顶部黄字按 Tab 切换；底部另有表C长版统一声明（FOOT_NOTE，双 Tab 相同）。 */
-const LOCAL_NOTE = {
-  en: '分区：2025年中科院公开表（多表比对，2026年起停更）；JIF：2025年度指标（2026年JCR发布，两份公开汇编一致或已核对出版社官方指标）；整理日期2026-10-10；空白=来源未给值≠0',
-  zh: '指标：国内自然科学期刊年报2025版（统计年2024，与JIF统计源不同、不混排）；中文期刊不按中科院分区口径列示',
-};
 /* 底部数据源声明（表C 长版，拍板决策3；末尾补来源口径说明） */
 const FOOT_NOTE =
   'JIF 取自 2025 年度指标（2026 年 JCR 发布）并经两份公开汇编交叉一致或出版社官方指标核对，' +
@@ -57,11 +51,6 @@ function checkCls(v, okSet) {
   if (v.includes('未检得') || v.includes('待核实')) return 'jp-warn';
   return '';
 }
-const sourceNote = computed(() =>
-  edu.directoryMeta && edu.directoryMeta.lang === tab.value
-    ? edu.directoryMeta.data_source_note
-    : LOCAL_NOTE[tab.value]
-);
 const countText = computed(() =>
   edu.directoryMeta && edu.directoryMeta.lang === tab.value
     ? edu.directoryMeta.total
@@ -165,7 +154,6 @@ onUnmounted(() => clearTimeout(searchTimer));
     </header>
 
     <!-- 诚实性声明（黄字；两套口径按 Tab 切换） -->
-    <p class="jp-note jp-note--warn">{{ sourceNote }}</p>
 
     <!-- Tab：🌍 国际 / 🇨🇳 中文（切换全清筛选） -->
     <nav class="jp-tabs" role="tablist">
@@ -431,15 +419,6 @@ onUnmounted(() => clearTimeout(searchTimer));
 .jp-count {
   font-size: 12px;
   color: var(--pa-ink-muted);
-}
-.jp-note {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--pa-ink-subtle);
-}
-.jp-note--warn {
-  color: var(--pa-warning);
 }
 /* —— Tab —— */
 .jp-tabs {

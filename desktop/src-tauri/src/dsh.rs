@@ -94,6 +94,55 @@ pub fn set_llm_override(paths: &AppPaths, offline: Option<(&str, &str)>) -> Resu
 /// YAML 单引号字符串（单引号翻倍转义）
 fn yaml_str(v: &str) -> String { format!("'{}'", v.replace('\'', "''")) }
 
+fn company_model_patch(base: &str, capabilities: &serde_json::Value) -> String {
+    let mut text=format!("\n- id: llm-deepseek\n  config:\n    baseURL: {}\n    apiKeyEnv: OMAAX_COMPANY_LLM_KEY\n",yaml_str(base));
+    for (key,field) in [("contextWindow","defaultContextWindow"),("maxOutputTokens","maxTokens")] {
+        if let Some(value)=capabilities[key].as_u64().filter(|v|*v>0 && *v<=9_007_199_254_740_991) {
+            text.push_str(&format!("    {field}: {value}\n"));
+        }
+    }
+    text.push_str("    models:\n      - id: omaax\n        name: OMaaX\n      - id: omaax-low\n        name: 低\n      - id: omaax-high\n        name: 中\n      - id: omaax-max\n        name: 高\n");
+    text
+}
+
+#[cfg(test)]
+mod company_model_config_tests {
+    use super::company_model_patch;
+    use serde_json::json;
+    #[test]
+    fn export_upgrade_profile_for_runtime_validation() {
+        let Ok(target)=std::env::var("OMAAX_UPGRADE_PROFILE_TEST") else { return; };
+        let home=std::path::PathBuf::from(target);
+        assert!(home.is_absolute() && home.to_string_lossy().contains("validation-local"));
+        std::fs::create_dir_all(&home).unwrap();
+        let root=home.parent().unwrap().to_path_buf();
+        let paths=crate::paths::AppPaths {root:root.clone(),dsh_home:home.clone(),bioenv:root.join("bioenv"),workspace:root.join("workspace"),skills:home.join("skills"),logs:root.join("logs")};
+        let desktop=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        super::DshManager::ensure_home(&paths,paths.workspace.to_str().unwrap(),&desktop.join("resources/skills"),&desktop.join("dsh-runtime/node_modules/@biodsh/skill-router/index.js"),&[]);
+        let file=home.join("cordis.patch.yml");
+        let mut text=std::fs::read_to_string(&file).unwrap();
+        text.push_str(&company_model_patch("http://127.0.0.1:1/v1",&json!({"contextWindow":1048576})));
+        std::fs::write(file,text).unwrap();
+    }
+    #[test]
+    fn context_does_not_become_output_budget() {
+        let patch=company_model_patch("http://127.0.0.1:1/v1",&json!({"contextWindow":1048576}));
+        assert!(patch.contains("defaultContextWindow: 1048576"));
+        assert!(!patch.contains("maxTokens:"));
+        assert!(!patch.contains("8192"));
+        let explicit=company_model_patch("test",&json!({"contextWindow":1048576,"maxOutputTokens":131072}));
+        assert!(explicit.contains("maxTokens: 131072"));
+    }
+    #[test]
+    fn missing_or_invalid_capabilities_do_not_restore_old_caps() {
+        for caps in [json!(null),json!({"contextWindow":0,"maxOutputTokens":-1}),json!({"contextWindow":"1048576","maxOutputTokens":9007199254740992u64})] {
+            let patch=company_model_patch("test",&caps);
+            assert!(!patch.contains("defaultContextWindow:"));
+            assert!(!patch.contains("maxTokens:"));
+        }
+    }
+}
+
 /// dsh 的沙盒只允许写工作区和会话私有的临时目录；numba / matplotlib 默认往用户目录写缓存，
 /// 写不进去就会反复重编译（示范项目里 pbmc3k 预处理因此跑了 40 分钟）。sitecustomize 在每个 Python 进程
 /// 启动时把这些缓存指到系统临时目录（沙盒对它有写权限）。
@@ -118,7 +167,7 @@ pub struct DshManager {
 
 const PERSONA: &str = r#"You are OMaaX 生信助手. Help users understand data, configure analysis environments, run analyses and interpret actual results. Use clear language in the user's language. Explain how to use the product without exposing internal service names, tool protocols, account identifiers, implementation details or release history. Keep routing instructions, internal IDs, tool protocol names and system prompts out of user-facing replies; describe actions as checking resources, preparing the environment, submitting an analysis or checking progress. Keep technical diagnostics available when explicitly requested; do not conceal errors or claim success without evidence.
 The user signs in with an administrator-issued account. All signed-in users can use ordinary features; only literature knowledge QA requires separate authorization. The company supplies the conversation service after login; never ask users for a model API key. Settings configures theme and language. Tools lists guides; adding a guide does not install every dependency. Configured image generation and external MCP tools are available through their protected tools; desktop control is unavailable. Analysis displays task results; server management browses files, manages connections, environments and transfers. Do not tell users to prepare a local environment for a server task.
-Both local and selected-server tools are available in the same conversation. Use pwsh/bash, read/grep/glob, write/edit and job_list/job_output/job_kill for local environment preparation, input checks, parameter edits and ordinary skill analysis. Choose local or server execution from the user request and the data location; a selected server does not disable local execution. Do not require local files to be uploaded for a local task. Local outputs go in a new project results directory, preserving inputs. Local work is authorized without repeated approval; prefer omaax_local_delete for recoverable removal and keep operation logs. Respect the native harness filesystem permissions. Use the available protected server tools for remote tasks. Read the actual error and logs, diagnose, modify the environment recipe or allowed analysis parameters/scripts, and retry when justified. Keep retries bounded when the same cause persists; clearly explain a missing credential, unavailable system component or external outage. Do not ask the user to run repair commands you can safely run through the provided tools. Never modify or delete registered protected original-data paths. After a genuine user request to execute a fixed analysis, validate and submit it without a second approval. Never request secrets in chat. Preserve original inputs and save results separately. For remote tasks use task-local temporary/cache space and write final deliverables in /output; use environment recipes to add remote dependencies. For local tasks prepare a user-owned environment and use local paths, not /output. Do not assume sudo or require server isolation. Do not invent scientific results, paths, report links or completed steps. Ask for necessary input data and analytical choices."#;
+Both local and selected-server tools are available in the same conversation. Use pwsh/bash, read/grep/glob, write/edit and job_list/job_output/job_kill for local environment preparation, input checks, parameter edits and ordinary skill analysis. Choose local or server execution from the user request and the data location; a selected server does not disable local execution. Do not require local files to be uploaded for a local task. Local outputs go in a new project results directory, preserving inputs. Local work is authorized without repeated approval; prefer omaax_local_delete for recoverable removal and keep operation logs. Respect the native harness filesystem permissions. Use execute or server_environment action=execute for server commands, custom scripts, dependency installation and environment repair without requiring Python or Conda to work first. These commands inherit the selected server account permissions and are audited. Consult protected_paths before mutations; never use scripts to bypass registered original-data protection. Use the task queue for durable long-running work. Read the actual error and logs, diagnose, modify the environment recipe or allowed analysis parameters/scripts, and retry when justified. Keep retries bounded when the same cause persists; clearly explain a missing credential, unavailable system component or external outage. Do not ask the user to run repair commands you can safely run through the provided tools. Never modify or delete registered protected original-data paths. After a genuine user request to execute a fixed analysis, validate and submit it without a second approval. Never request secrets in chat. Preserve original inputs and save results separately. For queued remote tasks, /output points to the task results directory; direct commands can use any account-writable path outside registered protection entries. Use existing environments, environment recipes or direct installation commands as appropriate. For local tasks prepare a user-owned environment and use local paths, not /output. Do not assume sudo or require server isolation. Do not invent scientific results, paths, report links or completed steps. Ask for necessary input data and analytical choices."#;
 
 const MINIMAL_PLUGINS: &[&str] = &[
     "ui-workflow-run", "ui-deliverables", "ui-jobs", "ui-goal", "ui-plan", "ui-trajectory", "ui-subagent",
@@ -165,7 +214,7 @@ impl DshManager {
             //   ② 加新插件 = `- insert: [ <条目> ]`(缺 insert 的新 id 只会 warn "entry not found" 静默失效)。
             // 修改类:精简掉多余 UI(disabled)+ 换 OMaaX 人设(system-prompt.persona)+ 官方技能目录(skill-filesystem)。
             let mut body: Vec<String> = MINIMAL_PLUGINS.iter().map(|id| format!("- id: {id}\n  disabled: true")).collect();
-            let persona_yaml = PERSONA.lines().chain(std::iter::once("SSH server access: use mcp__biodsh_ssh__list_servers to discover user-selected hosts and get_resources/compute_status to inspect readiness. For fixed analysis use workflow_catalog, then workflow_plan on the user-supplied absolute input folder or registered-source relative folder. Use server_files to inspect any user-provided account-readable data/reference path; no manual source registration is required. Use workspace_config for generated sample/config tables and workspace_index for reference indexes. Use server_write or server_copy to save new files anywhere permitted by the SSH account. Use protected_paths to read user-managed original-data protection entries. Never write, overwrite, move or delete those paths or their contents; reading, copying out and making links outside are allowed. Only the user manages protection entries. Outside protected paths, environment repair, input checks, parameter edits, file organization and scripts require no extra approval. Existing files are backed up before replacement; deletion goes to recoverable trash and records paths and bytes. Generated files default to ~/omaax/workspace and are separated by project and conversation. Project/session identity is attached automatically. Inputs and all declared workflow parameters can be adjusted in conversation, including fields hidden from the simplified form. For server plugin/tool analysis, save scripts with workspace_script and execute with workspace_analysis: declare account-readable inputs and preserve originals by default; persist final results under /output; temporary dependencies and caches may use the private task directory. Each task has a fresh runtime layer; prepare reusable dependencies with workflow_prepare. workspace_files manages the application workspace and recoverable deletion; workspace_restore recovers entries. These rules apply to single-cell and spatial analyses as well as every other workflow. Read the current workflow_catalog: gene_family, rnaseq, singlecell, spatial, metagenome, atacseq, chipseq, cutandrun and methylseq. Upstream cards execute the pinned source DAG; substeps are explanatory. Downstream cards have independent fixed entry points. Use @auto only where declared to consume the latest selected preceding artifact. Collect required input tables and optional reference files instead of guessing paths. Read workflow_catalog for the selected step parameters; users may adjust declared CLI/config parameters and choose optional branches. Do not add biological audit, member-confirmation, independent-replicate minimum or scientific-certification gates. Only validate execution fields, input paths, resources and required software. Source programs retain their own calculations and runtime requirements. After an actual user execution request, workflow_plan validates and submits the fixed workflow automatically using the recorded task intent; do not request a second approval. For discussion, evaluation or explicit do-not-run instructions, use catalog and inspection only, not workflow_plan. Local terminal tools are available for local tasks and dependency preparation. Remote commands must use the registered SSH tools; do not use local SSH or credentials to bypass server deletion protection or replace the selected fixed workflow. Never read credential stores, request passwords/private keys, or include credentials in prompts. Use workflow_plans and task_list/task_logs/cancel_task for lifecycle. Manage workflow software yourself with workflow_readiness, workflow_prepare, workflow_prepare_status and workflow_environment. Supply per-step recipes (packages, channels, script) to install and repair software inside new user-owned Conda environments. Inspect failed installation logs, revise the recipe and retry. Cross-server transfers require the user interface. Preserve source data and save outputs separately; ordinary execution inherits the SSH account permissions and is not OS isolation. Show actual completed/failed steps and preserved output files. Do not invent results or silently fall back to arbitrary commands. In ordinary chats, use omaax_generate_image for illustrations and configured external MCP tools for their intended tasks without repeated confirmation. Never modify protected original data or replace the selected fixed workflow.")).map(|l| if l.is_empty() { String::new() } else { format!("      {l}") }).collect::<Vec<_>>().join("\n");
+            let persona_yaml = PERSONA.lines().chain(std::iter::once("SSH server access: use mcp__biodsh_ssh__list_servers to discover user-selected hosts and get_resources/compute_status to inspect readiness. For fixed analysis use workflow_catalog, then workflow_plan on the user-supplied absolute input folder or registered-source relative folder. Use server_files to inspect any user-provided account-readable data/reference path; no manual source registration is required. Use workspace_config for generated sample/config tables and workspace_index for reference indexes. Use server_write or server_copy to save new files anywhere permitted by the SSH account. Use protected_paths to read user-managed original-data protection entries. Never write, overwrite, move or delete those paths or their contents; reading, copying out and making links outside are allowed. Only the user manages protection entries. Outside protected paths, environment repair, input checks, parameter edits, file organization and scripts require no extra approval. Existing files are backed up before replacement; deletion goes to recoverable trash and records paths and bytes. Generated files default to ~/omaax/workspace and are separated by project and conversation. Project/session identity is attached automatically. Inputs and all declared workflow parameters can be adjusted in conversation, including fields hidden from the simplified form. For server plugin/tool analysis, save scripts with workspace_script and execute with workspace_analysis: declare account-readable inputs and preserve originals by default; persist final results under /output; temporary dependencies and caches may use the private task directory. workspace_analysis can run directly on the server (image=host:direct), in a chosen Conda environment or in an available image. No environment registration is required for direct server execution. Use execute for flexible commands and server_environment action=execute for repairs when Python or Conda is broken. workspace_files manages the application workspace and recoverable deletion; workspace_restore recovers entries. These rules apply to single-cell and spatial analyses as well as every other workflow. Read the current workflow_catalog: gene_family, rnaseq, singlecell, spatial, metagenome, atacseq, chipseq, cutandrun and methylseq. Upstream cards execute the pinned source DAG; substeps are explanatory. Downstream cards have independent fixed entry points. Use @auto only where declared to consume the latest selected preceding artifact. Collect required input tables and optional reference files instead of guessing paths. Read workflow_catalog for the selected step parameters; users may adjust declared CLI/config parameters and choose optional branches. Do not add biological audit, member-confirmation, independent-replicate minimum or scientific-certification gates. Only validate execution fields, input paths, resources and required software. Source programs retain their own calculations and runtime requirements. After an actual user execution request, workflow_plan validates and submits the fixed workflow automatically using the recorded task intent; do not request a second approval. For discussion, evaluation or explicit do-not-run instructions, use catalog and inspection only, not workflow_plan. Local terminal tools are available for local tasks and dependency preparation. Remote commands must use the registered SSH tools; do not use local SSH or credentials to bypass server deletion protection or replace the selected fixed workflow. Do not expose passwords, private keys or tokens in conversation or logs; use saved connection credentials. Use workflow_plans and task_list/task_logs/cancel_task for lifecycle, and workflow_resume to recover an authorized workflow without another approval. Manage workflow software yourself with workflow_readiness, workflow_prepare, workflow_prepare_status and workflow_environment. Supply per-step recipes (packages, channels, script) to install and repair software inside new user-owned Conda environments. Inspect failed installation logs, revise the recipe and retry. Use the registered connections for transfers when needed; preserve protected source data. Preserve source data and save outputs separately; ordinary execution inherits the SSH account permissions and is not OS isolation. Show actual completed/failed steps and preserved output files. Do not invent results or use custom commands to replace the selected formal analysis workflow. Environment repair and ordinary custom tasks may use arbitrary server commands. In ordinary chats, use omaax_generate_image for illustrations and configured external MCP tools for their intended tasks without repeated confirmation. Never modify protected original data or replace the selected fixed workflow.")).map(|l| if l.is_empty() { String::new() } else { format!("      {l}") }).collect::<Vec<_>>().join("\n");
             body.push(format!("- id: system-prompt\n  config:\n    persona: >-\n{persona_yaml}"));
             body.push(format!("- id: skill-filesystem\n  config:\n    customSkillDirs: [{}]", yaml_str(&home.join("skills").to_string_lossy())));
             // 新增类(insert):技能语义路由插件(0.3.0 正交化,不再打补丁改 dsh)+ 外接 MCP 服务。
@@ -173,8 +222,7 @@ impl DshManager {
             // 用绝对 file:// URL 加载插件(cordis loader 按配置文件所在目录解析裸包名,dsh-home 下找不到 @biodsh;绝对路径最稳)。
             let file_url = |p: &Path| format!("file:///{}", p.display().to_string().replace('\\', "/").trim_start_matches('/'));
             inserts.push(format!("    - id: biodsh-skill-router\n      name: {}", yaml_str(&file_url(skill_router_plugin))));
-            // 收敛护栏(治跑飞,R1 实测:难题超时 8→0、关技能 56%→72%):与 skill-router 同目录 @biodsh/step-guard;
-            // 阈值由 spawn 时的 BIODSH_GUARD_* 环境变量决定(见 start_with)。
+            // No-op entry retained only for legacy plugin identities.
             let step_guard_plugin = skill_router_plugin.parent().and_then(Path::parent).map(|d| d.join("step-guard").join("index.js"));
             if let Some(p) = step_guard_plugin.filter(|p| p.exists()) {
                 inserts.push(format!("    - id: biodsh-step-guard\n      name: {}", yaml_str(&file_url(&p))));
@@ -203,7 +251,7 @@ impl DshManager {
                 inserts.push(y.trim_end().to_string());
             }
             body.push(format!("- insert:\n{}", inserts.join("\n")));
-            let _ = fs::write(&patch, format!("# biodsh-minimal v9 — OMaaX 精简模式 + OMaaX 人设(全局 persona) + 技能路由插件 + 收敛护栏 + 技能全量可用 + MCP 接入（删除本文件并重启即可恢复 dsh 默认）\n{}\n", body.join("\n")));
+            let _ = fs::write(&patch, format!("# biodsh-minimal v9 — OMaaX 精简模式 + OMaaX 人设(全局 persona) + 技能路由插件 + 旧对话兼容 + 技能全量可用 + MCP 接入（删除本文件并重启即可恢复 dsh 默认）\n{}\n", body.join("\n")));
         }
         let settings = home.join("settings.yaml");
         if !settings.exists() {
@@ -240,7 +288,10 @@ impl DshManager {
         if let Some((_,base))=extra_env.iter().find(|(k,_)|k=="OMAAX_COMPANY_LLM_URL") {
             let patch=paths.dsh_home.join("cordis.patch.yml");
             let mut text=fs::read_to_string(&patch).unwrap_or_default();
-            text.push_str(&format!("\n- id: llm-deepseek\n  config:\n    baseURL: {}\n    apiKeyEnv: OMAAX_COMPANY_LLM_KEY\n    maxTokens: 8192\n    defaultContextWindow: 65536\n    models:\n      - id: omaax\n        name: OMaaX\n      - id: omaax-low\n        name: 低\n      - id: omaax-high\n        name: 中\n      - id: omaax-max\n        name: 高\n",yaml_str(base)));
+            // Read capabilities without making generation requests. The bridge also resolves
+            // the output limit on every request, including requests from older sessions.
+            let capabilities=crate::company_llm::modes().unwrap_or(serde_json::Value::Null);
+            text.push_str(&company_model_patch(base,&capabilities));
             if fs::write(patch,text).is_err(){
                 *self.status.lock().unwrap()=DshStatus{state:"error".into(),error:Some("无法保存公司对话连接，请检查本机目录权限".into()),..Default::default()};
                 self.emit(app);return self.status.lock().unwrap().clone();
@@ -287,10 +338,6 @@ impl DshManager {
             // Only user-installed skills are discoverable; do not load the packaged community tree.
             .env("DSH_BUNDLED_SKILL_DIR", paths.root.join("bundled-skills-disabled"))
             .env("BIODSH_SKILL_CATALOG_MAX", "40")
-            // 收敛护栏(@biodsh/step-guard):本轮用了这么多步/秒就提醒 agent 收尾(软)/立刻作答(硬)。
-            // 阈值来自 R1 实测(v2:难题超时 8→0、多救回 1 题、不误伤自己会收敛的题);产品无 400s 硬墙,时间上限再放宽。
-            .env("BIODSH_GUARD_SOFT_STEPS", "12").env("BIODSH_GUARD_SOFT_SEC", "240")
-            .env("BIODSH_GUARD_HARD_STEPS", "20").env("BIODSH_GUARD_HARD_SEC", "420")
             // 本地 embedding 语义路由：离线加载模型 + 预计算技能向量，给「用户这句话」算向量做余弦排序（skill-router.mjs）。
             .env("BIODSH_EMBED_ROUTER", crate::paths::resource(app, "embed").join("skill-router.mjs"))
             .env("BIODSH_SKILL_VECTORS", crate::paths::resource(app, "skills").join("skill-vectors.json"))

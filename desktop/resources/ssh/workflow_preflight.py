@@ -77,14 +77,14 @@ def resume(r, body, cluster):
         {'resume': body, 'attempt': record, 'engine': engine.ENGINE_HASH})))
     path = directory(r, identity)
     base_identity = identity
-    for attempt in range(1, 33):
+    attempt=0
+    while True:
         state_path = path / 'state.json'
         if not state_path.exists() or json.loads(state_path.read_text())['state'] != 'preparation_failed':
             break
+        attempt+=1
         identity = str(uuid.uuid5(uuid.NAMESPACE_URL, base_identity + ':' + str(attempt)))
         path = directory(r, identity)
-    else:
-        raise ValueError('连续恢复失败次数过多，请先检查日志和输入')
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
     import fcntl
     with (path / 'initialize.lock').open('a') as lock:

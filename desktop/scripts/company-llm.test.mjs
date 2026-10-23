@@ -1,9 +1,34 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {startBridge,modeEffort} from '../resources/scripts/company-llm.mjs';
+import {startBridge,modeEffort,modelLimits} from '../resources/scripts/company-llm.mjs';
 const auth={hub:'https://auth.test',token:'USER_SECRET'};
 const json=v=>new Response(JSON.stringify(v),{headers:{'content-type':'application/json'}});
 const modernModel={id:'cloud-model',modelEffort:{levels:['low','high','max'],default:'high'}};
+
+test('model context and completion capacities are separate and validated',()=>{
+ assert.deepEqual(modelLimits({contextLength:1048576}),{contextWindow:1048576,maxOutputTokens:undefined});
+ assert.deepEqual(modelLimits({contextLength:1048576,maxOutputTokens:131072}),{contextWindow:1048576,maxOutputTokens:131072});
+ for(const invalid of [0,-1,1.5,'1048576',Infinity,Number.MAX_SAFE_INTEGER+1]){
+  assert.deepEqual(modelLimits({contextLength:invalid,maxOutputTokens:invalid}),{contextWindow:undefined,maxOutputTokens:undefined});
+ }
+});
+const sse=()=>new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
+test('1M context with no advertised output cap delegates chat output to the service, including old sessions',()=>fixture(async({bridge,request,calls})=>{
+ const caps=await fetch(`http://127.0.0.1:${bridge.port}/v1/modes`,{headers:{Authorization:'Bearer local-secret'}}).then(r=>r.json());
+ assert.equal(caps.contextWindow,1048576);assert.ok(!('maxOutputTokens' in caps));
+ for(const cap of [8192,256000]){
+  assert.equal((await request({stream:true,max_tokens:cap,max_completion_tokens:cap})).status,200);
+  const body=JSON.parse(calls.at(-1).body);assert.ok(!('max_tokens' in body));assert.ok(!('max_completion_tokens' in body));
+ }
+},{models:[{...modernModel,contextLength:1048576}],respond:sse}));
+test('all chat modes use the advertised output cap instead of a saved SDK cap',()=>fixture(async({request,calls})=>{
+ for(const mode of ['low','high','max'])assert.equal((await request({model:'omaax-'+mode,stream:true,max_tokens:8192})).status,200);
+ assert.ok(calls.every(c=>JSON.parse(c.body).max_tokens===131072));
+},{models:[{...modernModel,contextLength:1048576,maxOutputTokens:131072}],respond:sse}));
+test('short nonstream helper requests retain their requested output budget',()=>fixture(async({request,calls})=>{
+ await request({max_tokens:400});await request({max_tokens:8000});await request({max_tokens:200000});
+ assert.deepEqual(calls.map(c=>JSON.parse(c.body).max_tokens),[400,8000,131072]);
+},{models:[{...modernModel,maxOutputTokens:131072}]}));
 test('new API permits omitted enabled and maps each public mode independently',()=>fixture(async({request,calls})=>{
  const responses=await Promise.all(['low','high','max'].map(v=>request({model:'omaax-'+v})));
  assert.deepEqual(responses.map(r=>r.status),[200,200,200]);

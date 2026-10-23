@@ -6,7 +6,9 @@
 
 固定来源版本：d29e766ea7580b8063c4f47b29e872db40a4d979。
 
-首批 18 个素材均来自该版本的 `static/icons/cc-0/`。每项的作者、来源 URL、原文件 SHA-256 和许可证标识记录在 `drawing-assets.json`；使用的来源信息也写入导出 SVG 的 metadata。已清理非绘图元素和外部资源引用。不能据此认定 Bioicons 其他素材也采用 CC0。
+当前 148 个素材均来自该版本的 `static/icons/cc-0/`，保留首批 18 个素材的 ID，旧绘图仍可打开。每项的作者、来源 URL、原文件 SHA-256 和许可证标识记录在 `drawing-assets.json`；使用的来源信息也写入导出 SVG 的 metadata。下载时校验 Git blob 哈希，清理非绘图元素和外部资源引用。不能据此认定 Bioicons 其他素材也采用 CC0。
+
+分类包括植物与藻类、动物与模式生物、细胞与组织、器官与生理、微生物与病毒、核酸、蛋白与膜、细胞器、实验器材和氨基酸。中文清单位于 `desktop/scripts/drawing-assets-extra.json`，刷新工具为 `desktop/scripts/fetch-drawing-assets.py`；软件运行时不需要下载素材。
 
 CC0 条款：https://creativecommons.org/publicdomain/zero/1.0/
 

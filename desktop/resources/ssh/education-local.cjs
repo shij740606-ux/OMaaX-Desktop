@@ -1,4 +1,4 @@
-// An isolated, cached local Python environment; no SSH or company service dependency.
+// Cached local Python environment; model requests use the authenticated company bridge.
 const fs=require('node:fs');
 const path=require('node:path');
 const net=require('node:net');
@@ -32,7 +32,7 @@ async function launch(config){
   }
   const token=randomBytes(32).toString('hex');
   const child=spawn(python,['-u',path.join(config.service,'serve.py')],{env,windowsHide:true,stdio:['pipe','pipe','pipe']});
-  // Only the backend receives the direct API key. No credential is written to its log.
+  // Only the backend receives the temporary loopback key, never a provider key.
   child.stdin.write(JSON.stringify({state:config.state,llm:config.llm,tectonic:config.tectonic,token})+'\n');
   child.stderr.on('data',()=>{});
   const port=await new Promise((resolve,reject)=>{

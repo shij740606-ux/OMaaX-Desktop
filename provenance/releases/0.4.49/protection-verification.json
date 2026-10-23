@@ -1,0 +1,16 @@
+{
+  "protectedModuleCount": 7,
+  "modules": [
+    "browse.cjs",
+    "client.cjs",
+    "connection-pool.cjs",
+    "education-local.cjs",
+    "education.cjs",
+    "relay.cjs",
+    "stage-workflows.cjs"
+  ],
+  "standaloneKeysOrCredentialsIncluded": false,
+  "nativeLoaderKeyMatches": true,
+  "encryptedClientExecutedWithoutNetwork": true,
+  "scope": "Seven local CJS modules; not all application code"
+}

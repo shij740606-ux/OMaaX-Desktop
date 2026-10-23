@@ -9,10 +9,10 @@ KEY = 'protectedPaths'
 def entries(r):
     return r.config(r.database()).get(KEY, [])
 
-def check(r, value, operation='write', recursive=False):
+def check(r, value, operation='write', recursive=False, registered=None):
     lexical = Path(os.path.abspath(os.path.expanduser(str(value))))
     resolved = lexical.resolve(strict=False)
-    for item in entries(r):
+    for item in entries(r) if registered is None else registered:
         roots = {Path(item['path']), Path(item['resolved']), Path(item['path']).resolve(strict=False)}
         blocked = any(p == root or root in p.parents or (recursive and p in root.parents)
                       for p in (lexical, resolved) for root in roots)
@@ -58,11 +58,7 @@ def dispatch(r, action, body, actor):
             resolved = path.resolve(strict=True)
             if not (resolved.is_dir() or resolved.is_file()):
                 raise ValueError('请选择已有的普通文件或目录')
-            control = r.ROOT.resolve()
-            if resolved == control or resolved in control.parents or control in resolved.parents:
-                raise ValueError('不能将应用控制和审计目录加入原始数据保护列表')
             if not any(row['path'] == str(path) for row in rows):
-                if len(rows) >= 500:raise ValueError('最多登记 500 个保护路径')
                 rows.append({'path':str(path), 'resolved':str(resolved), 'directory':resolved.is_dir(), 'created':time.time()})
         else:
             rows = [row for row in rows if row['path'] != str(path)]

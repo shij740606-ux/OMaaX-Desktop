@@ -1,4 +1,4 @@
-"""Account-scoped, recoverable deletion with a frozen preview for risky requests."""
+"""Recoverable deletion; only registered original-data paths are policy-protected."""
 import errno,glob,hashlib,json,os,shutil,stat,time,uuid
 from pathlib import Path
 import server_workspace as storage
@@ -6,44 +6,34 @@ import workspace_context
 
 LIMIT=10_000_000_000
 
-def destination(r,value,existing=True):
-    if not isinstance(value,str) or not value or len(value)>4096 or any(c in value for c in ('\0','\n','\r')):raise ValueError('请提供明确的服务器绝对路径')
+def destination(r,value,existing=True,registered=None):
+    if not isinstance(value,str) or not value or '\0' in value:raise ValueError('请提供明确的服务器绝对路径')
     p=Path(value).expanduser()
-    if not p.is_absolute() or '..' in p.parts:raise ValueError('删除需要绝对路径，不接受上级目录跳转')
-    p=p.parent.resolve(strict=True)/p.name
+    if not p.is_absolute():raise ValueError('删除需要绝对路径')
+    p=p.parent.resolve(strict=False)/p.name
     import protected_paths
-    protected_paths.check(r,p,operation='delete',recursive=True)
-    work=storage.workspace(r)
-    roots=[Path('/'),Path.home(),work,r.ROOT,getattr(r,'APP_HOME',r.ROOT)]
-    controls=[] if work in p.parents else [r.ROOT]
-    private=[Path.home()/name for name in ('.ssh','.aws','.kube','.docker')]+[Path('/proc'),Path('/sys'),Path('/dev'),getattr(r,'DEFAULT_ROOT',r.ROOT).parent,work/'.trash']+controls
-    if p in roots or any(p==d or d in p.parents or p in d.parents for d in private):raise ValueError('不能删除账号根目录、应用控制目录、凭据或系统特殊目录')
-    if p.name in ('.env','.netrc','.git-credentials','id_rsa','id_ed25519'):raise ValueError('不能删除凭据文件')
-    if work in p.parents and workspace_context.reserved(p.relative_to(work)):raise ValueError('不能删除工作分区，请选择其中的文件或文件夹')
+    protected_paths.check(r,p,operation='delete',recursive=True,registered=registered)
     if existing and not p.exists() and not p.is_symlink():raise ValueError('删除目标不存在')
-    if not os.access(p.parent,os.W_OK|os.X_OK):raise ValueError('当前账号没有删除此路径的权限')
     return p
 
 def snapshot(r,paths):
+    import protected_paths
+    registered=protected_paths.entries(r)
     total=0;count=0;digest=hashlib.sha256()
     def add(p):
         nonlocal total,count
+        protected_paths.check(r,p,'delete',recursive=True,registered=registered)
         info=p.lstat();count+=1
-        if count>200000:raise ValueError('文件数量过多，请分批选择；尚未删除任何文件')
-        if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)):raise ValueError('不能删除套接字、设备等特殊文件')
         if stat.S_ISREG(info.st_mode):total+=info.st_size
         digest.update(json.dumps([str(p),info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_mode]).encode())
     for p in paths:
-        destination(r,str(p))
-        if storage.busy_path(r,p):raise ValueError('目标包含正在使用的任务或输入，请等待任务结束')
+        destination(r,str(p),registered=registered)
         add(p)
         if p.is_dir() and not p.is_symlink():
             for folder,dirs,files in os.walk(p,followlinks=False):
                 dirs.sort();files.sort()
                 for name in dirs+files:
                     child=Path(folder)/name
-                    if child.is_mount():raise ValueError('目标包含独立挂载点，请单独选择该目录')
-                    if child.name in ('.ssh','.aws','.kube','.docker','.env','.netrc','.git-credentials','id_rsa','id_ed25519'):raise ValueError('目录包含凭据，请缩小删除范围')
                     add(child)
     return {'bytes':total,'entries':count,'signature':digest.hexdigest()}
 
@@ -71,12 +61,15 @@ def content_hash(p):
     return digest.hexdigest()
 
 def execute(r,item):
-    paths=[destination(r,p) for p in item['paths']]
-    if snapshot(r,paths)!=item['snapshot']:raise ValueError('删除范围或内容已变化，请重新预览；未删除任何文件')
+    import protected_paths
+    registered=protected_paths.entries(r)
+    paths=[destination(r,p,registered=registered) for p in item['paths']]
     trash=storage.workspace(r)/'.trash'
+    if any(p==trash or p in trash.parents for p in paths):raise ValueError('回收站位于待删除目录内，无法将目录移动到自身内部；原文件未删除')
+    if snapshot(r,paths)!=item['snapshot']:raise ValueError('删除范围或内容已变化，请重新提交；未删除任何文件')
     cross=[p for p in paths if p.lstat().st_dev!=trash.stat().st_dev]
     needed=sum(p.lstat().st_size if p.is_file() and not p.is_symlink() else sum(c.lstat().st_size for c in p.rglob('*') if c.is_file() and not c.is_symlink()) if not p.is_symlink() else 0 for p in cross)
-    if needed>max(0,shutil.disk_usage(trash).free-1073741824):raise ValueError('跨文件系统移入回收站需要保存完整副本，空间不足；尚未删除任何文件')
+    if needed>shutil.disk_usage(trash).free:raise ValueError('跨文件系统移入回收站需要保存完整副本，空间不足；尚未删除任何文件')
     staged=[];moved=[];started_cross=False
     try:
         for p in paths:
@@ -111,23 +104,31 @@ def execute(r,item):
     return {'deleted':item['paths'],'trashIds':item['trashIds'],'trashId':item['trashIds'][0] if len(staged)==1 else None,'recoverable':True}
 
 def submit(r,body,notice=False):
+    import protected_paths
     if set(body)-{'path','recursive','context'}:raise ValueError('删除参数不正确')
     value=body.get('path');recursive=body.get('recursive',False)
     if type(recursive) is not bool or not isinstance(value,str):raise ValueError('请提供路径和是否递归')
     expanded=os.path.expanduser(value);wild=glob.has_magic(expanded)
     if not Path(expanded).is_absolute():raise ValueError('删除需要服务器绝对路径')
-    # Expand only the last component; never traverse arbitrary globbed parent directories.
-    if wild and glob.has_magic(str(Path(expanded).parent)):raise ValueError('通配符仅可用于文件名，请先指定明确的父目录')
-    paths=[destination(r,p) for p in (sorted(glob.glob(expanded)) if wild else [expanded])]
-    if not paths or len(paths)>500:raise ValueError('未匹配文件或超过 500 项，请缩小删除范围')
-    if any(p.is_dir() and not p.is_symlink() for p in paths) and not recursive:raise ValueError('删除目录请明确使用 recursive；会先展示递归删除范围')
+    registered=protected_paths.entries(r)
+    matched=[destination(r,p,registered=registered) for p in (sorted(glob.glob(expanded,recursive=recursive)) if wild else [expanded])]
+    paths=[]
+    for p in sorted(set(matched),key=lambda p:(len(p.parts),str(p))):
+        if not any(parent in p.parents and not parent.is_symlink() for parent in paths):paths.append(p)
+    if not paths:raise ValueError('未匹配到要删除的路径')
+    if any(p.is_dir() and not p.is_symlink() for p in paths) and not recursive:raise ValueError('删除目录需要设置 recursive 为 true')
     summary=snapshot(r,paths);reasons=[]
     if wild:reasons.append('使用通配符，将处理所有匹配文件')
     if recursive:reasons.append('递归处理目录及其中所有文件')
     if summary['bytes']>LIMIT:reasons.append('删除数据超过 10 GB')
-    item={'id':str(uuid.uuid4()),'paths':[str(p) for p in paths],'snapshot':summary,'warnings':reasons,'context':workspace_context.normalize(body.get('context')),'created':time.time(),'state':'pending','policy':'notice-v1' if notice else 'confirmation'}
+    item={'id':str(uuid.uuid4()),'paths':[str(p) for p in paths],'snapshot':summary,'warnings':reasons,'context':workspace_context.normalize(body.get('context')),'created':time.time(),'state':'running','policy':'registered-paths-v1'}
     item['digest']=hashlib.sha256(json.dumps(item,sort_keys=True).encode()).hexdigest();save(r,item)
-    return execute(r,item)
+    try:return execute(r,item)
+    except BaseException as error:
+        if item['state']!='partial':item['state']='failed'
+        item['error']=str(error);save(r,item)
+        r.audit(r.database(),'server.delete_failed',{'id':item['id'],'paths':item['paths'],'error':str(error),'state':item['state']})
+        raise
 
 
 def dispatch(r,action,body,actor):

@@ -118,7 +118,7 @@ async def _complete(
 ) -> str:
     cfg = _llm_config()
     if not cfg["api_key"]:
-        raise LLMError("本机未找到已保存的模型 API Key")
+        raise LLMError("模型服务尚未连接，请重新打开教育科研页面。")
     last_exc: BaseException | None = None
     async with httpx.AsyncClient() as client:
         for attempt in range(MAX_ATTEMPTS):
@@ -133,6 +133,10 @@ async def _complete(
             except (httpx.HTTPStatusError, httpx.HTTPError, httpx.TimeoutException) as exc:
                 last_exc = exc
                 status = getattr(getattr(exc, "response", None), "status_code", None)
+                if status == 401:
+                    raise LLMError("登录已失效，请重新登录后重试。") from exc
+                if status == 403:
+                    raise LLMError("当前账号暂不能使用模型服务，请联系管理员。") from exc
                 retryable = status is None or status == 429 or status >= 500
                 if not retryable or attempt == MAX_ATTEMPTS - 1:
                     raise LLMError(f"LLM 调用失败（HTTP {status or '网络'}）：{exc}") from exc

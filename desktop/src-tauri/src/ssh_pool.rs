@@ -29,8 +29,9 @@ pub fn request(node:&Path,script:&Path,request:Value)->Result<Value,String>{
     let worker=slot.as_mut().unwrap();
     let mut data=serde_json::to_vec(&request).map_err(|e|e.to_string())?;data.push(b'\n');
     if let Err(e)=worker.input.write_all(&data){*slot=None;return Err(format!("SSH 请求发送中断，请核对任务记录后继续：{e}"));}
-    let timeout=Duration::from_secs(request["timeoutSeconds"].as_u64().unwrap_or(30).clamp(5,900)+15);
-    let reply=match worker.replies.recv_timeout(timeout){Ok(v)=>v,Err(_)=>{*slot=None;return Err("SSH 响应中断，远端任务可能已提交；请先核对任务状态，不要重复提交".into());}};
+    let timeout=request["timeoutSeconds"].as_u64().unwrap_or(30);
+    let reply=if timeout==0 {worker.replies.recv().map_err(|_|())}else{worker.replies.recv_timeout(Duration::from_secs(timeout.max(5).saturating_add(15))).map_err(|_|())};
+    let reply=match reply{Ok(v)=>v,Err(_)=>{*slot=None;return Err("SSH 响应中断，远端任务可能已提交；请先核对任务状态，不要重复提交".into());}};
     let value:Value=match serde_json::from_str(&reply){Ok(v)=>v,Err(_)=>{*slot=None;return Err("SSH 响应无效，请核对任务状态".into());}};
     if let Some(error)=value["error"].as_str(){return Err(error.to_string());}
     Ok(value)
