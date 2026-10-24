@@ -1,5 +1,6 @@
-import assets from './drawing-assets.json';
-export {assets};
+import assetData from './drawing-assets.json';
+// Original upstream names are retained separately from the Chinese catalog labels.
+export const assets=assetData.map(a=>({...a,name_en:decodeURIComponent(a.source.split('/').at(-1)||a.id).replace(/\.svg$/i,'').replace(/[_-]+/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2')}));
 export type DiagramNode={id:string;text:string;x:number;y:number;color:string;shape:'rectangle'|'ellipse'|'diamond';width?:number;height?:number;rotation?:number;asset?:string;group?:string};
 export type Diagram={title:string;nodes:DiagramNode[];edges:{from:string;to:string;label:string}[]};
 export const blank:Diagram={title:'未命名绘图',nodes:[],edges:[]};

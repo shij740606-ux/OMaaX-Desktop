@@ -16,7 +16,8 @@ import Onboarding from './views/Onboarding';
 import ServerManagementView from './views/ServerManagementView';
 import WorkflowPanel from './views/WorkflowPanel';
 import AskPopover from './components/AskPopover';
-import { LangContext, resolveLang } from './i18n';
+import { LocaleProvider, useT } from './i18n';
+import StartupIntro from './components/StartupIntro';
 
 function useTheme() {
   const { settings, info } = useApp();
@@ -30,18 +31,18 @@ function useTheme() {
 }
 
 function Shell() {
+  const { t } = useT();
   useTheme();
   const {user}=useAuth();
   const bioflow=!!user, chat=!!user;
   const { ready, settings, tab } = useApp();
   if (!ready || !settings) return <div className="h-full w-full drag" />;
   return (
-    <LangContext.Provider value={resolveLang(settings.language)}>
     <div className="h-full w-full flex">
       <Sidebar />
       <main className="app-main flex-1 min-w-0 h-full relative">
         <div className="absolute right-3 top-[11px] z-40 no-drag"><WindowControls compact /></div>
-        {tab === 'chat' && chat && <ChatView />}{tab === 'chat' && !chat && <p className="p-12">账号尚未获得对话或分析权限，请联系管理员授权。</p>}
+        {tab === 'chat' && chat && <ChatView />}{tab === 'chat' && !chat && <p className="p-12">{t('账号尚未获得对话或分析权限，请联系管理员授权。')}</p>}
         {tab === 'data' && bioflow && <DataView />}
         {hasUnit(user,'qa') && <div className="h-full" hidden={tab !== 'knowledge'}><CloudKnowledgeView /></div>}
         {bioflow && <WorkflowPanel active={tab === 'workflows'}/>}
@@ -59,10 +60,9 @@ function Shell() {
       {!settings.onboarded && bioflow && <Onboarding />}
       {chat && <AskPopover />}
     </div>
-    </LangContext.Provider>
   );
 }
 
 export default function App() {
-  return <AuthGate><AppProvider><SudoInstallProvider><Shell /></SudoInstallProvider></AppProvider></AuthGate>;
+  return <LocaleProvider><StartupIntro><AuthGate><AppProvider><SudoInstallProvider><Shell /></SudoInstallProvider></AppProvider></AuthGate></StartupIntro></LocaleProvider>;
 }

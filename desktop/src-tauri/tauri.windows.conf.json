@@ -1,9 +1,14 @@
 {
+  "build": {
+    "beforeBundleCommand": "node scripts/installer-payload.mjs"
+  },
   "bundle": {
     "resources": {
       "../resources/node/win32-x64": "node",
       "../resources/bin/win32-x64": "bin",
-      "icons/icon.ico": "omaax-desktop-0.4.49.ico"
+      "icons/icon.ico": "omaax-desktop-0.4.53.ico",
+      "../scripts/verify-installed-payload.ps1": "installation/verify-installed-payload.ps1",
+      "../installer-payload/manifest.json": "installation/payload-manifest.json"
     },
     "windows": {
       "nsis": {

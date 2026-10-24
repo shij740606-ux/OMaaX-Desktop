@@ -12,7 +12,7 @@ interface Vectors { dim: number; ids: string[]; vecs: number[][] }
 function cosine(a: number[], b: number[]) { let d = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { d += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } return d / (Math.sqrt(na) * Math.sqrt(nb) || 1); }
 
 export default function DatabaseView() {
-  const { t } = useT();
+  const { t,lang } = useT();
   const { dsh, currentSession, setTab } = useApp();
   const [cats, setCats] = useState<Cat[]>([]);
   const [vectors, setVectors] = useState<Vectors | null>(null);
@@ -31,14 +31,14 @@ export default function DatabaseView() {
       cs.forEach((c) => c.databases.forEach((d) => { d._cat = c.id; d._catName = c.name; }));
       setCats(cs); setVectors(r.vectors && r.vectors.ids ? r.vectors : null);
       allDbs.current = cs.flatMap((c) => c.databases);
-    } catch (e) { setNotice(`${t('数据库目录加载失败')}: ${String(e).slice(0, 80)}`); }
+    } catch (e) { setNotice(`${'数据库目录加载失败'}: ${String(e).slice(0, 80)}`); }
   })(); }, []);
 
   // 即时词法过滤(边打边筛)
   const lexHits = useMemo(() => {
     const s = q.trim().toLowerCase(); if (!s) return null;
-    return allDbs.current.filter((d) => [d.name, d.name_en, d.desc, (d.tags || []).join(' '), (d.examples || []).join(' '), d._catName].join(' ').toLowerCase().includes(s)).map((d) => d.id);
-  }, [q, cats]);
+    return allDbs.current.filter((d) => [d.name, d.name_en, d.desc, t(d.desc), (d.tags || []).map(value=>t(value)).join(' '), (d.examples || []).map(value=>t(value)).join(' '), d._catName, t(d._catName||'')].join(' ').toLowerCase().includes(s)).map((d) => d.id);
+  }, [q, cats,lang]);
 
   // 回车 → 语义向量搜索(包里的 e5 模型),失败自动回退词法
   const semanticSearch = async () => {
@@ -59,9 +59,9 @@ export default function DatabaseView() {
 
   const byId = (id: string) => allDbs.current.find((d) => d.id === id);
   const go = async (d: Db, text: string) => {
-    if (dsh.state !== 'running' || !currentSession) { setNotice(t('先在左边选一个对话（或点「新对话」），再帮我检索')); setTimeout(() => setNotice(null), 4000); return; }
+    if (dsh.state !== 'running' || !currentSession) { setNotice('先在左边选一个对话（或点「新对话」），再帮我检索'); setTimeout(() => setNotice(null), 4000); return; }
     try { await window.biodsh.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text }] }); setTab('chat'); }
-    catch (e) { setNotice(`${t('发送失败')}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
+    catch (e) { setNotice(`${'发送失败'}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
   };
   const defaultPrompt = (d: Db) => t('请用「{db}」数据库帮我{q}。请优先使用与该数据库对应的技能、按其流程一步步完成,把结果整理到当前项目的工作区新子文件夹,并记录数据来源与查询条件。', { db: d.name, q: q.trim() || t('检索并整理我需要的数据（先问我具体要什么）') });
 
@@ -72,24 +72,24 @@ export default function DatabaseView() {
     <div key={d.id} className="db-card">
       <div className="db-card-head">
         <div className="min-w-0">
-          <div className="flex items-center gap-2"><span className="t-body" style={{ fontWeight: 650 }}>{d.name}</span>{d.name_en && d.name_en !== d.name && <span className="t-caption" style={{ color: 'var(--text-3)' }}>{d.name_en}</span>}</div>
-          <p className="t-caption" style={{ color: 'var(--text-2)', margin: '3px 0 0' }}>{d.desc}</p>
+          <div className="flex items-center gap-2"><span className="t-body" style={{ fontWeight: 650 }}>{lang==='en'?(d.name_en||t(d.name)):d.name}</span>{lang!=='en' && d.name_en && d.name_en !== d.name && <span className="t-caption" style={{ color: 'var(--text-3)' }}>{d.name_en}</span>}</div>
+          <p className="t-caption" style={{ color: 'var(--text-2)', margin: '3px 0 0' }}>{t(d.desc)}</p>
         </div>
         <button className="btn btn-tint shrink-0" onClick={() => go(d, defaultPrompt(d))}><Sparkles size={13} /> {t('帮我检索')}</button>
       </div>
       <div className="db-tags">
-        {(d.tags || []).map((tg) => <span key={tg} className="db-tag">{tg}</span>)}
+        {(d.tags || []).map((tg) => <span key={tg} className="db-tag">{t(tg)}</span>)}
         {d.url && <a className="db-tag db-tag-link" href={d.url} target="_blank" rel="noreferrer">{t('官网')} <ExternalLink size={9} /></a>}
       </div>
       {(d.examples || []).length > 0 && <div className="db-examples">
-        {(d.examples || []).map((ex, i) => <button key={i} className="db-example" title={t('点一下就让智能体去做')} onClick={() => go(d, t('用「{db}」数据库:{ex}。请用对应技能按流程完成,结果存到工作区新子文件夹并记录来源。', { db: d.name, ex }))}>{ex}</button>)}
+        {(d.examples || []).map((ex, i) => <button key={i} className="db-example" title={t('点一下就让智能体去做')} onClick={() => go(d, t('用「{db}」数据库:{ex}。请用对应技能按流程完成,结果存到工作区新子文件夹并记录来源。', { db: lang==='en'?(d.name_en||t(d.name)):d.name, ex:t(ex) }))}>{t(ex)}</button>)}
       </div>}
     </div>
   );
 
   return (
     <div className="h-full flex flex-col omaax-page omaax-resources">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / RESOURCES</span><h1>数据资源</h1><p>查找研究所需的数据，让智能体帮你检索和整理。</p><span className="omaax-badge">{cats.reduce((n,c)=>n+c.databases.length,0)} 个资源 · {cats.length} 个分类</span></header>
+      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / RESOURCES</span><h1>{t("数据资源")}</h1><p>{t("查找研究所需的数据，让智能体帮你检索和整理。")}</p><span className="omaax-badge">{cats.reduce((n,c)=>n+c.databases.length,0)}{t("个资源 ·")}{cats.length}{t("个分类")}</span></header>
       <div className="db-search">
         <Search size={14} style={{ color: 'var(--text-3)' }} />
         <input className="db-search-input" value={q} placeholder={t('搜索名称或研究方向，例如单细胞、蛋白结构')}
@@ -98,9 +98,9 @@ export default function DatabaseView() {
         {searching ? <Loader2 size={14} className="spin" style={{ color: 'var(--accent)' }} /> : q2 && <button className="db-clear" onClick={() => { setQ(''); setRanked(null); }}>×</button>}
       </div>
 
-      <nav className="omaax-filter" aria-label="资源分类"><button className={category==='all'?'selected':''} onClick={()=>setCategory('all')}>全部资源</button>{cats.map(c=><button key={c.id} className={category===c.id?'selected':''} onClick={()=>setCategory(c.id)}>{c.name}</button>)}</nav>
+      <nav className="omaax-filter" aria-label={t("资源分类")}><button className={category==='all'?'selected':''} onClick={()=>setCategory('all')}>{t("全部资源")}</button>{cats.map(c=><button key={c.id} className={category===c.id?'selected':''} onClick={()=>setCategory(c.id)}>{t(c.name)}</button>)}</nav>
       <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 omaax-resource-content">
-        {notice && <div className="db-notice">{notice}</div>}
+        {notice && <div className="db-notice">{t(notice)}</div>}
 
         {searchMode ? (
           <div className="pt-2">
@@ -114,9 +114,9 @@ export default function DatabaseView() {
               <div key={c.id} className="db-cat">
                 <button className="db-cat-head" onClick={() => setCollapsed((s) => ({ ...s, [c.id]: open }))}>
                   {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <span className="t-body" style={{ fontWeight: 650 }}>{c.name}</span>
+                  <span className="t-body" style={{ fontWeight: 650 }}>{t(c.name)}</span>
                   <span className="t-caption" style={{ color: 'var(--text-3)' }}>{c.databases.length}</span>
-                  {c.desc && <span className="t-caption db-cat-desc">{c.desc}</span>}
+                  {c.desc && <span className="t-caption db-cat-desc">{t(c.desc)}</span>}
                 </button>
                 {open && <div className="db-cat-body">{c.databases.map(DbCard)}</div>}
               </div>

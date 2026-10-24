@@ -34,11 +34,11 @@ export function useHelp(topic: keyof typeof HELP) {
 }
 
 export default function HelpTip({ topic, text, title, align = 'left' }: { topic?: keyof typeof HELP; text?: string; title?: string; align?: 'left' | 'right' }) {
-  const { lang } = useT();
+  const { lang, t } = useT();
   const copy = useHelp(topic || 'tools');
-  const heading = title || (topic ? copy.title : lang === 'en' ? 'Help' : '使用说明');
+  const heading = (title && t(title)) || (topic ? copy.title : lang === 'en' ? 'Help' : '使用说明');
   return <details className={`omaax-help${align === 'right' ? ' align-right' : ''}`} onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); e.stopPropagation(); } }} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) e.currentTarget.open = false; }}>
     <summary aria-label={`${lang === 'en' ? 'Help: ' : '查看说明：'}${heading}`}><Info size={13} /><span>{lang === 'en' ? 'Help' : '说明'}</span></summary>
-    <span className="omaax-help-content" role="note"><strong>{heading}</strong>{topic && <span className="omaax-help-lead">{copy.summary}</span>}<span>{text || copy.detail}</span></span>
+    <span className="omaax-help-content" role="note"><strong>{heading}</strong>{topic && <span className="omaax-help-lead">{copy.summary}</span>}<span>{text ? t(text) : copy.detail}</span></span>
   </details>;
 }

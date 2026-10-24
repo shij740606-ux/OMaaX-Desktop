@@ -12,6 +12,7 @@
      切菜单回来：有报告显示报告，无报告保留已选文件可直接提交。
      http.js FormData+onUploadProgress → XHR 分支，上传阶段显示真实百分比。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, ref } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -52,9 +53,9 @@ const tierText = computed(() => {
   const m = meta.value;
   const tier = r?.tier ?? m?.tier;
   if (!tier) return '';
-  const label = r?.tier_label || m?.tier_label || '';
+  const label = et(r?.tier_label || m?.tier_label || '');
   const journal = (m?.target_journal || '').trim();
-  const name = journal || (m?.tier_source && m.tier_source !== '默认' ? m.tier_source : '未指定期刊');
+  const name = journal || (m?.tier_source && m.tier_source !== '默认' ? m.tier_source : et('未指定期刊'));
   return `判定档位：${name}（tier ${tier} ${label}）`;
 });
 const hardHits = computed(() =>
@@ -68,7 +69,7 @@ const droppedSections = computed(() => {
     discussion: '讨论', methods: '方法', data_availability: '数据可用性',
     references: '参考文献', acknowledgements: '致谢',
   };
-  return d.filter((s) => !s.startsWith('[')).map((s) => pretty[s] || s);
+  return d.filter((s) => !s.startsWith('[')).map((s) => et(pretty[s] || s));
 });
 
 /** 上传阶段（pct<1）显示真实百分比；上传完成后是解析 + LLM 长等待 */
@@ -136,53 +137,50 @@ function reset() {
 <template>
   <section class="pp">
     <header class="pp-head">
-      <h1 class="pp-title">AI 预审稿系统</h1>
-      <span class="pp-sub">植物基因组学六维清单 · PDF ≤ 50MB</span>
+      <h1 class="pp-title">{{ et("AI 预审稿系统") }}</h1>
+      <span class="pp-sub">{{ et("植物基因组学六维清单 · PDF ≤ 50MB") }}</span>
     </header>
 
     <!-- ========== ① 有结果 → 结果区（最高优先级，不退回上传区） ========== -->
     <template v-if="hasReport">
       <div v-if="meta" class="pp-meta">
         📄 {{ meta.filename }}
-        <template v-if="meta.target_journal"> · 目标期刊 {{ meta.target_journal }}</template>
-        · {{ meta.text_chars }} 字符
-        <span v-if="meta.truncated" class="pp-truncated">· 正文超限已截断（保摘要/数据可用性/方法/结果/讨论）</span>
+        <template v-if="meta.target_journal">{{ et(" · 目标期刊 ") }}{{ meta.target_journal }}</template>
+        · {{ meta.text_chars }}{{ et(" 字符 ") }}<span v-if="meta.truncated" class="pp-truncated">{{ et("· 正文超限已截断（保摘要/数据可用性/方法/结果/讨论）") }}</span>
       </div>
 
-      <p class="pp-ai-note">本判定由 AI 生成，仅供投稿前参考；fatal 级判定请务必人工核对后再决定。</p>
+      <p class="pp-ai-note">{{ et("本判定由 AI 生成，仅供投稿前参考；fatal 级判定请务必人工核对后再决定。") }}</p>
 
       <div class="pp-topline">
-        <span class="pp-rec" :class="rec.cls">{{ rec.label }}</span>
-        <span v-if="isReject" class="pp-rec-warn">建议人工复核</span>
-        <span v-if="tierText" class="pp-tier">{{ tierText }}</span>
-        <button class="pp-again" type="button" @click="reset">重新上传</button>
+        <span class="pp-rec" :class="rec.cls">{{ et(rec.label) }}</span>
+        <span v-if="isReject" class="pp-rec-warn">{{ et("建议人工复核") }}</span>
+        <span v-if="tierText" class="pp-tier">{{ et(tierText) }}</span>
+        <button class="pp-again" type="button" @click="reset">{{ et("重新上传") }}</button>
       </div>
 
       <!-- 判定依据（规则引擎 rationale：可解释、可复现） -->
       <div v-if="rationale" class="pp-rationale">
-        <div class="pp-rationale-head">判定依据</div>
-        <p class="pp-rationale-text">{{ rationale.explanation }}</p>
+        <div class="pp-rationale-head">{{ et("判定依据") }}</div>
+        <p class="pp-rationale-text">{{ et(rationale.explanation) }}</p>
         <div v-if="hardHits.length" class="pp-hard-chips">
-          <span v-for="(h, i) in hardHits" :key="'hh-' + i" class="pp-hard-chip">{{ h }}</span>
+          <span v-for="(h, i) in hardHits" :key="'hh-' + i" class="pp-hard-chip">{{ et(h) }}</span>
         </div>
         <!-- 扫描器冲突（黄标：证伪了硬性缺项，请人工核对） -->
         <div v-if="scannerConflicts.length" class="pp-conflicts">
-          <div class="pp-conflict-title">关键词扫描器冲突（已降级为非硬性，请人工核对）</div>
+          <div class="pp-conflict-title">{{ et("关键词扫描器冲突（已降级为非硬性，请人工核对）") }}</div>
           <div v-for="(c, i) in scannerConflicts" :key="'sc-' + i" class="pp-conflict-item">
-            <span class="pp-conflict-tag">{{ HARD_RULE_LABELS[c.hard_rule] || c.hard_rule }}</span>
-            <span class="pp-conflict-reason">{{ c.reason }}</span>
+            <span class="pp-conflict-tag">{{ et(HARD_RULE_LABELS[c.hard_rule] || c.hard_rule) }}</span>
+            <span class="pp-conflict-reason">{{ et(c.reason) }}</span>
           </div>
         </div>
         <!-- 截断提示：被丢弃的低优先级节（判定价值低，不代表论文缺失） -->
-        <div v-if="droppedSections.length" class="pp-dropped">
-          未送审部分：{{ droppedSections.join('、') }}（截断所致，非论文缺失）
-        </div>
+        <div v-if="droppedSections.length" class="pp-dropped">{{ et(" 未送审部分：") }}{{ droppedSections.join(educationLocale === 'en' ? ', ' : '、') }}{{ et("（截断所致，非论文缺失） ") }}</div>
       </div>
 
       <p class="pp-summary">{{ report.summary }}</p>
 
       <!-- 主要问题（重视觉） -->
-      <h2 class="pp-h2">主要问题（{{ report.major_weaknesses.length }}）</h2>
+      <h2 class="pp-h2">{{ et("主要问题（") }}{{ report.major_weaknesses.length }}）</h2>
       <article
         v-for="(it, i) in report.major_weaknesses"
         :key="'maj-' + i"
@@ -190,21 +188,21 @@ function reset() {
       >
         <div class="pp-card-title">
           <span class="pp-idx">{{ i + 1 }}</span>{{ it.title }}
-          <span v-if="it.hard_rule" class="pp-hard-badge" title="硬性规则命中，不可协商">硬性</span>
-          <span v-if="it.fatal" class="pp-fatal-badge" title="fatal 级：请人工核对证据">fatal</span>
+          <span v-if="it.hard_rule" class="pp-hard-badge" :title="et(&quot;硬性规则命中，不可协商&quot;)">{{ et("硬性") }}</span>
+          <span v-if="it.fatal" class="pp-fatal-badge" :title="et(&quot;fatal 级：请人工核对证据&quot;)">fatal</span>
         </div>
         <p class="pp-detail">{{ it.detail }}</p>
         <div v-if="it.evidence" class="pp-evidence">
-          <span class="pp-tag">证据</span><code class="pp-evi-text">{{ it.evidence }}</code>
+          <span class="pp-tag">{{ et("证据") }}</span><code class="pp-evi-text">{{ it.evidence }}</code>
         </div>
         <div v-if="it.suggestion" class="pp-suggestion">
-          <span class="pp-tag">建议</span>{{ it.suggestion }}
+          <span class="pp-tag">{{ et("建议") }}</span>{{ it.suggestion }}
         </div>
       </article>
-      <p v-if="!report.major_weaknesses.length" class="pp-empty">无主要问题</p>
+      <p v-if="!report.major_weaknesses.length" class="pp-empty">{{ et("无主要问题") }}</p>
 
       <!-- 次要问题（轻视觉） -->
-      <h2 class="pp-h2">次要问题（{{ report.minor_weaknesses.length }}）</h2>
+      <h2 class="pp-h2">{{ et("次要问题（") }}{{ report.minor_weaknesses.length }}）</h2>
       <article
         v-for="(it, i) in report.minor_weaknesses"
         :key="'min-' + i"
@@ -215,22 +213,22 @@ function reset() {
           <span
             v-if="it.scanner_downgraded"
             class="pp-down-badge"
-            title="扫描器在正文检出该缺项证据，已从大修降级为小修；请人工核对"
-          >冲突降级</span>
+            :title="et(&quot;扫描器在正文检出该缺项证据，已从大修降级为小修；请人工核对&quot;)"
+          >{{ et("冲突降级") }}</span>
         </div>
         <p class="pp-detail light">{{ it.detail }}</p>
         <div v-if="it.evidence" class="pp-evidence light">
-          <span class="pp-tag">证据</span><code class="pp-evi-text">{{ it.evidence }}</code>
+          <span class="pp-tag">{{ et("证据") }}</span><code class="pp-evi-text">{{ it.evidence }}</code>
         </div>
         <div v-if="it.suggestion" class="pp-suggestion light">
-          <span class="pp-tag">建议</span>{{ it.suggestion }}
+          <span class="pp-tag">{{ et("建议") }}</span>{{ it.suggestion }}
         </div>
       </article>
-      <p v-if="!report.minor_weaknesses.length" class="pp-empty">无次要问题</p>
+      <p v-if="!report.minor_weaknesses.length" class="pp-empty">{{ et("无次要问题") }}</p>
 
       <!-- 排版与规范（默认折叠） -->
       <details class="pp-details">
-        <summary>排版与规范（{{ report.presentation_format.length }}）</summary>
+        <summary>{{ et("排版与规范（") }}{{ report.presentation_format.length }}）</summary>
         <article
           v-for="(it, i) in report.presentation_format"
           :key="'pre-' + i"
@@ -241,21 +239,21 @@ function reset() {
           </div>
           <p class="pp-detail light">{{ it.detail }}</p>
           <div v-if="it.evidence" class="pp-evidence light">
-            <span class="pp-tag">证据</span><code class="pp-evi-text">{{ it.evidence }}</code>
+            <span class="pp-tag">{{ et("证据") }}</span><code class="pp-evi-text">{{ it.evidence }}</code>
           </div>
           <div v-if="it.suggestion" class="pp-suggestion light">
-            <span class="pp-tag">建议</span>{{ it.suggestion }}
+            <span class="pp-tag">{{ et("建议") }}</span>{{ it.suggestion }}
           </div>
         </article>
-        <p v-if="!report.presentation_format.length" class="pp-empty">无排版类意见</p>
+        <p v-if="!report.presentation_format.length" class="pp-empty">{{ et("无排版类意见") }}</p>
       </details>
 
       <!-- 给作者的问题 -->
-      <h2 class="pp-h2">给作者的问题（{{ report.questions_for_authors.length }}）</h2>
+      <h2 class="pp-h2">{{ et("给作者的问题（") }}{{ report.questions_for_authors.length }}）</h2>
       <ol class="pp-questions">
         <li v-for="(q, i) in report.questions_for_authors" :key="'q-' + i">{{ q }}</li>
       </ol>
-      <p v-if="!report.questions_for_authors.length" class="pp-empty">无</p>
+      <p v-if="!report.questions_for_authors.length" class="pp-empty">{{ et("无") }}</p>
     </template>
 
     <!-- ========== ② loading：上传进度 / 审稿长等待 ========== -->
@@ -265,15 +263,15 @@ function reset() {
       </div>
       <div class="pp-skel"></div>
       <div class="pp-skel pp-skel-mid"></div>
-      <p class="pp-state-msg">{{ phaseText }}</p>
+      <p class="pp-state-msg">{{ et(phaseText) }}</p>
     </div>
 
     <!-- ========== ③ error ========== -->
     <div v-else-if="errored" class="pp-state" role="alert">
-      <p class="pp-state-msg pp-state-error">{{ edu.reportError }}</p>
+      <p class="pp-state-msg pp-state-error">{{ et(edu.reportError) }}</p>
       <div class="pp-err-btns">
-        <button v-if="file" class="pp-retry" type="button" @click="submit">重试</button>
-        <button class="pp-retry" type="button" @click="reset">重新选择文件</button>
+        <button v-if="file" class="pp-retry" type="button" @click="submit">{{ et("重试") }}</button>
+        <button class="pp-retry" type="button" @click="reset">{{ et("重新选择文件") }}</button>
       </div>
     </div>
 
@@ -300,26 +298,26 @@ function reset() {
         />
         <template v-if="file">
           <span class="pp-file-name">📄 {{ file.name }} · {{ fmtSize(file.size) }}</span>
-          <button class="pp-remove" type="button" title="移除文件" @click.stop="removeFile">×</button>
+          <button class="pp-remove" type="button" :title="et(&quot;移除文件&quot;)" @click.stop="removeFile">×</button>
         </template>
         <template v-else>
-          <span class="pp-drop-main">拖拽 PDF 到此处，或点击选择</span>
-          <span class="pp-hint">仅支持 PDF · ≤ 50MB</span>
+          <span class="pp-drop-main">{{ et("拖拽 PDF 到此处，或点击选择") }}</span>
+          <span class="pp-hint">{{ et("仅支持 PDF · ≤ 50MB") }}</span>
         </template>
       </div>
-      <p v-if="fileError" class="pp-file-error">{{ fileError }}</p>
+      <p v-if="fileError" class="pp-file-error">{{ et(fileError) }}</p>
 
-      <label class="pp-label" for="pp-tj">目标期刊（选填，影响格式类意见）</label>
+      <label class="pp-label" for="pp-tj">{{ et("目标期刊（选填，影响格式类意见）") }}</label>
       <input
         id="pp-tj"
         v-model="edu.drafts.targetJournal"
         class="pp-input"
         type="text"
-        placeholder="如 The Plant Cell（留空则不限定）"
+        :placeholder="et(&quot;如 The Plant Cell（留空则不限定）&quot;)"
       />
 
       <button class="pp-submit" type="button" :disabled="!file || loading" @click="submit">
-        {{ loading ? phaseText : '开始预审稿' }}
+        {{ et(loading ? phaseText : '开始预审稿') }}
       </button>
     </div>
   </section>

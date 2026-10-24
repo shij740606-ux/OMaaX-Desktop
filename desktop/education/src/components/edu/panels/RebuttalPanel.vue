@@ -9,6 +9,7 @@
      状态机：无 job→粘贴区；loading→拆条动画；error→重试；NOT_FOUND→任务过期。
      样例文本与 docs/samples/rebuttal_sample_reviewer.txt 同源（前端内置副本）。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, ref, watch } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -208,77 +209,71 @@ watch(() => rb.value.activeCid, () => {
 <template>
   <div class="rb-root">
     <header class="rb-head">
-      <h2 class="rb-title">审稿回复助手</h2>
-      <p class="rb-sub">Phase 1：粘贴审稿意见 → 智能拆条 → 逐条回复 → 导出 Response Letter（.md）</p>
+      <h2 class="rb-title">{{ et("审稿回复助手") }}</h2>
+      <p class="rb-sub">{{ et("Phase 1：粘贴审稿意见 → 智能拆条 → 逐条回复 → 导出 Response Letter（.md）") }}</p>
     </header>
 
     <!-- 步骤引导 -->
     <ol class="rb-steps" data-testid="rb-steps">
       <li v-for="(s, i) in ['粘贴审稿意见', '智能拆条', '逐条回复', '导出 Response Letter']"
           :key="i" class="rb-step" :class="{ on: step === i + 1, past: step > i + 1 }">
-        <span class="rb-step-num"><span class="rb-step-digit">{{ i + 1 }}</span></span>{{ s }}
+        <span class="rb-step-num"><span class="rb-step-digit">{{ i + 1 }}</span></span>{{ et(s) }}
       </li>
     </ol>
 
     <!-- 状态：拆条中 -->
     <section v-if="rb.status === 'loading'" class="rb-parsing" data-testid="rb-parsing">
       <div class="rb-spinner" aria-hidden="true" />
-      <p>正在拆条…（约 5-15 秒）</p>
-      <p class="rb-hint">正在识别 Reviewer 分节与编号条目，并归纳问题要点</p>
+      <p>{{ et("正在拆条…（约 5-15 秒）") }}</p>
+      <p class="rb-hint">{{ et("正在识别 Reviewer 分节与编号条目，并归纳问题要点") }}</p>
     </section>
 
     <!-- 状态：任务过期 -->
     <section v-else-if="isExpired" class="rb-expired">
-      <p>任务已过期，请重新创建。</p>
-      <button class="rb-btn rb-btn-primary" type="button" @click="edu.clearRebuttal()">重新开始</button>
+      <p>{{ et("任务已过期，请重新创建。") }}</p>
+      <button class="rb-btn rb-btn-primary" type="button" @click="edu.clearRebuttal()">{{ et("重新开始") }}</button>
     </section>
 
     <!-- 状态：解析失败 -->
     <section v-else-if="rb.status === 'error'" class="rb-expired">
-      <p class="rb-err">{{ rb.error || '拆条失败' }}</p>
-      <button class="rb-btn rb-btn-primary" type="button" @click="retryParse">重试</button>
+      <p class="rb-err">{{ et(rb.error || '拆条失败') }}</p>
+      <button class="rb-btn rb-btn-primary" type="button" @click="retryParse">{{ et("重试") }}</button>
     </section>
 
     <!-- 状态：无 job → 粘贴区 -->
     <section v-else-if="!job" class="rb-input">
       <div class="rb-input-head">
-        <label class="rb-label" for="rb-text">审稿意见文本</label>
-        <button class="rb-link" type="button" data-testid="rb-sample" @click="fillSample">填充示例</button>
+        <label class="rb-label" for="rb-text">{{ et("审稿意见文本") }}</label>
+        <button class="rb-link" type="button" data-testid="rb-sample" @click="fillSample">{{ et("填充示例") }}</button>
       </div>
       <textarea
         id="rb-text" v-model="textInput" class="rb-textarea"
-        placeholder="直接粘贴审稿意见（支持 Reviewer 1/2 分节或编号条目）..."
+        :placeholder="et(&quot;直接粘贴审稿意见（支持 Reviewer 1/2 分节或编号条目）...&quot;)"
       />
       <div class="rb-input-actions">
         <button class="rb-btn rb-btn-primary" type="button" data-testid="rb-parse"
-                :disabled="!textInput.trim()" @click="submitText">
-          解析并拆条
-        </button>
+                :disabled="!textInput.trim()" @click="submitText">{{ et(" 解析并拆条 ") }}</button>
       </div>
       <div class="rb-pdf-card">
-        <button class="rb-btn" type="button" data-testid="rb-pdf-toggle" @click="showPdf = !showPdf">
-          或上传 PDF
-        </button>
-        <p class="rb-hint">如果是审稿人批注版 PDF，通常提取不到批注，建议用文本粘贴。</p>
+        <button class="rb-btn" type="button" data-testid="rb-pdf-toggle" @click="showPdf = !showPdf">{{ et(" 或上传 PDF ") }}</button>
+        <p class="rb-hint">{{ et("如果是审稿人批注版 PDF，通常提取不到批注，建议用文本粘贴。") }}</p>
         <div v-if="showPdf" class="rb-pdf">
           <input type="file" accept="application/pdf,.pdf" @change="onPdf" />
         </div>
       </div>
-      <p v-if="partErr" class="rb-err">{{ partErr }}</p>
+      <p v-if="partErr" class="rb-err">{{ et(partErr) }}</p>
     </section>
 
     <!-- 主区：三栏 -->
     <section v-else class="rb-main">
       <div class="rb-toolbar">
         <span />
-        <button class="rb-link rb-danger" type="button" @click="edu.rebuttalDelete()">删除任务</button>
+        <button class="rb-link rb-danger" type="button" @click="edu.rebuttalDelete()">{{ et("删除任务") }}</button>
       </div>
 
       <div class="rb-banner" :class="allConfirmed ? 'rb-banner-ok' : 'rb-banner-warn'">
-        <template v-if="allConfirmed">
-          全部已确认 —— 可下载 回复信
-        </template>
-        <template v-else>{{ unconfirmedCount }} 条未确认 —— 全部勾选确认后才能下载 回复信</template>
+        <template v-if="allConfirmed">{{ et(" 全部已确认 —— 可下载 回复信 ") }}</template>
+        <template v-else>{{ unconfirmedCount }}{{ et(" 条未确认 —— 全部勾选确认后才能下载 回复信") }}</template>
       </div>
 
       <div class="rb-cols" :class="{ 'rb-cols-2': letterCollapsed }">
@@ -298,7 +293,7 @@ watch(() => rb.value.activeCid, () => {
                 <span class="rb-c-ord">{{ i + 1 }}</span>
                 <span class="rb-c-title">{{ c.title || c.id }}</span>
                 <span class="rb-c-sev" :class="c.severity">{{ c.severity }}</span>
-                <span class="rb-c-dot" :class="statusDot(c)" :title="statusDot(c)" />
+                <span class="rb-c-dot" :class="statusDot(c)" :title="et(statusDot(c))" />
               </button>
             </template>
           </div>
@@ -312,57 +307,54 @@ watch(() => rb.value.activeCid, () => {
               <input
                 type="checkbox" :checked="activeComment.human_confirmed"
                 data-testid="rb-confirm" @change="toggleConfirm(activeComment, $event)"
-              />
-              已确认本条
-            </label>
+              />{{ et(" 已确认本条 ") }}</label>
           </div>
 
           <div class="rb-original">
-            <div class="rb-original-label">审稿人原话（{{ activeComment.reviewer }} · #{{ activeComment.ord }}）</div>
+            <div class="rb-original-label">{{ et("审稿人原话（") }}{{ activeComment.reviewer }} · #{{ activeComment.ord }}）</div>
             <p class="rb-original-body">{{ activeComment.body }}</p>
           </div>
 
           <!-- 问题要点（Phase 1 砍手工合并/拆分：多子条由 LLM 拆分，纠错留 Phase 2） -->
           <div class="rb-point">
             <div class="rb-point-body">
-              <div class="rb-original-label">问题要点</div>
+              <div class="rb-original-label">{{ et("问题要点") }}</div>
               <p class="rb-point-text">{{ activeComment.title }}</p>
             </div>
           </div>
 
-          <div v-if="activeComment.cross_refs?.length" class="rb-xref">
-            交叉引用：<span v-for="(x, i) in activeComment.cross_refs" :key="i">「{{ x.raw }}」{{ x.target_id ? `→ ${x.target_id}` : '（未解析，保留原文）' }} </span>
+          <div v-if="activeComment.cross_refs?.length" class="rb-xref">{{ et(" 交叉引用：") }}<span v-for="(x, i) in activeComment.cross_refs" :key="i">「{{ x.raw }}」{{ et(x.target_id ? `→ ${x.target_id}` : '（未解析，保留原文）') }} </span>
           </div>
 
           <div class="rb-parts">
-            <div class="rb-parts-label">回复要点（user_response）</div>
+            <div class="rb-parts-label">{{ et("回复要点（user_response）") }}</div>
             <div v-for="(p, i) in formOf(activeComment.id).parts" :key="i" class="rb-part">
               <select v-model="p.type" class="rb-select" :data-testid="`rb-type-${i}`">
-                <option v-for="t in PART_TYPES" :key="t.key" :value="t.key">{{ t.label }}</option>
+                <option v-for="t in PART_TYPES" :key="t.key" :value="t.key">{{ et(t.label) }}</option>
               </select>
               <textarea
                 v-model="p.content" class="rb-part-content" rows="3"
-                :placeholder="PART_TYPES.find((t) => t.key === p.type)?.hint"
+                :placeholder="et(PART_TYPES.find((t) => t.key === p.type)?.hint)"
                 :data-testid="`rb-content-${i}`"
               />
               <!-- 立场词预检：只提示不阻止继续编辑/生成 -->
               <p
                 v-if="stanceMissing(p)" class="rb-err rb-stance"
                 :data-testid="`rb-stance-hint-${i}`"
-              >{{ STANCE_HINT }}</p>
+              >{{ et(STANCE_HINT) }}</p>
               <input
                 v-if="p.type === 'location'"
                 v-model="p.location_hint" class="rb-part-hint" data-testid="rb-location-hint"
-                placeholder="位置提示：如 Section 3 / Fig. S2 / Methods 第 2 段"
+                :placeholder="et(&quot;位置提示：如 Section 3 / Fig. S2 / Methods 第 2 段&quot;)"
               />
             </div>
             <div class="rb-part-actions">
-              <button class="rb-link" type="button" @click="addPart">+ 添加要点</button>
+              <button class="rb-link" type="button" @click="addPart">{{ et("+ 添加要点") }}</button>
               <button
                 v-if="formOf(activeComment.id).parts.length > 1"
                 class="rb-link" type="button"
                 @click="removePart(formOf(activeComment.id).parts.length - 1)"
-              >移除最后一条</button>
+              >{{ et("移除最后一条") }}</button>
             </div>
           </div>
 
@@ -372,58 +364,50 @@ watch(() => rb.value.activeCid, () => {
               :disabled="!canDraft || rb.draftCid === activeComment.id"
               @click="genDraft"
             >
-              {{ rb.draftCid === activeComment.id ? '生成中…' : '生成 draft' }}
+              {{ et(rb.draftCid === activeComment.id ? '生成中…' : '生成 draft') }}
             </button>
-            <span class="rb-hint">填写要点后点击生成；内容会自动保存</span>
+            <span class="rb-hint">{{ et("填写要点后点击生成；内容会自动保存") }}</span>
           </div>
-          <p v-if="draftMsg" class="rb-err">{{ draftMsg }}</p>
+          <p v-if="draftMsg" class="rb-err">{{ et(draftMsg) }}</p>
 
-          <div v-if="validationFailed" class="rb-banner rb-banner-err" data-testid="rb-validation">
-            反幻觉校验未通过（{{ validationOf.findings?.length || 0 }} 项）：
-            <ul>
-              <li v-for="(f, i) in validationOf.findings" :key="i">[{{ f.code }}] {{ f.message }}</li>
+          <div v-if="validationFailed" class="rb-banner rb-banner-err" data-testid="rb-validation">{{ et(" 反幻觉校验未通过（") }}{{ validationOf.findings?.length || 0 }}{{ et(" 项）： ") }}<ul>
+              <li v-for="(f, i) in validationOf.findings" :key="i">[{{ f.code }}] {{ et(f.message) }}</li>
             </ul>
           </div>
 
           <div v-if="activeComment.draft" class="rb-draft" data-testid="rb-draft-preview">
-            <div class="rb-original-label">draft 预览</div>
+            <div class="rb-original-label">{{ et("draft 预览") }}</div>
             <pre class="rb-draft-md">{{ activeComment.draft }}</pre>
           </div>
         </div>
-        <div v-else class="rb-empty">← 选择一条审稿意见开始回复</div>
+        <div v-else class="rb-empty">{{ et("← 选择一条审稿意见开始回复") }}</div>
 
         <!-- 右：Letter 预览（可折叠） -->
         <aside v-if="!letterCollapsed" class="rb-letter">
           <div class="rb-letter-head">
             <span class="rb-letter-count" data-testid="rb-letter-count">
-              {{ confirmedCount }}/{{ allComments.length }} 条已确认
-            </span>
-            <button class="rb-iconbtn" type="button" title="折叠" @click="letterCollapsed = true">»</button>
+              {{ confirmedCount }}/{{ allComments.length }}{{ et(" 条已确认 ") }}</span>
+            <button class="rb-iconbtn" type="button" :title="et(&quot;折叠&quot;)" @click="letterCollapsed = true">»</button>
           </div>
-          <div v-if="!letterComments.length" class="rb-empty rb-letter-empty">
-            尚无 draft —— 填写回复要点并生成后将在此预览
-          </div>
+          <div v-if="!letterComments.length" class="rb-empty rb-letter-empty">{{ et(" 尚无 draft —— 填写回复要点并生成后将在此预览 ") }}</div>
           <div v-for="c in letterComments" :key="c.id" class="rb-letter-item">
             <div class="rb-letter-title">{{ c.reviewer }} · {{ c.title }}</div>
             <pre class="rb-letter-md">{{ c.draft }}</pre>
           </div>
           <div class="rb-letter-actions">
             <button class="rb-btn" type="button" :disabled="letterAssembling" @click="assembleLetter">
-              {{ letterAssembling ? '拼装中…' : '拼装 letter' }}
+              {{ et(letterAssembling ? '拼装中…' : '拼装 letter') }}
             </button>
             <button
               class="rb-btn rb-btn-primary" type="button" data-testid="rb-download"
               :disabled="!job.human_ack || !job.letter_md" @click="downloadLetter"
-            >
-              下载 .md
-            </button>
+            >{{ et(" 下载 .md ") }}</button>
           </div>
           <span v-if="!allConfirmed" class="rb-letter-gate" data-testid="rb-gate">
-            {{ unconfirmedCount }} 条未确认，下载暂不可用
-          </span>
-          <p v-if="letterError" class="rb-err">{{ letterError }}</p>
+            {{ unconfirmedCount }}{{ et(" 条未确认，下载暂不可用 ") }}</span>
+          <p v-if="letterError" class="rb-err">{{ et(letterError) }}</p>
         </aside>
-        <button v-else class="rb-letter-expand" type="button" title="展开 Letter 预览" @click="letterCollapsed = false">
+        <button v-else class="rb-letter-expand" type="button" :title="et(&quot;展开 Letter 预览&quot;)" @click="letterCollapsed = false">
           « Letter
         </button>
       </div>

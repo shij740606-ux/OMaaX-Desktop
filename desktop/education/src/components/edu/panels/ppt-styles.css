@@ -18,6 +18,14 @@
   border-radius: 6px; border: 1px solid var(--pa-hairline);
   background: var(--st-bg, #fff);
 }
+.ppt-style-cover-en {
+  display: flex; flex-direction: column; justify-content: center; gap: 12px;
+  padding: 14px 18px; box-sizing: border-box; color: var(--st-primary);
+  border-top: 5px solid var(--st-accent); overflow: hidden;
+}
+.ppt-style-cover-en strong { font-size: clamp(12px, 1.15vw, 18px); line-height: 1.3; }
+.ppt-style-cover-en span { font-size: 10px; opacity: .75; }
+.classic-defense .ppt-style-cover-en, .editorial .ppt-style-cover-en { font-family: Georgia, serif; }
 .ppt-style-meta { display: flex; flex-direction: column; gap: 1px; }
 .ppt-style-name { font-size: 13px; font-weight: 600; color: var(--pa-ink); }
 .ppt-style-desc { font-size: 12px; color: var(--pa-ink-muted); margin-top: 1px; }

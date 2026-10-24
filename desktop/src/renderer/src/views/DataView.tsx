@@ -50,9 +50,10 @@ const ANALYSES: Record<string, { label: string; prompt: string }[]> = {
 };
 const genericAnalysis = { label: '让智能体分析', prompt: '请分析工作区里的文件 {f}:先告诉我里面是什么、质量如何,再建议下一步能做什么分析。' };
 const fmtSize = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`);
-const fmtTime = (s: number) => new Date(s * 1000).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtTime = (s: number,lang:string) => new Date(s * 1000).toLocaleString(lang==='en'?'en-US':'zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 function Thumb({ rel, wsPath }: { rel: string; wsPath: string }) {
+
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => { let alive = true; void (window.biodsh.readWorkspaceImage(rel, wsPath) as Promise<string>).then((s) => alive && setSrc(s)).catch(() => alive && setSrc(null)); return () => { alive = false; }; }, [rel, wsPath]);
   if (!src) return null;
@@ -60,7 +61,7 @@ function Thumb({ rel, wsPath }: { rel: string; wsPath: string }) {
 }
 
 function OutputCard({ dir, items, mtime, onAnalyze, busy, onMenu, wsPath }: { dir: string; items: FileEntry[]; mtime: number; onAnalyze: () => void; busy: boolean; onMenu: (e: React.MouseEvent) => void; wsPath: string }) {
-  const { t } = useT();
+  const { t,lang } = useT();
   const { info, settings } = useApp();
   const figures = items.filter((f) => f.kind === 'figure' && !f.rel.toLowerCase().endsWith('.pdf')).slice(0, 3);
   const kinds = new Map<string, number>();
@@ -71,7 +72,7 @@ function OutputCard({ dir, items, mtime, onAnalyze, busy, onMenu, wsPath }: { di
       <div className="flex items-center gap-2">
         <ClipboardList size={16} strokeWidth={1.75} />
         <span className="t-headline truncate flex-1" title={dir}>{dir}</span>
-        <span className="t-caption">{fmtTime(mtime)}</span>
+        <span className="t-caption">{fmtTime(mtime,lang)}</span>
       </div>
       {figures.length > 0 && <div className="flex gap-2 overflow-x-auto">{figures.map((f) => <Thumb key={f.rel} rel={f.rel} wsPath={wsPath} />)}</div>}
       <div className="flex flex-wrap gap-1.5">{[...kinds.entries()].map(([k, n]) => <span key={k} className="badge inline-flex items-center gap-1"><FileTypeIcon type={k} size={12} /> {t(KIND_META[k]?.label ?? k)} {n}</span>)}</div>
@@ -84,7 +85,7 @@ function OutputCard({ dir, items, mtime, onAnalyze, busy, onMenu, wsPath }: { di
 }
 
 export default function DataView() {
-  const { t } = useT();
+  const { t,lang } = useT();
   const { info, settings, dsh, currentSession, setTab } = useApp();
   const api = window.biodsh;
   const [source, setSource] = useState<'workspace'|'workflows'|'server'>('workspace');
@@ -111,38 +112,38 @@ export default function DataView() {
   useEffect(() => { void refresh(); const timer = setInterval(() => { void refresh(); }, 8000); return () => clearInterval(timer); }, [refresh]);
 
   const analyzeOutput = async (dir: string, count: number) => {
-    if (dsh.state !== 'running' || !currentSession) { setNotice(t('先在左边选一个对话（或点「新对话」），再让智能体分析')); setTimeout(() => setNotice(null), 4000); return; }
+    if (dsh.state !== 'running' || !currentSession) { setNotice('先在左边选一个对话（或点「新对话」），再让智能体分析'); setTimeout(() => setNotice(null), 4000); return; }
     setBusyRel(`dir:${dir}`);
     try {
       await api.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text: t('请解读工作区里的结果文件夹「{dir}」（共 {n} 个文件）：这次分析做了什么、主要发现是什么、图各说明什么问题。用通俗语言讲。', { dir, n: count }) }] });
       setTab('chat');
-    } catch (e) { setNotice(`${t('发送失败')}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
+    } catch (e) { setNotice(`${'发送失败'}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
     finally { setBusyRel(null); }
   };
 
   const sendPrompt = async (text: string) => {
-    if (dsh.state !== 'running' || !currentSession) { setNotice(t('先在左边选一个对话（或点「新对话」），再让智能体分析')); setTimeout(() => setNotice(null), 4000); return; }
+    if (dsh.state !== 'running' || !currentSession) { setNotice('先在左边选一个对话（或点「新对话」），再让智能体分析'); setTimeout(() => setNotice(null), 4000); return; }
     try { await api.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text }] }); setTab('chat'); }
-    catch (e) { setNotice(`${t('发送失败')}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
+    catch (e) { setNotice(`${'发送失败'}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
   };
 
   const analyze = async (f: FileEntry) => {
-    if (dsh.state !== 'running') { setNotice(t('智能体还没运行')); return; }
-    if (!currentSession) { setNotice(t('先在左边选一个对话（或点「新对话」），再让智能体分析')); setTimeout(() => setNotice(null), 4000); return; }
+    if (dsh.state !== 'running') { setNotice('智能体还没运行'); return; }
+    if (!currentSession) { setNotice('先在左边选一个对话（或点「新对话」），再让智能体分析'); setTimeout(() => setNotice(null), 4000); return; }
     setBusyRel(f.rel);
     try {
       const kindLabel = t(KIND_META[f.kind]?.label ?? '文件');
       await api.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text: t('请分析工作区里的这个{kind}文件：{rel}（{size}）。先告诉我它里面是什么、质量如何，再建议下一步可以做什么分析。', { kind: kindLabel, rel: f.rel, size: fmtSize(f.size) }) }] });
       setTab('chat');
-    } catch (e) { setNotice(`${t('发送失败')}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
+    } catch (e) { setNotice(`${'发送失败'}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
     finally { setBusyRel(null); }
   };
 
   const runAnalysis = async (f: FileEntry, promptTpl: string) => {
-    if (dsh.state !== 'running' || !currentSession) { setNotice(t('先在左边选一个对话（或点「新对话」），再让智能体分析')); setTimeout(() => setNotice(null), 4000); return; }
+    if (dsh.state !== 'running' || !currentSession) { setNotice('先在左边选一个对话（或点「新对话」），再让智能体分析'); setTimeout(() => setNotice(null), 4000); return; }
     setBusyRel(f.rel);
     try { await api.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text: t(promptTpl, { f: f.rel }) }] }); setTab('chat'); }
-    catch (e) { setNotice(`${t('发送失败')}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
+    catch (e) { setNotice(`${'发送失败'}: ${String(e).slice(0, 80)}`); setTimeout(() => setNotice(null), 4000); }
     finally { setBusyRel(null); }
   };
   // 左键「分析 ▾」弹出该数据类型的推荐分析(具体、成体系),而不是一个泛按钮
@@ -170,7 +171,7 @@ export default function DataView() {
     setMenu({ x: e.clientX, y: e.clientY, items: [
       { label: t('让智能体分析'), icon: <SparklesIcon size={13} />, onClick: () => { void analyze(f); } },
       { label: t('打开所在文件夹'), icon: <FolderOpen size={13} />, onClick: () => { const dir = f.rel.includes('/') ? absPath(f.rel.slice(0, f.rel.lastIndexOf('/'))) : workspace; void window.biodsh.openPath(dir); } },
-      { label: t('复制文件路径'), icon: <Copy size={13} />, onClick: () => { void navigator.clipboard.writeText(absPath(f.rel)).then(() => setNotice(t('已复制'))).catch(() => undefined); setTimeout(() => setNotice(null), 2000); } },
+      { label: t('复制文件路径'), icon: <Copy size={13} />, onClick: () => { void navigator.clipboard.writeText(absPath(f.rel)).then(() => setNotice('已复制')).catch(() => undefined); setTimeout(() => setNotice(null), 2000); } },
       'sep',
       { label: t('用系统默认程序打开（Excel / 看图…）'), icon: <FolderOpen size={13} />, onClick: () => { void window.biodsh.openPath(absPath(f.rel)); } },
       { label: t('让智能体转成 Excel 表格'), icon: <SparklesIcon size={13} />, onClick: () => { void sendPrompt(t('请把工作区里的 {rel} 转换成 Excel（.xlsx）文件，保存到一个新子文件夹，并告诉我文件名。', { rel: f.rel })); } },
@@ -185,7 +186,7 @@ export default function DataView() {
     setMenu({ x: e.clientX, y: e.clientY, items: [
       { label: t('让智能体解读'), icon: <SparklesIcon size={13} />, onClick: () => { void analyzeOutput(dir, count); } },
       { label: t('打开文件夹'), icon: <FolderOpen size={13} />, onClick: () => { void window.biodsh.openPath(absPath(dir)); } },
-      { label: t('复制文件路径'), icon: <Copy size={13} />, onClick: () => { void navigator.clipboard.writeText(absPath(dir)).then(() => setNotice(t('已复制'))).catch(() => undefined); setTimeout(() => setNotice(null), 2000); } },
+      { label: t('复制文件路径'), icon: <Copy size={13} />, onClick: () => { void navigator.clipboard.writeText(absPath(dir)).then(() => setNotice('已复制')).catch(() => undefined); setTimeout(() => setNotice(null), 2000); } },
     ] });
   };
 
@@ -207,8 +208,8 @@ export default function DataView() {
           <button className="btn btn-ghost" onClick={() => refresh()}><RefreshCw size={13} /></button>
         </div>
       </header>
-      <nav aria-label="分析结果来源" className="flex flex-wrap gap-2 px-5 py-3 hairline-b">
-        {([['workspace','工作区分析'],['workflows','长流程结果'],['server','服务器结果']] as const).map(([id,label])=><button key={id} className={`btn ${source===id?'btn-primary':'btn-ghost'}`} aria-pressed={source===id} onClick={()=>setSource(id)}>{t(label)}</button>)}
+      <nav aria-label={t("分析结果来源")} className="flex flex-wrap gap-2 px-5 py-3 hairline-b">
+        {([['workspace',t('工作区分析')],['workflows',t('长流程结果')],['server',t('服务器结果')]] as const).map(([id,label])=><button key={id} className={`btn ${source===id?'btn-primary':'btn-ghost'}`} aria-pressed={source===id} onClick={()=>setSource(id)}>{t(label)}</button>)}
       </nav>
       <div className="flex-1 overflow-y-auto">
         {source==='workflows'&&<div className="max-w-[1180px] mx-auto p-6"><WorkflowResults /></div>}
@@ -217,7 +218,7 @@ export default function DataView() {
         <div className="max-w-[860px] mx-auto px-8 py-6 flex flex-col gap-6">
 
 
-          {notice && <div className="px-3 py-2 rounded-lg t-body rise" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{notice}</div>}
+          {notice && <div className="px-3 py-2 rounded-lg t-body rise" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{t(notice)}</div>}
           {files === null && <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('正在扫描…')}</div>}
           {files !== null && files.length === 0 && (
             <div className="card p-8 text-center flex flex-col items-center gap-3 rise">
@@ -247,7 +248,7 @@ export default function DataView() {
                         <FileTypeIcon type={f.kind} size={16} />
                         <div className="min-w-0 flex-1">
                           <div className="t-body truncate selectable" title={f.rel}>{f.rel}</div>
-                          <div className="t-caption truncate">{fmtSize(f.size)} · {fmtTime(f.modified)}{f.preview ? ` · ${t('列')}: ${f.preview}` : ''}</div>
+                          <div className="t-caption truncate">{fmtSize(f.size)} · {fmtTime(f.modified,lang)}{f.preview ? ` · ${t('列')}: ${f.preview}` : ''}</div>
                         </div>
                         {busyRel === f.rel && <Loader2 size={14} className="spin shrink-0" style={{ color: 'var(--accent)' }} />}
                       </div>

@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OMaaX",
-  "version": "0.4.49",
+  "version": "0.4.53",
   "identifier": "org.omaax.desktop",
   "build": {
     "frontendDist": "../dist-tauri",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "node scripts/stage-ssh.mjs && npx vite --config vite.tauri.config.ts",
-    "beforeBuildCommand": "node scripts/verify-stable-runtime.mjs && node scripts/sync-skills.mjs && node scripts/stage-ssh.mjs && npx vite build --config vite.education.config.mjs && npx vite build --config vite.tauri.config.ts"
+    "beforeBuildCommand": "node scripts/installer-payload.mjs --prepare && node scripts/verify-stable-runtime.mjs && node scripts/sync-skills.mjs && node scripts/stage-ssh.mjs && npx vite build --config vite.education.config.mjs && npx vite build --config vite.tauri.config.ts"
   },
   "app": {
     "withGlobalTauri": false,

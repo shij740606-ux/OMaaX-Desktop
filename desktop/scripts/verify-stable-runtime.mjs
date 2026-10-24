@@ -7,5 +7,7 @@ assert.equal(JSON.parse(readFileSync(new URL('package.json',agent))).version,'0.
 const source=readFileSync(new URL('lib/index.js',agent),'utf8');
 assert.ok(source.includes('OMAAX_AUTO_CONTINUE_V1'),'Automatic continuation is missing');
 assert.ok(!source.includes('BIODSH_STEP_GUARD'),'Forced step cap found');
+assert.ok(readFileSync(new URL('node_modules/@deepseek-ai/dsh-compaction-basic/lib/index.js',runtime),'utf8').includes('OMAAX_COMPACTION_CONTINUE_V1'),'Checkpoint continuation is missing');
+assert.ok(readFileSync(new URL('node_modules/@deepseek-ai/dsh-compaction-basic/lib/index.js',runtime),'utf8').includes('OMAAX_COMPACTION_TRANSPORT_V1'),'Oversized checkpoint recovery is missing');
 assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).devDependencies['@deepseek-ai/dsh'],'0.1.5-rc.1');
 console.log('Stable 47 runtime and automatic continuation verified');

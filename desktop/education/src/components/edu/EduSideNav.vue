@@ -1,4 +1,5 @@
 <script setup>
+import {et, educationLocale} from '../../i18n.js';
 import { useEduStore } from '../../stores/edu.js';
 
 const edu = useEduStore();
@@ -26,13 +27,13 @@ const ITEMS = [
           class="edu-item"
           :class="{ active: edu.section === it.key }"
           type="button"
-          :title="it.label"
+          :title="et(it.label)"
           @click="edu.setSection(it.key)"
         >
           <!-- icon 为静态白名单字符串（本文件 ITEMS 常量），SVG 项用 v-html，emoji 项纯文本 -->
           <span v-if="it.icon.startsWith('<svg')" class="edu-icon" aria-hidden="true" v-html="it.icon" />
           <span v-else class="edu-icon" aria-hidden="true">{{ it.icon }}</span>
-          <span class="edu-label">{{ it.label }}</span>
+          <span class="edu-label">{{ et(it.label) }}</span>
         </button>
       </li>
     </ul>

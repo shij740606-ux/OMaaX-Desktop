@@ -24,8 +24,11 @@ const view=fs.readFileSync(new URL('../src/renderer/src/views/WorkflowsView.tsx'
 assert(!view.includes('workflow-step-section-title'));
 assert(!view.includes('· 点击设置'));
 assert(view.includes('data-step-number={index+1}'));
-const data=view.indexOf('<summary>数据路径与结果名称</summary>');
+const data=view.indexOf('<summary>{t("数据路径与结果名称")}</summary>');
 const instruction=view.indexOf('告诉智能体要分析哪些数据');
-assert(data<instruction&&instruction<view.indexOf('<summary>计算资源'));
-assert(view.indexOf('生成执行计划\'}</button>')<view.indexOf('本次已选择 {steps.length}'));
+const resources=view.indexOf('<summary>{t("计算资源');
+assert(data>=0&&instruction>=0&&resources>=0&&data<instruction&&instruction<resources);
+const prepare=view.indexOf('{t("在对话中准备分析")}</button>');
+const selected=view.indexOf('{t("本次已选择")}{steps.length}');
+assert(prepare>=0&&selected>prepare);
 console.log('Continuous workflow and instruction placement verified.');

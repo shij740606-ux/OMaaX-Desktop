@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import {useEffect,useState} from 'react';
 import {useApp} from '../store';
 
@@ -5,6 +6,7 @@ type Session={sessionId:string;projections?:{values?:{tokenUsage?:{uncachedInput
 const tokens=(s?:Session)=>{const u=s?.projections?.values?.tokenUsage;return (u?.uncachedInputTokens??0)+(u?.outputTokens??0)+(u?.cacheReadTokens??0);};
 
 export default function ModelUsage(){
+ const {t,lang}=useT();
  const {currentSession,dsh}=useApp();
  const [error,setError]=useState('');
  const [usage,setUsage]=useState<{current:number;project:number;all:number}|null>(null);
@@ -28,11 +30,11 @@ export default function ModelUsage(){
   void load();const timer=setInterval(()=>void load(),60000);
   return()=>{live=false;clearInterval(timer);};
  },[currentSession,dsh.state]);
- return <section className="card p-5 flex flex-col gap-3" aria-label="模型实际用量">
-  <h2 className="t-headline">模型使用情况</h2>
+ return <section className="card p-5 flex flex-col gap-3" aria-label={t("模型实际用量")}>
+  <h2 className="t-headline">{t("模型使用情况")}</h2>
 
-  {usage?<dl className="grid grid-cols-3 gap-3">{([['本对话',usage.current],['本项目',usage.project],['全部对话',usage.all]] as const).map(([label,value])=><div key={label}><dt className="t-caption">{label}</dt><dd className="t-headline">{value.toLocaleString()} <small>tokens</small></dd></div>)}</dl>:<p className="t-caption">{dsh.state==='running'?'正在读取用量…':'智能体运行后可查看对话用量。'}</p>}
-  {error&&<p role="alert">{error}</p>}
-  <p className="t-caption">此处为本机保存的对话用量，不代表账号累计用量或余额。</p>
+  {usage?<dl className="grid grid-cols-3 gap-3">{([['本对话',usage.current],['本项目',usage.project],['全部对话',usage.all]] as const).map(([label,value])=><div key={label}><dt className="t-caption">{t(label)}</dt><dd className="t-headline">{value.toLocaleString(lang === "en" ? "en-US" : "zh-CN")} <small>tokens</small></dd></div>)}</dl>:<p className="t-caption">{dsh.state==='running'?t("正在读取用量…"):t("智能体运行后可查看对话用量。")}</p>}
+  {error&&<p role="alert">{t(error)}</p>}
+  <p className="t-caption">{t("此处为本机保存的对话用量，不代表账号累计用量或余额。")}</p>
  </section>;
 }

@@ -6,7 +6,10 @@ import {createHash, timingSafeEqual} from 'node:crypto';
 import {once} from 'node:events';
 import {pathToFileURL} from 'node:url';
 const exec = promisify(execFile);
+export const MAX_REQUEST_BYTES = 1024 * 1024;
 const failure = (status, message) => Object.assign(new Error(message), {status});
+// The SDK recognizes context overflow on HTTP 400; HTTP 413 is otherwise terminal.
+const contextOverflow = () => Object.assign(failure(400,'对话内容较长，正在整理上下文后继续。'), {code:'context_length_exceeded'});
 const messages = {401:'登录已失效，请重新登录。',403:'当前账号暂不能使用对话服务，请联系管理员。',429:'请求较多，请稍后重试。'};
 const safeError = status => messages[status] || '对话服务暂不可用，请稍后重试。';
 
@@ -65,7 +68,7 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
     })();
     try{return await refreshing;}finally{refreshing=null;}
   }
-  function reply(res,status,message){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({error:{code:'COMPANY_LLM_ERROR',message}}));}
+  function reply(res,status,message,code='COMPANY_LLM_ERROR'){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({error:{code,message}}));}
   const server=http.createServer(async(req,res)=>{
     const supplied=Buffer.from(req.headers.authorization||'');const expected=Buffer.from(`Bearer ${key}`);
     if(req.headers.origin || supplied.length!==expected.length || !timingSafeEqual(supplied,expected)){reply(res,401,'Unauthorized');return;}
@@ -75,7 +78,7 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
         const c=await credentials(s),m=c.models[0];
         const levels=m.modelEffort?.levels||[];
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-        res.end(JSON.stringify({levels:['low','high','max'].filter(v=>levels.includes(v)),default:m.modelEffort?.default||null,...modelLimits(m)}));
+        res.end(JSON.stringify({levels:['low','high','max'].filter(v=>levels.includes(v)),default:m.modelEffort?.default||null,...modelLimits(m),maxRequestBytes:MAX_REQUEST_BYTES}));
       }catch(e){reply(res,e.status||502,safeError(e.status));}
       return;
     }
@@ -83,10 +86,12 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
     if(active>=5){reply(res,429,safeError(429));return;}
     active++;const controller=new AbortController();controllers.add(controller);
     const abort=()=>controller.abort();res.on('close',abort);
-    let timeout=setTimeout(abort,180000);let watch;
+    let timeout,timeoutMs=180000,watch;
+    const resetTimeout=()=>{clearTimeout(timeout);timeout=setTimeout(abort,timeoutMs);};
+    resetTimeout();
     try {
       let size=0;const chunks=[];
-      for await(const chunk of req){size+=chunk.length;if(size>8*1024*1024)throw failure(413,'对话内容过长，请新建对话后重试。');chunks.push(chunk);}
+      for await(const chunk of req){size+=chunk.length;if(size>8*1024*1024)throw contextOverflow();chunks.push(chunk);}
       let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw failure(400,'请求格式无效。');}
       if(!Array.isArray(body.messages)||!body.messages.length)throw failure(400,'对话内容不能为空。');
       const initial=await session();
@@ -99,7 +104,6 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
       const alias=/^omaax-(low|high|max)$/.exec(body.model||'');
       const requested=alias?.[1] ?? body.effort;
       let c=await credentials(initial),response;
-      clearTimeout(timeout);timeout=setTimeout(abort,requested==='max'?600000:requested==='high'?300000:180000);
       for(let attempt=0;attempt<2;attempt++){
         if(controller.signal.aborted)throw failure(408,'请求已取消或超时。');
         const current=await session();if(current.token!==initial.token||current.hub!==initial.hub)throw failure(401,safeError(401));
@@ -107,25 +111,35 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
         body.model=c.model;
         const effort=modeEffort(c.models[0],requested);
         if(effort===undefined)delete body.effort;else body.effort=effort;
+        // Include the company default mode when budgeting the initial wait.
+        timeoutMs=effort==='max'?600000:effort==='high'?300000:180000;
+        resetTimeout();
         // Only the company gateway translates effort to provider-specific fields.
         delete body.reasoning_effort;delete body.thinking;
         applyOutputLimit(body,c.models[0]);
-        response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${c.token}`},body:JSON.stringify(body),redirect:'error',signal:controller.signal});
-        if(attempt===0 && [400,401,403].includes(response.status)){
+        const payload=JSON.stringify(body);
+        if(Buffer.byteLength(payload,'utf8')>MAX_REQUEST_BYTES)throw contextOverflow();
+        response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${c.token}`},body:payload,redirect:'error',signal:controller.signal});
+        if([400,401,403].includes(response.status)){
           let code;try{code=(await response.json()).error?.code;}catch{}
-          if(response.status===401||['MODEL_NOT_FOUND','MODEL_FORBIDDEN'].includes(code)){c=await credentials(initial,c.token);continue;}
+          if(response.status===400&&['context_length_exceeded','context_window_exceeded'].includes(String(code).toLowerCase()))throw contextOverflow();
+          if(attempt===0&&(response.status===401||['MODEL_NOT_FOUND','MODEL_FORBIDDEN'].includes(code))){c=await credentials(initial,c.token);continue;}
         }
         break;
       }
+      if(response.status===413)throw contextOverflow();
       if(!response.ok)throw failure(response.status,safeError(response.status));
       const contentType=response.headers.get('content-type')||'';
       if(body.stream===true&&!contentType.includes('text/event-stream'))throw failure(502,safeError(502));
       if(body.stream!==true&&!contentType.includes('application/json'))throw failure(502,safeError(502));
       res.writeHead(200,{'Content-Type':body.stream===true?'text/event-stream; charset=utf-8':'application/json','Cache-Control':'no-store'});
+      if(body.stream===true)resetTimeout();
       // Preserve tool-call fragments, reasoning and usage frames; never retry a started stream.
-      for await(const chunk of response.body){if(controller.signal.aborted)break;if(!res.write(chunk))await once(res,'drain',{signal:controller.signal});}
+      // Active streams have an idle deadline, not a total generation deadline.
+      // Nonstream helpers retain their bounded total request time.
+      for await(const chunk of response.body){if(controller.signal.aborted)break;if(body.stream===true&&chunk.length>0)resetTimeout();if(!res.write(chunk))await once(res,'drain',{signal:controller.signal});}
       if(controller.signal.aborted)res.destroy();else res.end();
-    } catch(e){if(!res.headersSent&&!res.destroyed)reply(res,e.status||502,e.status?e.message:safeError(502));else res.destroy();}
+    } catch(e){if(!res.headersSent&&!res.destroyed)reply(res,e.status||502,e.status?e.message:safeError(502),e.code==='context_length_exceeded'?e.code:undefined);else res.destroy();}
     finally{clearTimeout(timeout);clearInterval(watch);controllers.delete(controller);active--;}
   });
   server.requestTimeout=20000;server.headersTimeout=10000;

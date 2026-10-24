@@ -14,6 +14,7 @@
      读时归一化由后端承担：zh cas_partition 恒 null + note、jif_note 两类文案、
      缺值 source 归零（前端只管展示 tooltip/链接）。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -29,12 +30,13 @@ const tab = computed(() => edu.journalsTab);
 const q = computed(() => edu.directoryQuery);
 
 /* 底部数据源声明（表C 长版，拍板决策3；末尾补来源口径说明） */
-const FOOT_NOTE =
-  'JIF 取自 2025 年度指标（2026 年 JCR 发布）并经两份公开汇编交叉一致或出版社官方指标核对，' +
-  '中科院分区采用 2025 版公开表（多表比对、2026 年起停更），' +
-  '中文期刊复合/综合影响因子取自国内年报 2025 版（统计年 2024，与 JIF 统计源不同、不混排），' +
-  '期刊官网均附核对状态（3 本中文刊未检得可靠官网留空待核实）。' +
-  '分区为高校转载版，官方入口需机构登录；JIF/中文数据为公开汇编镜像，仅供参考核对。';
+const FOOT_NOTE = computed(() => [
+  'JIF 取自 2025 年度指标（2026 年 JCR 发布）并经两份公开汇编交叉一致或出版社官方指标核对，',
+  '中科院分区采用 2025 版公开表（多表比对、2026 年起停更），',
+  '中文期刊复合/综合影响因子取自国内年报 2025 版（统计年 2024，与 JIF 统计源不同、不混排），',
+  '期刊官网均附核对状态（3 本中文刊未检得可靠官网留空待核实）。',
+  '分区为高校转载版，官方入口需机构登录；JIF/中文数据为公开汇编镜像，仅供参考核对。',
+].map(et).join(educationLocale.value === 'en' ? ' ' : ''));
 
 /* —— 凭证状态配色：可靠=绿 / 未逐站复核=浅绿 / 未检得·待核实=橙 —— */
 const JIF_OK = new Set(['两份公开汇编一致', '已核对出版社2025指标']);
@@ -149,8 +151,8 @@ onUnmounted(() => clearTimeout(searchTimer));
   <section class="jp">
     <!-- 头部：标题 + 共 N 本（meta 与当前 Tab 匹配才回显，防切 Tab 瞬间旧计数） -->
     <header class="jp-head">
-      <h1 class="jp-title">学术期刊情报</h1>
-      <span class="jp-count">共 {{ countText }} 本</span>
+      <h1 class="jp-title">{{ et("学术期刊情报") }}</h1>
+      <span class="jp-count">{{ et("共 ") }}{{ countText }}{{ et(" 本") }}</span>
     </header>
 
     <!-- 诚实性声明（黄字；两套口径按 Tab 切换） -->
@@ -164,7 +166,7 @@ onUnmounted(() => clearTimeout(searchTimer));
         role="tab"
         :aria-selected="tab === 'en'"
         @click="onTab('en')"
-      >🌍 国际期刊</button>
+      >{{ et("🌍 国际期刊") }}</button>
       <button
         class="jp-tab"
         :class="{ on: tab === 'zh' }"
@@ -172,7 +174,7 @@ onUnmounted(() => clearTimeout(searchTimer));
         role="tab"
         :aria-selected="tab === 'zh'"
         @click="onTab('zh')"
-      >🇨🇳 中文期刊</button>
+      >{{ et("🇨🇳 中文期刊") }}</button>
     </nav>
 
     <!-- 搜索（防抖 300ms → q + page=1） -->
@@ -181,7 +183,7 @@ onUnmounted(() => clearTimeout(searchTimer));
         v-model="searchInput"
         class="jp-search"
         type="search"
-        placeholder="搜索期刊名（如 Nature、Plant Cell）"
+        :placeholder="et(&quot;搜索期刊名（如 Nature、Plant Cell）&quot;)"
         @input="onSearchInput"
       >
     </div>
@@ -189,83 +191,76 @@ onUnmounted(() => clearTimeout(searchTimer));
     <!-- 筛选栏（domains 来自当前 lang 的 meta；分区下拉仅 en） -->
     <div v-if="domains.length" class="jp-filters">
       <div class="jp-fgroup">
-        <span class="jp-flabel">研究方向</span>
+        <span class="jp-flabel">{{ et("研究方向") }}</span>
         <select class="jp-select" :value="q.domain" @change="onDomainChange">
-          <option value="">全部</option>
-          <option v-for="d in domains" :key="d" :value="d">{{ d }}</option>
+          <option value="">{{ et("全部") }}</option>
+          <option v-for="d in domains" :key="d" :value="d">{{ et(d) }}</option>
         </select>
       </div>
       <div v-if="tab === 'en'" class="jp-fgroup">
-        <span class="jp-flabel">分区</span>
+        <span class="jp-flabel">{{ et("分区") }}</span>
         <select class="jp-select" :value="q.cas_partition" @change="onCasChange">
-          <option value="">全部</option>
-          <option v-for="p in CAS_OPTIONS" :key="p" :value="p">{{ p }}区</option>
+          <option value="">{{ et("全部") }}</option>
+          <option v-for="p in CAS_OPTIONS" :key="p" :value="p">{{ p }}{{ et("区") }}</option>
         </select>
       </div>
-      <button v-if="hasFilter" class="jp-clear" type="button" @click="clearFilters">清除筛选</button>
+      <button v-if="hasFilter" class="jp-clear" type="button" @click="clearFilters">{{ et("清除筛选") }}</button>
     </div>
 
     <!-- ERROR：directory 三态独立于 journals；reviewErrorMessage 已映射 -->
     <div v-if="edu.directoryStatus === 'error'" class="jp-state" role="alert">
-      <p class="jp-state-msg">{{ edu.directoryError }}</p>
-      <button class="jp-retry" type="button" @click="retry">重试</button>
+      <p class="jp-state-msg">{{ et(edu.directoryError) }}</p>
+      <button class="jp-retry" type="button" @click="retry">{{ et("重试") }}</button>
     </div>
 
     <!-- LOADING：骨架行 -->
     <div v-else-if="edu.directoryStatus === 'loading'" class="jp-state" aria-busy="true">
       <div class="jp-skel-head"></div>
       <div v-for="n in 6" :key="n" class="jp-skel-row"></div>
-      <p class="jp-state-msg">期刊目录加载中…</p>
+      <p class="jp-state-msg">{{ et("期刊目录加载中…") }}</p>
     </div>
 
     <!-- 空态 A：未导入（data_imported=false，HTTP 200 优雅降级路径） -->
     <div v-else-if="edu.directoryMeta && edu.directoryMeta.data_imported === false" class="jp-state">
-      <p class="jp-state-msg">目录数据未导入（需先运行 review_service/scripts/import_journals.py）</p>
+      <p class="jp-state-msg">{{ et("目录数据未导入（需先运行 review_service/scripts/import_journals.py）") }}</p>
     </div>
 
     <!-- 空态 B：有筛选 → 无匹配（≠ 无数据） -->
     <div v-else-if="!edu.directory.length && hasFilter" class="jp-state">
-      <p class="jp-state-msg">无匹配结果，可清除筛选后重试</p>
-      <button class="jp-retry" type="button" @click="clearFilters">清除筛选</button>
+      <p class="jp-state-msg">{{ et("无匹配结果，可清除筛选后重试") }}</p>
+      <button class="jp-retry" type="button" @click="clearFilters">{{ et("清除筛选") }}</button>
     </div>
 
     <!-- 空态 C：兜底（已导入但整表为空） -->
     <div v-else-if="!edu.directory.length" class="jp-state">
-      <p class="jp-state-msg">暂无期刊数据</p>
+      <p class="jp-state-msg">{{ et("暂无期刊数据") }}</p>
     </div>
 
     <!-- READY + 表格（写交互 = 筛选/排序重查 + 分页 + 行展开；en/zh 各 5 列，末列官网） -->
     <table v-else class="jp-table">
       <thead>
         <tr v-if="tab === 'en'">
-          <th class="jp-th-sort jp-c-name" :class="{ on: activeSort.field === 'name' }" @click="toggleSort('name')">
-            期刊名 <span class="jp-arrow">{{ arrow('name') }}</span>
+          <th class="jp-th-sort jp-c-name" :class="{ on: activeSort.field === 'name' }" @click="toggleSort('name')">{{ et(" 期刊名 ") }}<span class="jp-arrow">{{ arrow('name') }}</span>
           </th>
-          <th class="jp-th-sort jp-c-dir" :class="{ on: activeSort.field === 'research_direction' }" @click="toggleSort('research_direction')">
-            研究方向 <span class="jp-arrow">{{ arrow('research_direction') }}</span>
+          <th class="jp-th-sort jp-c-dir" :class="{ on: activeSort.field === 'research_direction' }" @click="toggleSort('research_direction')">{{ et(" 研究方向 ") }}<span class="jp-arrow">{{ arrow('research_direction') }}</span>
           </th>
-          <th class="jp-th-sort jp-c-part" :class="{ on: activeSort.field === 'cas_partition' }" @click="toggleSort('cas_partition')">
-            分区 <span class="jp-arrow">{{ arrow('cas_partition') }}</span>
+          <th class="jp-th-sort jp-c-part" :class="{ on: activeSort.field === 'cas_partition' }" @click="toggleSort('cas_partition')">{{ et(" 分区 ") }}<span class="jp-arrow">{{ arrow('cas_partition') }}</span>
           </th>
           <th class="jp-th-sort jp-c-jif" :class="{ on: activeSort.field === 'jif' }" @click="toggleSort('jif')">
             JIF <span class="jp-arrow">{{ arrow('jif') }}</span>
           </th>
-          <th class="jp-c-url">官网</th>
+          <th class="jp-c-url">{{ et("官网") }}</th>
         </tr>
         <tr v-else>
-          <th class="jp-th-sort jp-c-name" :class="{ on: activeSort.field === 'name' }" @click="toggleSort('name')">
-            期刊名 <span class="jp-arrow">{{ arrow('name') }}</span>
+          <th class="jp-th-sort jp-c-name" :class="{ on: activeSort.field === 'name' }" @click="toggleSort('name')">{{ et(" 期刊名 ") }}<span class="jp-arrow">{{ arrow('name') }}</span>
           </th>
-          <th class="jp-th-sort jp-c-dir" :class="{ on: activeSort.field === 'research_direction' }" @click="toggleSort('research_direction')">
-            研究方向 <span class="jp-arrow">{{ arrow('research_direction') }}</span>
+          <th class="jp-th-sort jp-c-dir" :class="{ on: activeSort.field === 'research_direction' }" @click="toggleSort('research_direction')">{{ et(" 研究方向 ") }}<span class="jp-arrow">{{ arrow('research_direction') }}</span>
           </th>
-          <th class="jp-th-sort jp-c-comp" :class="{ on: activeSort.field === 'composite_impact_factor' }" @click="toggleSort('composite_impact_factor')">
-            复合IF <span class="jp-arrow">{{ arrow('composite_impact_factor') }}</span>
+          <th class="jp-th-sort jp-c-comp" :class="{ on: activeSort.field === 'composite_impact_factor' }" @click="toggleSort('composite_impact_factor')">{{ et(" 复合IF ") }}<span class="jp-arrow">{{ arrow('composite_impact_factor') }}</span>
           </th>
-          <th class="jp-th-sort jp-c-compr" :class="{ on: activeSort.field === 'comprehensive_impact_factor' }" @click="toggleSort('comprehensive_impact_factor')">
-            综合IF <span class="jp-arrow">{{ arrow('comprehensive_impact_factor') }}</span>
+          <th class="jp-th-sort jp-c-compr" :class="{ on: activeSort.field === 'comprehensive_impact_factor' }" @click="toggleSort('comprehensive_impact_factor')">{{ et(" 综合IF ") }}<span class="jp-arrow">{{ arrow('comprehensive_impact_factor') }}</span>
           </th>
-          <th class="jp-c-url">官网</th>
+          <th class="jp-c-url">{{ et("官网") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -274,9 +269,9 @@ onUnmounted(() => clearTimeout(searchTimer));
             <!-- en：期刊名 / 研究方向 / 分区 / JIF(年) / 官网 -->
             <template v-if="tab === 'en'">
               <td class="jp-name jp-c-name">{{ j.name }}</td>
-              <td class="jp-c-dir">{{ j.research_direction || '—' }}</td>
+              <td class="jp-c-dir">{{ et(j.research_direction || '—') }}</td>
               <td class="jp-part jp-c-part">{{ j.cas_partition || '—' }}</td>
-              <td class="jp-num jp-c-jif" :title="j.jif_note || ''">
+              <td class="jp-num jp-c-jif" :title="et(j.jif_note || '')">
                 {{ fmtIf(j.jif, j.jif_year) }}
               </td>
               <td class="jp-c-url">
@@ -287,8 +282,8 @@ onUnmounted(() => clearTimeout(searchTimer));
             <!-- zh：期刊名 / 研究方向 / 复合IF(统计年) / 综合IF / 官网 -->
             <template v-else>
               <td class="jp-name jp-c-name">{{ j.name }}</td>
-              <td class="jp-c-dir">{{ j.research_direction || '—' }}</td>
-              <td class="jp-num jp-c-comp" :title="j.jif_note || ''">{{ fmtIf(j.composite_impact_factor, j.metric_year) }}</td>
+              <td class="jp-c-dir">{{ et(j.research_direction || '—') }}</td>
+              <td class="jp-num jp-c-comp" :title="et(j.jif_note || '')">{{ fmtIf(j.composite_impact_factor, j.metric_year) }}</td>
               <td class="jp-num jp-c-compr">{{ fmt(j.comprehensive_impact_factor) }}</td>
               <td class="jp-c-url">
                 <a v-if="j.official_url" class="jp-link" :href="j.official_url" target="_blank" rel="noopener" @click.stop>{{ shortUrl(j.official_url) }}</a>
@@ -302,78 +297,75 @@ onUnmounted(() => clearTimeout(searchTimer));
               <!-- en 详情：年份/状态/凭证链接 -->
               <div v-if="tab === 'en'" class="jp-xp">
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">分区年</span><span class="jp-xp-val">{{ fmt(j.cas_partition_year) }}</span>
-                  <span class="jp-xp-label">JIF年</span><span class="jp-xp-val">{{ fmt(j.jif_year) }}</span>
-                  <span class="jp-xp-label">JIF核对状态</span><span class="jp-xp-val" :class="checkCls(j.jif_check_status, JIF_OK)">{{ j.jif_check_status || '—' }}</span>
-                  <span class="jp-xp-label">Top</span><span class="jp-xp-val">{{ j.top_flag || '—' }}</span>
+                  <span class="jp-xp-label">{{ et("分区年") }}</span><span class="jp-xp-val">{{ fmt(j.cas_partition_year) }}</span>
+                  <span class="jp-xp-label">{{ et("JIF年") }}</span><span class="jp-xp-val">{{ fmt(j.jif_year) }}</span>
+                  <span class="jp-xp-label">{{ et("JIF核对状态") }}</span><span class="jp-xp-val" :class="checkCls(j.jif_check_status, JIF_OK)">{{ et(j.jif_check_status || '—') }}</span>
+                  <span class="jp-xp-label">Top</span><span class="jp-xp-val">{{ et(j.top_flag || '—') }}</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">官网核对</span><span class="jp-xp-val" :class="checkCls(j.official_check_status, URL_OK)">{{ j.official_check_status || '—' }}</span>
-                  <span class="jp-xp-label">JCR发布年</span><span class="jp-xp-val">{{ fmt(j.jcr_release_year) }}</span>
+                  <span class="jp-xp-label">{{ et("官网核对") }}</span><span class="jp-xp-val" :class="checkCls(j.official_check_status, URL_OK)">{{ et(j.official_check_status || '—') }}</span>
+                  <span class="jp-xp-label">{{ et("JCR发布年") }}</span><span class="jp-xp-val">{{ fmt(j.jcr_release_year) }}</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">出版系列</span><span class="jp-xp-val">{{ j.publisher_series || '—' }}</span>
-                  <span class="jp-xp-label">期刊标记</span><span class="jp-xp-val">{{ j.journal_mark || '—' }}</span>
-                  <span class="jp-xp-label">文章类型</span><span class="jp-xp-val">{{ j.article_type || '—' }}</span>
+                  <span class="jp-xp-label">{{ et("出版系列") }}</span><span class="jp-xp-val">{{ et(j.publisher_series || '—') }}</span>
+                  <span class="jp-xp-label">{{ et("期刊标记") }}</span><span class="jp-xp-val">{{ et(j.journal_mark || '—') }}</span>
+                  <span class="jp-xp-label">{{ et("文章类型") }}</span><span class="jp-xp-val">{{ et(j.article_type || '—') }}</span>
                 </div>
                 <div class="jp-xp-group">
                   <span class="jp-xp-label">ISSN</span>
                   <span class="jp-xp-val jp-mono">{{ j.issn || '—' }}<template v-if="j.eissn"> · eISSN {{ j.eissn }}</template></span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">JCR学科</span>
-                  <span v-for="d in j.jcr_disciplines || []" :key="d" class="jp-chip on">{{ d }}</span>
+                  <span class="jp-xp-label">{{ et("JCR学科") }}</span>
+                  <span v-for="d in j.jcr_disciplines || []" :key="d" class="jp-chip on">{{ et(d) }}</span>
                   <span v-if="!(j.jcr_disciplines || []).length" class="jp-dash">—</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">来源</span>
+                  <span class="jp-xp-label">{{ et("来源") }}</span>
                   <template v-if="j.jif_source_url">
-                    <a class="jp-link" :href="j.jif_source_url" target="_blank" rel="noopener" @click.stop>
-                      JIF来源：{{ shortUrl(j.jif_source_url) }}
+                    <a class="jp-link" :href="j.jif_source_url" target="_blank" rel="noopener" @click.stop>{{ et(" JIF来源：") }}{{ shortUrl(j.jif_source_url) }}
                     </a>
-                    <span class="jp-src-note">（汇编镜像，官方入口需机构订阅）</span>
+                    <span class="jp-src-note">{{ et("（汇编镜像，官方入口需机构订阅）") }}</span>
                   </template>
-                  <span v-else class="jp-dash">JIF来源：无</span>
-                  <span class="jp-src-note">分区来源：{{ j.partition_source_note }}</span>
+                  <span v-else class="jp-dash">{{ et("JIF来源：无") }}</span>
+                  <span class="jp-src-note">{{ et("分区来源：") }}{{ et(j.partition_source_note) }}</span>
                 </div>
               </div>
               <!-- zh 详情：年报口径指标 + 不可混排黄字 -->
               <div v-else class="jp-xp">
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">复合IF</span><span class="jp-xp-val jp-mono">{{ fmt(j.composite_impact_factor) }}</span>
-                  <span class="jp-xp-label">综合IF</span><span class="jp-xp-val jp-mono">{{ fmt(j.comprehensive_impact_factor) }}</span>
-                  <span class="jp-xp-label">统计年</span><span class="jp-xp-val">{{ fmt(j.metric_year) }}</span>
+                  <span class="jp-xp-label">{{ et("复合IF") }}</span><span class="jp-xp-val jp-mono">{{ fmt(j.composite_impact_factor) }}</span>
+                  <span class="jp-xp-label">{{ et("综合IF") }}</span><span class="jp-xp-val jp-mono">{{ fmt(j.comprehensive_impact_factor) }}</span>
+                  <span class="jp-xp-label">{{ et("统计年") }}</span><span class="jp-xp-val">{{ fmt(j.metric_year) }}</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">年报版本</span><span class="jp-xp-val">{{ j.metric_report_year ? `${j.metric_report_year}版` : '—' }}</span>
-                  <span class="jp-xp-label">年报页码</span><span class="jp-xp-val">{{ j.annual_report_page ? `第${j.annual_report_page}页` : '—' }}</span>
-                  <span class="jp-xp-label">核对状态</span><span class="jp-xp-val" :class="checkCls(j.jif_check_status, JIF_OK)">{{ j.jif_check_status || '—' }}</span>
+                  <span class="jp-xp-label">{{ et("年报版本") }}</span><span class="jp-xp-val">{{ et(j.metric_report_year ? `${j.metric_report_year}版` : '—') }}</span>
+                  <span class="jp-xp-label">{{ et("年报页码") }}</span><span class="jp-xp-val">{{ et(j.annual_report_page ? `第${j.annual_report_page}页` : '—') }}</span>
+                  <span class="jp-xp-label">{{ et("核对状态") }}</span><span class="jp-xp-val" :class="checkCls(j.jif_check_status, JIF_OK)">{{ et(j.jif_check_status || '—') }}</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">官网核对</span><span class="jp-xp-val" :class="checkCls(j.official_check_status, URL_OK)">{{ j.official_check_status || '—' }}</span>
+                  <span class="jp-xp-label">{{ et("官网核对") }}</span><span class="jp-xp-val" :class="checkCls(j.official_check_status, URL_OK)">{{ et(j.official_check_status || '—') }}</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">指标口径</span><span class="jp-xp-val">{{ j.metric_caliber || '—' }}</span>
+                  <span class="jp-xp-label">{{ et("指标口径") }}</span><span class="jp-xp-val">{{ et(j.metric_caliber || '—') }}</span>
                 </div>
                 <div class="jp-xp-group">
-                  <span class="jp-xp-label">来源</span>
+                  <span class="jp-xp-label">{{ et("来源") }}</span>
                   <template v-if="j.data_source_url">
-                    <a class="jp-link" :href="j.data_source_url" target="_blank" rel="noopener" @click.stop>
-                      年报原页：{{ shortUrl(j.data_source_url) }}
+                    <a class="jp-link" :href="j.data_source_url" target="_blank" rel="noopener" @click.stop>{{ et(" 年报原页：") }}{{ shortUrl(j.data_source_url) }}
                     </a>
-                    <span class="jp-src-note">（国内自然科学期刊年报 2025 版）</span>
+                    <span class="jp-src-note">{{ et("（国内自然科学期刊年报 2025 版）") }}</span>
                   </template>
-                  <span v-else class="jp-dash">年报原页：无</span>
+                  <span v-else class="jp-dash">{{ et("年报原页：无") }}</span>
                   <template v-if="j.jif_source_url">
-                    <a class="jp-link" :href="j.jif_source_url" target="_blank" rel="noopener" @click.stop>
-                      JIF来源：{{ shortUrl(j.jif_source_url) }}
+                    <a class="jp-link" :href="j.jif_source_url" target="_blank" rel="noopener" @click.stop>{{ et(" JIF来源：") }}{{ shortUrl(j.jif_source_url) }}
                     </a>
-                    <span class="jp-src-note">（汇编镜像，官方入口需机构订阅）</span>
+                    <span class="jp-src-note">{{ et("（汇编镜像，官方入口需机构订阅）") }}</span>
                   </template>
-                  <span v-else class="jp-dash">JIF来源：无</span>
-                  <span class="jp-src-note">分区来源：{{ j.partition_source_note }}</span>
+                  <span v-else class="jp-dash">{{ et("JIF来源：无") }}</span>
+                  <span class="jp-src-note">{{ et("分区来源：") }}{{ et(j.partition_source_note) }}</span>
                 </div>
-                <p class="jp-xp-note">⚠ 国内IF与JIF统计源不同，不可混排</p>
+                <p class="jp-xp-note">{{ et("⚠ 国内IF与JIF统计源不同，不可混排") }}</p>
               </div>
             </td>
           </tr>
@@ -383,19 +375,15 @@ onUnmounted(() => clearTimeout(searchTimer));
 
     <!-- 分页（后端分页；total 超过 size 才显示） -->
     <footer v-if="edu.directoryStatus === 'ready' && totalPages > 1" class="jp-pager">
-      <button class="jp-page-btn" type="button" :disabled="q.page <= 1" @click="gotoPage(q.page - 1)">‹ 上一页</button>
-      <span class="jp-page-info">第 {{ q.page }} / {{ totalPages }} 页</span>
-      <button class="jp-page-btn" type="button" :disabled="q.page >= totalPages" @click="gotoPage(q.page + 1)">下一页 ›</button>
-      <label class="jp-page-jump">
-        跳至
-        <input v-model="jumpInput" class="jp-page-input" type="number" min="1" :max="totalPages" @change="jumpPage">
-        页
-      </label>
-      <span class="jp-page-size">每页 {{ q.size }} 条</span>
+      <button class="jp-page-btn" type="button" :disabled="q.page <= 1" @click="gotoPage(q.page - 1)">{{ et("‹ 上一页") }}</button>
+      <span class="jp-page-info">{{ et("第 ") }}{{ q.page }} / {{ totalPages }}{{ et(" 页") }}</span>
+      <button class="jp-page-btn" type="button" :disabled="q.page >= totalPages" @click="gotoPage(q.page + 1)">{{ et("下一页 ›") }}</button>
+      <label class="jp-page-jump">{{ et(" 跳至 ") }}<input v-model="jumpInput" class="jp-page-input" type="number" min="1" :max="totalPages" @change="jumpPage">{{ et(" 页 ") }}</label>
+      <span class="jp-page-size">{{ et("每页 ") }}{{ q.size }}{{ et(" 条") }}</span>
     </footer>
 
     <!-- 底部数据源声明（表C 长版，拍板决策3；双 Tab 统一） -->
-    <p class="jp-foot">{{ FOOT_NOTE }}</p>
+    <p class="jp-foot">{{ et(FOOT_NOTE) }}</p>
   </section>
 </template>
 

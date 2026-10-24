@@ -1,3 +1,4 @@
+import {useT,translate,type Lang} from '../i18n';
 import {useEffect,useRef,useState} from 'react';
 import {BookOpen,MessageSquareText,Search,Send,Plus,RefreshCw,Trash2} from 'lucide-react';
 import './CloudKnowledgeView.css';
@@ -8,14 +9,23 @@ export function sourceUrl(source:Source):string|null{
  const candidate=source.url||(source.doi?'https://doi.org/'+source.doi:source.pmid?'https://pubmed.ncbi.nlm.nih.gov/'+source.pmid+'/':'');
  try{const u=new URL(candidate);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}
 }
-export function sourcesText(sources:Source[]):string{return sources.map((s,i)=>[`${i+1}. ${s.title||'文献'}`,s.snippet,s.doi&&`DOI: ${s.doi}`,s.pmid&&`PMID: ${s.pmid}`,sourceUrl(s)].filter(Boolean).join('\n')).join('\n\n');}
-export function messageText(message:Message):string{return [message.text,...(message.blocks||[]).map(b=>sourcesText(b.items||[]))].filter(Boolean).join('\n\n');}
-function CopyButton({text,label}:{text:string;label:string}){
- const [status,setStatus]=useState('');
- return <><button type="button" className="btn btn-ghost knowledge-copy" onClick={async()=>{try{await navigator.clipboard.writeText(text);setStatus('已复制');}catch{setStatus('复制失败，请选中文字复制');}}}>{label}</button>{status&&<span role="status" className="knowledge-copy-status">{status}</span>}</>;
+export function sourcesText(sources:Source[],lang:Lang='zh'):string{return sources.map((s,i)=>[`${i+1}. ${s.title||translate(lang,'文献')}`,s.snippet,s.doi&&`DOI: ${s.doi}`,s.pmid&&`PMID: ${s.pmid}`,sourceUrl(s)].filter(Boolean).join('\n')).join('\n\n');}
+// Only app-authored search status is localized; source passages and model answers stay intact.
+export function messageBody(message:Message,lang:Lang='zh'):string{
+ const text=message.text||'';
+ const searchStatus=message.role==='assistant'&&(message.blocks||[]).some(b=>b.type==='sources')&&(/^找到 \d+ 条文献来源。$/.test(text)||text==='暂未找到相关文献，可调整关键词后重试。');
+ return searchStatus?translate(lang,text):text;
 }
-function Sources({sources}:{sources:Source[]}){return <div className="flex flex-col gap-2 mt-3"><CopyButton text={sourcesText(sources)} label="复制检索结果"/>{sources.map((s,i)=><div className="p-3 rounded border" key={s.id||i}><strong>{s.title||s.doi||`文献 ${i+1}`}</strong>{s.snippet&&<p className="text-sm whitespace-pre-wrap mt-1">{s.snippet}</p>}{(s.doi||s.pmid)&&<p className="text-xs mt-1">{s.doi?`DOI: ${s.doi}`:`PMID: ${s.pmid}`}</p>}{sourceUrl(s)&&<button className="btn btn-ghost mt-1" onClick={()=>void window.biodsh.openExternal(sourceUrl(s)!).catch(()=>window.alert('链接无法打开，请稍后重试'))}>查看来源</button>}<CopyButton text={sourcesText([s])} label="复制文献"/></div>)}</div>;}
+export function messageText(message:Message,lang:Lang='zh'):string{return [messageBody(message,lang),...(message.blocks||[]).map(b=>sourcesText(b.items||[],lang))].filter(Boolean).join('\n\n');}
+function CopyButton({text,label}:{text:string;label:string}){
+ const {t,lang}=useT();
+ const [status,setStatus]=useState('');
+ return <><button type="button" className="btn btn-ghost knowledge-copy" onClick={async()=>{try{await navigator.clipboard.writeText(text);setStatus('已复制');}catch{setStatus('复制失败，请选中文字复制');}}}>{label}</button>{status&&<span role="status" className="knowledge-copy-status">{t(status)}</span>}</>;
+}
+function Sources({sources}:{sources:Source[]}){
+ const {t,lang}=useT();return <div className="flex flex-col gap-2 mt-3"><CopyButton text={sourcesText(sources,lang)} label={t("复制检索结果")}/>{sources.map((s,i)=><div className="p-3 rounded border" key={s.id||i}><strong>{s.title||s.doi||t('文献 {n}',{n:i+1})}</strong>{s.snippet&&<p className="text-sm whitespace-pre-wrap mt-1">{s.snippet}</p>}{(s.doi||s.pmid)&&<p className="text-xs mt-1">{s.doi?`DOI: ${s.doi}`:`PMID: ${s.pmid}`}</p>}{sourceUrl(s)&&<button className="btn btn-ghost mt-1" onClick={()=>void window.biodsh.openExternal(sourceUrl(s)!).catch(()=>window.alert(t('链接无法打开，请稍后重试')))}>{t("查看来源")}</button>}<CopyButton text={sourcesText([s],lang)} label={t("复制文献")}/></div>)}</div>;}
 export default function CloudKnowledgeView(){
+ const {t,lang}=useT();
  const [sessions,setSessions]=useState<Session[]>([]),[selected,setSelected]=useState<string|null>(null),[messages,setMessages]=useState<Message[]>([]);
  const [question,setQuestion]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[unsaved,setUnsaved]=useState<{id:string;answer:Message}|null>(null);
  const [activeRequest,setActiveRequest]=useState<string|null>(null);const requestRef=useRef<string|null>(null);
@@ -27,7 +37,7 @@ export default function CloudKnowledgeView(){
  async function newSession(){
   if(pending.current||unsaved)return;
   pending.current=true;setBusy(true);setError('');const revision=++version.current;
-  try{const session=cloudSession(await call('create',{title:'新问答 '+new Date().toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})}));
+  try{const session=cloudSession(await call('create',{title:t('新问答 ')+new Date().toLocaleString(lang==='en'?'en-US':'zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})}));
    if(alive.current&&revision===version.current){setSelected(session.id);setMessages([]);setQuestion('');setSessions(prev=>[session,...prev.filter(s=>s.id!==session.id)]);void refresh();}
   }catch{if(alive.current)setError('新建问答失败，请重试；原会话已保留');}
   finally{pending.current=false;if(alive.current){setBusy(false);setTimeout(()=>questionInput.current?.focus(),0);}}
@@ -71,27 +81,27 @@ export default function CloudKnowledgeView(){
   finally{pending.current=false;if(alive.current)setBusy(false);}
  }
  async function remove(){if(!selected||pending.current)return;pending.current=true;setBusy(true);setError('');try{await call('delete',{id:selected});if(alive.current){setSelected(null);setMessages([]);setUnsaved(null);void refresh();}}catch(e){if(alive.current)setError(String(e).slice(0,160));}finally{pending.current=false;if(alive.current)setBusy(false);}}
- return <section className="knowledge-page" aria-label="知识库问答">
+ return <section className="knowledge-page" aria-label={t("知识库问答")}>
  <header className="knowledge-header">
-  <div className="knowledge-brand"><span className="knowledge-brand-icon"><BookOpen size={23}/></span><div><h1>文献知识库问答</h1><p>查找研究依据，让每个回答都有文献可循。</p></div></div>
-  <div className="knowledge-session-bar"><label className="knowledge-session-picker"><span>历史问答</span><select className="field" aria-label="知识库会话" value={selected||''} disabled={busy||!!unsaved} onChange={e=>e.target.value&&void select(e.target.value)}><option value="">新会话</option>{sessions.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select></label><button className="btn btn-tint" disabled={busy||!!unsaved} onClick={()=>void newSession()}><Plus size={16}/>新建问答</button><button className="btn btn-ghost knowledge-icon-button" aria-label="刷新会话" title="刷新会话" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={16}/></button><button className="btn btn-ghost knowledge-icon-button" aria-label="删除会话" title="删除会话" disabled={busy||!selected} onClick={()=>void remove()}><Trash2 size={16}/></button></div>
+  <div className="knowledge-brand"><span className="knowledge-brand-icon"><BookOpen size={23}/></span><div><h1>{t("文献知识库问答")}</h1><p>{t("查找研究依据，让每个回答都有文献可循。")}</p></div></div>
+  <div className="knowledge-session-bar"><label className="knowledge-session-picker"><span>{t("历史问答")}</span><select className="field" aria-label={t("知识库会话")} value={selected||''} disabled={busy||!!unsaved} onChange={e=>e.target.value&&void select(e.target.value)}><option value="">{t("新会话")}</option>{sessions.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select></label><button className="btn btn-tint" disabled={busy||!!unsaved} onClick={()=>void newSession()}><Plus size={16}/>{t("新建问答")}</button><button className="btn btn-ghost knowledge-icon-button" aria-label={t("刷新会话")} title={t("刷新会话")} disabled={busy} onClick={()=>void refresh()}><RefreshCw size={16}/></button><button className="btn btn-ghost knowledge-icon-button" aria-label={t("删除会话")} title={t("删除会话")} disabled={busy||!selected} onClick={()=>void remove()}><Trash2 size={16}/></button></div>
  </header>
- <div className="knowledge-results" ref={resultArea} role="region" aria-label="问答结果" tabIndex={0}>
+ <div className="knowledge-results" ref={resultArea} role="region" aria-label={t("问答结果")} tabIndex={0}>
   <div className="knowledge-thread">
-   {!messages.length&&<div className="knowledge-empty"><span className="knowledge-empty-icon"><MessageSquareText size={32}/></span><h2>从一个科研问题开始</h2><p>输入研究问题获取文献支持的回答，或只检索相关文献。</p><div className="knowledge-suggestions">{['水稻 SPL 基因家族有哪些主要功能？','单细胞 RNA-seq 分析常用哪些质控方法？','如何查找植物抗逆相关研究？'].map(example=><button type="button" key={example} disabled={busy||!!unsaved} onClick={()=>{setQuestion(example);setError('');questionInput.current?.focus();}}><Search size={14}/><span>{example}</span></button>)}</div></div>}
-   {messages.map((m,i)=><article className={'knowledge-message '+(m.role==='user'?'knowledge-message-user':'knowledge-message-answer')} key={m.id||i}><div className="knowledge-message-heading">{m.role==='user'?<MessageSquareText size={16}/>:<BookOpen size={16}/>}<strong>{m.role==='user'?'我的问题':'知识库回答'}</strong><CopyButton text={messageText(m)} label={m.role==='user'?'复制问题':'复制回答和来源'}/></div><KnowledgeMarkdown text={m.text||''}/>{m.blocks?.map((b,j)=>{const sources=b.items||[];return sources.length?<details className="knowledge-sources" key={j}><summary>参考文献（{sources.length}）</summary><Sources sources={sources}/></details>:null;})}</article>)}
+   {!messages.length&&<div className="knowledge-empty"><span className="knowledge-empty-icon"><MessageSquareText size={32}/></span><h2>{t("从一个科研问题开始")}</h2><p>{t("输入研究问题获取文献支持的回答，或只检索相关文献。")}</p><div className="knowledge-suggestions">{[t('水稻 SPL 基因家族有哪些主要功能？'),t('单细胞 RNA-seq 分析常用哪些质控方法？'),t('如何查找植物抗逆相关研究？')].map(example=><button type="button" key={example} disabled={busy||!!unsaved} onClick={()=>{setQuestion(example);setError('');questionInput.current?.focus();}}><Search size={14}/><span>{example}</span></button>)}</div></div>}
+   {messages.map((m,i)=><article className={'knowledge-message '+(m.role==='user'?'knowledge-message-user':'knowledge-message-answer')} key={m.id||i}><div className="knowledge-message-heading">{m.role==='user'?<MessageSquareText size={16}/>:<BookOpen size={16}/>}<strong>{m.role==='user'?t('我的问题'):t('知识库回答')}</strong><CopyButton text={messageText(m,lang)} label={m.role==='user'?t('复制问题'):t('复制回答和来源')}/></div><KnowledgeMarkdown text={messageBody(m,lang)}/>{m.blocks?.map((b,j)=>{const sources=b.items||[];return sources.length?<details className="knowledge-sources" key={j}><summary>{t('参考文献（{n}）',{n:sources.length})}</summary><Sources sources={sources}/></details>:null;})}</article>)}
   </div>
  </div>
  <footer className="knowledge-composer-area">
   <div className="knowledge-composer-inner">
-   {unsaved&&<div className="knowledge-notice"><p role="status">回答已显示，但保存失败。请重试保存，或复制需要的内容后再放弃保存。退出账号或关闭软件会丢失未保存回答。</p><button className="btn" disabled={busy} onClick={()=>void retrySave()}>重试保存</button><button className="btn" disabled={busy} onClick={()=>{if(window.confirm('确认放弃保存这条回答？请先复制需要的内容。'))setUnsaved(null);}}>放弃保存</button></div>}
-   {error&&<p role={error==='已取消本次查询'?'status':'alert'} className={error==='已取消本次查询'?'knowledge-footnote':'knowledge-error'}>{error}</p>}
+   {unsaved&&<div className="knowledge-notice"><p role="status">{t("回答已显示，但保存失败。请重试保存，或复制需要的内容后再放弃保存。退出账号或关闭软件会丢失未保存回答。")}</p><button className="btn" disabled={busy} onClick={()=>void retrySave()}>{t("重试保存")}</button><button className="btn" disabled={busy} onClick={()=>{if(window.confirm(t('确认放弃保存这条回答？请先复制需要的内容。')))setUnsaved(null);}}>{t("放弃保存")}</button></div>}
+   {error&&<p role={error==='已取消本次查询'?'status':'alert'} className={error==='已取消本次查询'?'knowledge-footnote':'knowledge-error'}>{t(error.replace(/^Error:\s*/,''))}</p>}
    <form className="knowledge-composer" onSubmit={e=>{e.preventDefault();void ask(false);}}>
-    <label htmlFor="knowledge-question">科研问题</label>
-    <textarea ref={questionInput} id="knowledge-question" rows={2} maxLength={8000} value={question} disabled={busy||!!unsaved} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229){e.preventDefault();void ask(false);}}} placeholder="输入科研问题或文献关键词…"/>
-    <div className="knowledge-composer-actions"><div className="knowledge-submit-buttons"><button type="button" className="btn btn-fill" title="只查找文献来源，不生成问答内容" disabled={busy||!!unsaved||!question.trim()} onClick={()=>void ask(true)}><Search size={15}/>仅检索文献</button>{activeRequest?<button type="button" className="btn btn-primary" onClick={stop}>中止</button>:<button type="submit" className="btn btn-primary" title="检索文献并生成回答" disabled={busy||!!unsaved||!question.trim()}><Send size={15}/>{busy?'正在处理，请稍候…':'提问'}</button>}</div></div>
+    <label htmlFor="knowledge-question">{t("科研问题")}</label>
+    <textarea ref={questionInput} id="knowledge-question" rows={2} maxLength={8000} value={question} disabled={busy||!!unsaved} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229){e.preventDefault();void ask(false);}}} placeholder={t("输入科研问题或文献关键词…")}/>
+    <div className="knowledge-composer-actions"><div className="knowledge-submit-buttons"><button type="button" className="btn btn-fill" title={t("只查找文献来源，不生成问答内容")} disabled={busy||!!unsaved||!question.trim()} onClick={()=>void ask(true)}><Search size={15}/>{t("仅检索文献")}</button>{activeRequest?<button type="button" className="btn btn-primary" onClick={stop}>{t("中止")}</button>:<button type="submit" className="btn btn-primary" title={t("检索文献并生成回答")} disabled={busy||!!unsaved||!question.trim()}><Send size={15}/>{busy?t('正在处理，请稍候…'):t('提问')}</button>}</div></div>
    </form>
-   <p className="knowledge-footnote">每个问题独立检索，会话保存问答历史。引用前请展开参考文献核对原文。</p>
+   <p className="knowledge-footnote">{t("每个问题独立检索，会话保存问答历史。引用前请展开参考文献核对原文。")}</p>
   </div>
  </footer>
  </section>;

@@ -13,6 +13,7 @@
       （27 条静态种子，成本可忽略，保证筛选 UI 与列表一致）。
      空态文案：「暂无可投会议，或数据待核验」。样式 cl- 前缀。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, onMounted, ref } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -70,8 +71,8 @@ const isPlaceholder = (c) => c.deadline_source === 'placeholder';
 const CONF_LABEL = { high: '高', medium: '中', low: '低' };
 const confLabel = (v) => CONF_LABEL[String(v || '').toLowerCase()] || '—';
 const confTitle = (v) =>
-  `日期未经官方核验；置信度：${confLabel(v)}` +
-  '（请以会议官网公布的日期为准）';
+  et(`日期未经官方核验；置信度：${et(confLabel(v))}`) +
+  et('（请以会议官网公布的日期为准）');
 
 /* —— 领域标签族着色：ai=蓝 / bio=绿 / plant=黄 / cross=紫 —— */
 const DOMAIN_FAMILY = {
@@ -91,50 +92,48 @@ const count = computed(() => edu.conferences.length);
   <section class="cl">
     <!-- 头部 -->
     <header class="cl-head">
-      <h1 class="cl-title">会议与投稿日历</h1>
-      <span v-if="edu.conferencesStatus === 'ready'" class="cl-count">共 {{ count }} 个会议</span>
+      <h1 class="cl-title">{{ et("会议与投稿日历") }}</h1>
+      <span v-if="edu.conferencesStatus === 'ready'" class="cl-count">{{ et("共 ") }}{{ count }}{{ et(" 个会议") }}</span>
     </header>
 
     <!-- 时区说明（固定一行）+ 诚实性提示 -->
-    <p class="cl-tz">所有时间按 AoE (UTC-12) 时区 · 未经核验的日期以 ⚠ 标注并附置信度</p>
+    <p class="cl-tz">{{ et("所有时间按 AoE (UTC-12) 时区 · 未经核验的日期以 ⚠ 标注并附置信度") }}</p>
 
     <!-- 筛选栏 -->
     <div class="cl-filters">
       <label class="cl-field">
-        <span class="cl-field-label">领域</span>
+        <span class="cl-field-label">{{ et("领域") }}</span>
         <select v-model="domain" class="cl-select" @change="reload">
-          <option value="">全部领域</option>
-          <option v-for="d in domainOptions" :key="d" :value="d">{{ d }}</option>
+          <option value="">{{ et("全部领域") }}</option>
+          <option v-for="d in domainOptions" :key="d" :value="d">{{ et(d) }}</option>
         </select>
       </label>
       <label class="cl-field">
         <span class="cl-field-label">CCF</span>
         <select v-model="ccf" class="cl-select" @change="reload">
-          <option value="">全部等级</option>
+          <option value="">{{ et("全部等级") }}</option>
           <option v-for="r in CCF_OPTIONS" :key="r" :value="r">CCF-{{ r }}</option>
         </select>
       </label>
       <label class="cl-check">
-        <input v-model="upcomingOnly" type="checkbox" @change="reload" />
-        仅显示最近可投
-      </label>
+        <input v-model="upcomingOnly" type="checkbox" @change="reload" />{{ et(" 仅显示最近可投 ") }}</label>
     </div>
 
     <!-- ERROR -->
     <div v-if="edu.conferencesStatus === 'error'" class="cl-state" role="alert">
-      <p class="cl-state-msg">{{ edu.conferencesError }}</p>
-      <button class="cl-retry" type="button" @click="reload">重试</button>
+      <p class="cl-state-msg">{{ et(edu.conferencesError) }}</p>
+      <button class="cl-retry" type="button" @click="reload">{{ et("重试") }}</button>
     </div>
 
     <!-- LOADING -->
     <div v-else-if="edu.conferencesStatus === 'loading'" class="cl-state" aria-busy="true">
       <div v-for="n in 3" :key="n" class="cl-skel"></div>
-      <p class="cl-state-msg">会议数据加载中…</p>
+      <p class="cl-state-msg">{{ et("会议数据加载中…") }}</p>
     </div>
 
     <!-- READY + 空态 -->
     <div v-else-if="!edu.conferences.length" class="cl-state">
-      <p class="cl-state-msg">暂无可投会议，或数据待核验</p>
+      <p class="cl-state-msg">{{ et("暂无可投会议，或数据待核验") }}</p>
     </div>
 
     <!-- READY + 列表（后端已按 deadline_full_paper 升序） -->
@@ -144,43 +143,42 @@ const count = computed(() => edu.conferences.length);
           <span class="cl-name">{{ c.name }}</span>
           <span v-if="c.ccf_rank" class="cl-chip cl-chip--ccf">CCF-{{ c.ccf_rank }}</span>
           <span class="cl-cd" :class="`cl-cd--${countdown(c.deadline_full_paper).cls}`">
-            {{ countdown(c.deadline_full_paper).text }}
+            {{ et(countdown(c.deadline_full_paper).text) }}
           </span>
-          <span v-if="isPlaceholder(c)" class="cl-chip cl-chip--warn" :title="confTitle(c.deadline_confidence)">
-            ⚠ 日期待核验（置信度：{{ confLabel(c.deadline_confidence) }}）
+          <span v-if="isPlaceholder(c)" class="cl-chip cl-chip--warn" :title="et(confTitle(c.deadline_confidence))">{{ et(" ⚠ 日期待核验（置信度：") }}{{ et(confLabel(c.deadline_confidence)) }}）
           </span>
         </div>
 
         <p class="cl-full">{{ c.full_name }}</p>
 
         <div class="cl-tags">
-          <span v-for="t in c.domain_tags" :key="`d-${t}`" class="cl-chip cl-chip--tag" :class="famClass(t)">{{ t }}</span>
-          <span v-for="t in c.application_tags" :key="`a-${t}`" class="cl-chip cl-chip--tag" :class="appClass(t)">{{ t }}</span>
+          <span v-for="t in c.domain_tags" :key="`d-${t}`" class="cl-chip cl-chip--tag" :class="famClass(t)">{{ et(t) }}</span>
+          <span v-for="t in c.application_tags" :key="`a-${t}`" class="cl-chip cl-chip--tag" :class="appClass(t)">{{ et(t) }}</span>
         </div>
 
         <dl class="cl-meta">
           <div class="cl-meta-item">
-            <dt>截稿（摘要）</dt>
+            <dt>{{ et("截稿（摘要）") }}</dt>
             <dd>{{ day(c.deadline_abstract) }}</dd>
           </div>
           <div class="cl-meta-item">
-            <dt>截稿（全文）</dt>
+            <dt>{{ et("截稿（全文）") }}</dt>
             <dd class="cl-deadline">{{ day(c.deadline_full_paper) }}</dd>
           </div>
           <div class="cl-meta-item">
-            <dt>通知日</dt>
+            <dt>{{ et("通知日") }}</dt>
             <dd>{{ day(c.notification_date) }}</dd>
           </div>
           <div class="cl-meta-item">
-            <dt>会期</dt>
+            <dt>{{ et("会期") }}</dt>
             <dd>{{ c.conference_date || '—' }}</dd>
           </div>
           <div class="cl-meta-item">
-            <dt>地点</dt>
+            <dt>{{ et("地点") }}</dt>
             <dd>{{ c.location || '—' }}</dd>
           </div>
           <div class="cl-meta-item">
-            <dt>官网</dt>
+            <dt>{{ et("官网") }}</dt>
             <dd>
               <a v-if="c.official_url" class="cl-link" :href="c.official_url" target="_blank" rel="noopener">
                 {{ String(c.official_url).replace(/^https?:\/\//, '').replace(/\/$/, '') }}

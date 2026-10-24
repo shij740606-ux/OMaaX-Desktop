@@ -1,4 +1,9 @@
 // 中文 → 英文词典。键就是源码里的中文原文（含 {var} 占位符）。由 i18n 代理生成并维护，人工可改。
+import { SHELL_EN } from './i18n.shell.en';
+import { SCIENCE_EN } from './i18n.science.en';
+import { SERVER_EN } from './i18n.servers.en';
+import { EDUCATION_EN } from './i18n.education.en';
+import { FIGURE_EN } from './i18n.figure.en';
 export const EN: Record<string, string> = {
   "对话模型": "Conversation model",
   "连接方式与访问密钥": "Connection and access key",
@@ -739,4 +744,9 @@ export const EN: Record<string, string> = {
   '对话消耗 · 文献调研': 'Chat usage · Literature review',
   '充值 · 500 万 token': 'Top-up · 5M tokens',
   '新用户赠送': 'New user bonus',
+  ...SCIENCE_EN,
+  ...SERVER_EN,
+  ...EDUCATION_EN,
+  ...SHELL_EN,
+  ...FIGURE_EN,
 };

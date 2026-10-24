@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Plug, Plus, Trash2, Palette, Info, ChevronRight } from 'lucide-react';
 import InfoDot, { useHelp } from '../components/HelpTip';
 export { default as InfoDot } from '../components/HelpTip';
 import AccountView from './AccountView';
 import AboutHelp from './AboutHelp';
+import OmaaxWordmark from '../components/OmaaxWordmark';
 import ModelUsage from '../components/ModelUsage';
 import { ExternalLink, FolderOpen, CreditCard } from 'lucide-react';
 import {useAuth} from '../AuthGate';
@@ -35,7 +36,7 @@ export default function SettingsView({initialPane='account'}:{initialPane?:Setti
           {SETTINGS_PANES.map(({id,label,detail,icon:Icon},index)=><button type="button" role="tab" id={'settings-tab-'+id} aria-selected={pane===id} aria-controls={'settings-pane-'+id} tabIndex={pane===id?0:-1} className={pane===id?'is-active':''} key={id} onClick={()=>setPane(id)} onKeyDown={e=>{let next=index;if(e.key==='ArrowDown')next=(index+1)%SETTINGS_PANES.length;else if(e.key==='ArrowUp')next=(index-1+SETTINGS_PANES.length)%SETTINGS_PANES.length;else if(e.key==='Home')next=0;else if(e.key==='End')next=SETTINGS_PANES.length-1;else return;e.preventDefault();setPane(SETTINGS_PANES[next].id);document.getElementById('settings-tab-'+SETTINGS_PANES[next].id)?.focus();}}><span className="omaax-settings-nav-icon"><Icon size={18}/></span><span><strong>{t(label)}</strong><small>{t(detail)}</small></span><ChevronRight size={14}/></button>)}
         </nav>
         <div className="omaax-settings-panel">
-          {pane==='account'&&<div className="flex flex-col gap-4 p-5" role="tabpanel" id="settings-pane-account" aria-labelledby="settings-tab-account">{!auth.localAccess&&<Section title="当前账号"><div className="flex flex-wrap items-center gap-3"><span>{auth.user?.username}</span>{auth.user?.role==='admin'&&<button className="btn btn-ghost" onClick={()=>void window.biodsh.hubAdmin().catch(e=>window.alert(String(e)))}>管理后台</button>}<button className="btn btn-fill" onClick={()=>void auth.logout?.()}>退出 / 切换账号</button></div></Section>}<ModelUsage/><AccountView embedded/></div>}
+          {pane==='account'&&<div className="flex flex-col gap-4 p-5" role="tabpanel" id="settings-pane-account" aria-labelledby="settings-tab-account">{!auth.localAccess&&<Section title={t("当前账号")}><div className="flex flex-wrap items-center gap-3"><span>{auth.user?.username}</span>{auth.user?.role==='admin'&&<button className="btn btn-ghost" onClick={()=>void window.biodsh.hubAdmin().catch(e=>window.alert(String(e)))}>{t("管理后台")}</button>}<button className="btn btn-fill" onClick={()=>void auth.logout?.()}>{t("退出 / 切换账号")}</button></div></Section>}<ModelUsage/><AccountView embedded/></div>}
           <div className="omaax-settings-content" data-pane="tools" role="tabpanel" id="settings-pane-tools" aria-labelledby="settings-tab-tools" hidden={pane!=='tools'} tabIndex={0}><ImageSection/><McpSection/></div>
           <div className="omaax-settings-content" data-pane="workspace" role="tabpanel" id="settings-pane-workspace" aria-labelledby="settings-tab-workspace" hidden={pane!=='workspace'} tabIndex={0}>          <Section title={t('本机工作目录')} desc={t('本机项目和分析文件的默认保存位置。')} tip={t('可选择本机有权限访问的文件夹。更改位置不会移动已有文件。服务器上的分析文件请在“服务器管理”中查看。')}>
             <div className="flex items-center gap-3">
@@ -58,12 +59,12 @@ export default function SettingsView({initialPane='account'}:{initialPane?:Setti
 
           <Section title={t('语言 / Language')} desc={t('界面与智能体界面一起切换；智能体回答会跟随你提问的语言。')}>
             <div className="seg">
-              {(['system', 'zh', 'en'] as const).map((k) => <button key={k} className={(settings.language ?? 'system') === k ? 'active' : ''} onClick={() => updateSettings({ language: k })}>{{ system: t('跟随系统'), zh: '中文', en: 'English' }[k]}</button>)}
+              {(['system', 'zh', 'en'] as const).map((k) => <button key={k} className={(settings.language ?? 'system') === k ? 'active' : ''} onClick={() => updateSettings({ language: k })}>{{ system: t('跟随系统'), zh: t('中文'), en: 'English' }[k]}</button>)}
             </div>
           </Section>
 
 </div>
-          <div className="omaax-settings-content" data-pane="about" role="tabpanel" id="settings-pane-about" aria-labelledby="settings-tab-about" hidden={pane!=='about'} tabIndex={0}>          <Section title="关于 OMaaX" wide><div className="omaax-wordmark">OMaa<span>X</span></div><p className="t-body mt-2">One Model, Beyond the Max.</p><p className="t-caption mt-2">连接数据、工具与计算资源的智能分析工作台。</p><div className="flex gap-3 mt-4"><button className="btn btn-tint" onClick={()=>info&&window.biodsh.openPath(info.paths.root)}><FolderOpen size={14}/>打开数据目录</button><button className="btn btn-ghost" onClick={()=>updateSettings({onboarded:false})}>使用引导</button></div><details className="mt-4 t-caption"><summary>版本与许可说明</summary><p className="mt-2">OMaaX {info?.version} · 助手组件 {dshVersion}</p><p>基于开源组件构建。原始版权和 MIT 许可证随软件保留。</p><p>应用文件由 OMaaX 管理，可通过“打开数据目录”查看。</p></details><AboutHelp/></Section></div>
+          <div className="omaax-settings-content" data-pane="about" role="tabpanel" id="settings-pane-about" aria-labelledby="settings-tab-about" hidden={pane!=='about'} tabIndex={0}>          <Section title={t("关于 OMaaX")} wide><OmaaxWordmark className="omaax-wordmark--about" /><p className="t-body mt-2">One Model, Beyond the Max.</p><p className="t-caption mt-2">{t("连接数据、工具与计算资源的智能分析工作台。")}</p><div className="flex gap-3 mt-4"><button className="btn btn-tint" onClick={()=>info&&window.biodsh.openPath(info.paths.root)}><FolderOpen size={14}/>{t("打开数据目录")}</button><button className="btn btn-ghost" onClick={()=>updateSettings({onboarded:false})}>{t("使用引导")}</button></div><details className="mt-4 t-caption"><summary>{t("版本与许可说明")}</summary><p className="mt-2">OMaaX {info?.version} · {t("助手组件")} {dshVersion}</p><p>{t("基于开源组件构建。原始版权和 MIT 许可证随软件保留。")}</p><p>{t("应用文件由 OMaaX 管理，可通过“打开数据目录”查看。")}</p></details><AboutHelp/></Section></div>
 
         </div>
       </div>
@@ -121,7 +122,7 @@ function ImageSection() {
   return (
     <Section title={help.title} desc={help.summary} tip={help.detail} wide>
       <div className="omaax-provider-row">
-        {IMAGE_PRESETS.map((p) => <button key={p.name} className={'btn ' + (cur.imageBaseUrl === p.base ? 'btn-tint' : 'btn-ghost')} title={p.hint} onClick={() => setD({ imageBaseUrl: p.base, imageModel: p.model, imageApiKey: cur.imageApiKey })}>{p.name}</button>)}
+        {IMAGE_PRESETS.map((p) => <button key={p.name} className={'btn ' + (cur.imageBaseUrl === p.base ? 'btn-tint' : 'btn-ghost')} title={t(p.hint)} onClick={() => setD({ imageBaseUrl: p.base, imageModel: p.model, imageApiKey: cur.imageApiKey })}>{t(p.name)}</button>)}
       </div>
       <div className="flex flex-col gap-3">
         <label className="omaax-field-label">{t('服务接口地址')}<input className="field t-mono" placeholder="https://…" value={cur.imageBaseUrl} onChange={(e) => setD((x) => ({ ...x, imageBaseUrl: e.target.value }))} /><small>{t('预设会填写示例，请以服务商提供的接口信息为准。')}</small></label>
@@ -131,7 +132,7 @@ function ImageSection() {
         </div>
         <div className="flex items-center gap-3">
           <button className="btn btn-primary" disabled={busy||Object.keys(d).length === 0} onClick={save}>{saved ? t('已保存') : t('保存图像连接')}</button>
-          {error&&<p role="alert">{error}</p>}{settings.imageBaseUrl && <span className="t-caption">{t('已配置：在普通对话中描述需要生成的图片')}</span>}
+          {error&&<p role="alert">{t(error)}</p>}{settings.imageBaseUrl && <span className="t-caption">{t('已配置：在普通对话中描述需要生成的图片')}</span>}
         </div>
       </div>
     </Section>
@@ -155,6 +156,12 @@ function McpSection() {
   const [formRevision,setFormRevision]=useState(0);
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    form.current?.querySelectorAll<HTMLInputElement>('input[data-validation-key]').forEach(input => {
+      if (input.validity.customError) input.setCustomValidity(t(input.dataset.validationKey!));
+    });
+  }, [t]);
   if (!settings) return null;
   const cur = list ?? settings.mcpServers ?? [];
   const set = (next: McpServer[]) => { setList(next); setDirty(true); };
@@ -162,7 +169,7 @@ function McpSection() {
   const save = async () => {setBusy(true);setError('');try {await updateSettings({mcpServers:cur});await restartDsh();setList(null);setDirty(false);}catch {setError('保存或连接失败，请检查名称是否重复、地址和启动参数是否正确后重试');}finally{setBusy(false);}};
   return (
     <Section title={t('外部工具连接（MCP）')} desc={help.summary} tip={help.detail} wide>
-      <form key={formRevision} onSubmit={e=>{e.preventDefault();void save();}}>
+      <form ref={form} key={formRevision} onSubmit={e=>{e.preventDefault();void save();}}>
       <div className="t-caption mb-2">{t('仅添加可信服务。外部工具每次执行需确认，请核对操作及参数；不用于绕过服务器删除保护。')}</div>
       <div className="omaax-connection-presets">
         {MCP_PRESETS.map((p) => (
@@ -194,15 +201,15 @@ function McpSection() {
               ? <label className="omaax-field-label">{t('服务地址')}<input className="field t-mono" placeholder="http://…/mcp" value={m.url ?? ''} onChange={(e) => upd(i, { url: e.target.value })} /></label>
               : <div className="omaax-form-grid">
                   <label className="omaax-field-label">{t('启动程序')}<input className="field t-mono" placeholder={t('例如 uv 或 npx')} value={m.command ?? ''} onChange={(e) => upd(i, { command: e.target.value })} /></label>
-                  <label className="omaax-field-label">{t('启动参数')}<input className="field t-mono" placeholder={t('JSON 数组，例如 ["--port", "3000"]')} defaultValue={JSON.stringify(m.args??[])} onChange={e=>{try{const value=JSON.parse(e.target.value);if(!Array.isArray(value)||!value.every(v=>typeof v==='string'))throw Error();upd(i,{args:value});e.target.setCustomValidity('');}catch{e.target.setCustomValidity('请输入字符串 JSON 数组');e.target.reportValidity();}}} /></label>
+                  <label className="omaax-field-label">{t('启动参数')}<input className="field t-mono" placeholder={t('JSON 数组，例如 ["--port", "3000"]')} data-validation-key="请输入字符串 JSON 数组" defaultValue={JSON.stringify(m.args??[])} onChange={e=>{try{const value=JSON.parse(e.target.value);if(!Array.isArray(value)||!value.every(v=>typeof v==='string'))throw Error();upd(i,{args:value});e.target.setCustomValidity('');}catch{e.target.setCustomValidity(t('请输入字符串 JSON 数组'));e.target.reportValidity();}}} /></label>
                 </div>}
-            {m.transport !== 'streamable-http' && <label className="omaax-field-label">环境变量（JSON 对象）<input className="field t-mono" type="password" autoComplete="off" defaultValue={JSON.stringify(m.env??{})} onChange={e=>{try{const value=JSON.parse(e.target.value);if(!value||Array.isArray(value)||typeof value!=='object'||!Object.values(value).every(v=>typeof v==='string'))throw Error();upd(i,{env:value});e.target.setCustomValidity('');}catch{e.target.setCustomValidity('请输入字符串值的 JSON 对象');}}}/></label>}
+            {m.transport !== 'streamable-http' && <label className="omaax-field-label">{t("环境变量（JSON 对象）")}<input className="field t-mono" type="password" autoComplete="off" data-validation-key="请输入字符串值的 JSON 对象" defaultValue={JSON.stringify(m.env??{})} onChange={e=>{try{const value=JSON.parse(e.target.value);if(!value||Array.isArray(value)||typeof value!=='object'||!Object.values(value).every(v=>typeof v==='string'))throw Error();upd(i,{env:value});e.target.setCustomValidity('');}catch{e.target.setCustomValidity(t('请输入字符串值的 JSON 对象'));}}}/></label>}
           </div>
         ))}
       </div>
       <div className="flex items-center gap-3 mt-3">
         <button type="submit" className="btn btn-primary" disabled={busy||!dirty}>{t('保存工具连接')}</button>
-        <span className="t-caption">{t('保存后会重启助手，使新连接生效。')}</span>{error&&<p role="alert">{error}</p>}
+        <span className="t-caption">{t('保存后会重启助手，使新连接生效。')}</span>{error&&<p role="alert">{t(error)}</p>}
       </div>
     </form></Section>
   );

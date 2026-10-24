@@ -6,6 +6,7 @@ import path from 'node:path';
 import { patchToolcall } from './patch-dsh-toolcall.mjs';
 import { patchSse } from './patch-dsh-sse.mjs';
 import { patchContinuation } from './patch-dsh-continuation.mjs';
+import { patchCompaction } from './patch-dsh-compaction.mjs';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -55,6 +56,7 @@ if (missing.length) {
 rmSync(path.join(dir, 'node_modules', '.bin'), { recursive: true, force: true });
 if (version.startsWith('0.1.')) { patchToolcall(dir); patchSse(dir); }
 patchContinuation(dir);
+patchCompaction(dir);
 // OMaaX 插件沿用官方扩展面；step-guard 仅保留为空的旧配置兼容入口。
 // 把插件包拷进运行时,由 cordis.patch.yml(ensure_home 生成)以 `@biodsh/<name>` 加载。
 for (const p of ['skill-router', 'step-guard', 'workflow-guard', 'auth-guard']) {

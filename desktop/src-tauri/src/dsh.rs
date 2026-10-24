@@ -38,7 +38,7 @@ pub fn set_theme(paths: &AppPaths, theme: &str) {
 
 /// 同步界面语言给 dsh（settings.yaml 的 locale.preference：zh / en；system 则按系统语言）
 pub fn set_locale(paths: &AppPaths, language: &str) {
-    let lang = match language { "en" => "en", "zh" => "zh", _ => if sys_locale_is_zh() { "zh" } else { "en" } };
+    let lang = ui_language(language);
     let f = paths.dsh_home.join("settings.yaml");
     let txt = fs::read_to_string(&f).unwrap_or_default();
     let mut out: Vec<String> = Vec::new();
@@ -51,6 +51,10 @@ pub fn set_locale(paths: &AppPaths, language: &str) {
     out.push("locale:".into());
     out.push(format!("  preference: {lang}"));
     let _ = fs::write(&f, out.join("\n") + "\n");
+}
+
+pub fn ui_language(language: &str) -> &'static str {
+    match language { "en" => "en", "zh" => "zh", _ => if sys_locale_is_zh() { "zh" } else { "en" } }
 }
 
 fn sys_locale_is_zh() -> bool {

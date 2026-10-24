@@ -1,3 +1,4 @@
+import {useT} from '../i18n';
 import {useEffect,useRef,useState} from 'react';
 import Markdown,{type Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -25,9 +26,10 @@ export async function copyKnowledgeImage(data:string){
  await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
 }
 export function KnowledgeImage({src,alt}:{src?:string;alt?:string}){
+ const {t,lang}=useT();
  const [image,setImage]=useState(''),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);
  const [actionBusy,setActionBusy]=useState(false),[notice,setNotice]=useState('');
- async function act(save:boolean){setActionBusy(true);setNotice('');try{if(save){const result=await window.biodsh.cloudQa('save_image',{data:image}) as {saved:boolean};setNotice(result.saved?'图片已保存':'');}else{await copyKnowledgeImage(image);setNotice('图片已复制');}}catch{setNotice(save?'保存失败，请重试':'复制失败，请尝试保存图片');}finally{setActionBusy(false);}}
+ async function act(save:boolean){setActionBusy(true);setNotice('');try{if(save){const result=await window.biodsh.cloudQa('save_image',{data:image,lang}) as {saved:boolean};setNotice(result.saved?'图片已保存':'');}else{await copyKnowledgeImage(image);setNotice('图片已复制');}}catch{setNotice(save?'保存失败，请重试':'复制失败，请尝试保存图片');}finally{setActionBusy(false);}}
  const request=useRef<{key:string;promise:Promise<unknown>}|null>(null);
  const current=useRef('');
  useEffect(()=>{let alive=true;setImage('');setError('');setNotice('');
@@ -42,12 +44,12 @@ export function KnowledgeImage({src,alt}:{src?:string;alt?:string}){
   }).catch(value=>{if(alive)setError(imageError(value));});
   return()=>{alive=false;current.current='';};
  },[src,attempt]);
- return <span className="block my-3">{image?<><img src={image} alt={alt||'文献图片'} className="max-w-full h-auto rounded" onError={()=>{setImage('');setError('图片无法显示，请重试');}}/><span className="flex gap-2 mt-2"><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>void act(false)}>复制图片</button><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>void act(true)}>保存图片</button></span>{notice&&<span role="status">{notice}</span>}</>:error?<span role="status">{error}<button type="button" className="btn ml-2" onClick={()=>setAttempt(v=>v+1)}>重新加载图片</button></span>:<span role="status">正在加载文献图片…</span>}</span>;
+ return <span className="block my-3">{image?<><img src={image} alt={alt||t('文献图片')} className="max-w-full h-auto rounded" onError={()=>{setImage('');setError('图片无法显示，请重试');}}/><span className="flex gap-2 mt-2"><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>void act(false)}>{t("复制图片")}</button><button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={()=>void act(true)}>{t("保存图片")}</button></span>{notice&&<span role="status">{t(notice)}</span>}</>:error?<span role="status">{t(error.replace(/^Error:\s*/,''))}<button type="button" className="btn ml-2" onClick={()=>setAttempt(v=>v+1)}>{t("重新加载图片")}</button></span>:<span role="status">{t("正在加载文献图片…")}</span>}</span>;
 }
 const components:Components={
   img:({src,alt})=><KnowledgeImage src={src} alt={alt}/>,
-  a:({href,children})=>{let safe=false;try{const u=new URL(href||'');safe=['https:','http:'].includes(u.protocol)&&!u.username&&!u.password;}catch{}
-   return safe?<a href={href} className="text-blue-600 underline" onClick={e=>{e.preventDefault();void window.biodsh.openExternal(href!).catch(()=>window.alert('链接无法打开，请稍后重试'));}}>{children}</a>:<span>{children}</span>;},
+  a:function KnowledgeLink({href,children}){const {t}=useT();let safe=false;try{const u=new URL(href||'');safe=['https:','http:'].includes(u.protocol)&&!u.username&&!u.password;}catch{}
+   return safe?<a href={href} className="text-blue-600 underline" onClick={e=>{e.preventDefault();void window.biodsh.openExternal(href!).catch(()=>window.alert(t('链接无法打开，请稍后重试')));}}>{children}</a>:<span>{children}</span>;},
   h1:({children})=><h2 className="text-xl font-semibold my-4">{children}</h2>,
   h2:({children})=><h3 className="text-lg font-semibold my-3">{children}</h3>,
   h3:({children})=><h4 className="font-semibold my-3">{children}</h4>,
@@ -59,5 +61,6 @@ const components:Components={
   pre:({children})=><pre className="overflow-x-auto whitespace-pre bg-gray-100 rounded p-3">{children}</pre>,
 };
 export default function KnowledgeMarkdown({text}:{text:string}){
+
  return <div className="mt-2 break-words leading-relaxed"><Markdown remarkPlugins={[remarkGfm]} skipHtml components={components}>{text}</Markdown></div>;
 }

@@ -1203,14 +1203,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/artifact_schema_profile",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3242,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "bash-run",
@@ -1222,14 +1223,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/bash_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3355,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具属于原项目的内部功能，已停止新增；可直接让 OMaaX 对话助手处理文件和运行任务。"
   },
   {
    "id": "bcftools-call",
@@ -1353,18 +1355,30 @@
    "description": "Summarize interval coverage or overlap counts with bedtools coverage.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/bedtools_coverage",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3398,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/bedtools_coverage/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nbedtools coverage -a {a_intervals} -b {b_features} > {output_tsv}\n```\n\n先核对区间与比对数据的参考基因组版本、坐标约定；按任务选择 split/sorted/counts 参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "bedtools"
+   }
   },
   {
    "id": "bedtools-genomecov",
@@ -1372,18 +1386,30 @@
    "description": "Generate genome coverage profiles with bedtools genomecov from BAM or",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/bedtools_genomecov",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3795,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/bedtools_genomecov/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nbedtools genomecov -ibam {input_bam} -bg > {output_file}\n```\n\n输入 BAM 必须按坐标排序，采用符合输入类型的覆盖模式。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "bedtools"
+   }
   },
   {
    "id": "bedtools-intersect",
@@ -1391,18 +1417,30 @@
    "description": "Intersect two genomic interval sets with bedtools and write the overlap",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/bedtools_intersect",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3832,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/bedtools_intersect/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nbedtools intersect -a {a_intervals} -b {b_intervals} > {output_file}\n```\n\n先核对两个区间文件的参考基因组版本与坐标约定。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "bedtools"
+   }
   },
   {
    "id": "blast-formatter-run",
@@ -1410,18 +1448,30 @@
    "description": "Format a BLAST archive file into tabular, XML, or HTML output.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blast_formatter_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3269,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blast_formatter_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblast_formatter -archive {archive_file} -out {output_file} -outfmt {outfmt}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blast_formatter"
+   }
   },
   {
    "id": "blastdb-aliastool-run",
@@ -1429,18 +1479,30 @@
    "description": "Create an alias BLAST database from one or more existing BLAST databases.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blastdb_aliastool_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3113,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blastdb_aliastool_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblastdb_aliastool -dblist {dblist} -dbtype {dbtype} -out {output_alias}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blastdb_aliastool"
+   }
   },
   {
    "id": "blastdbcheck-run",
@@ -1448,18 +1510,30 @@
    "description": "Verify integrity of a BLAST database or BLAST database directory.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blastdbcheck_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3078,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blastdbcheck_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblastdbcheck -db {database} -dbtype {dbtype}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blastdbcheck"
+   }
   },
   {
    "id": "blastdbcmd-run",
@@ -1467,18 +1541,30 @@
    "description": "Retrieve sequences or metadata from a BLAST database.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blastdbcmd_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4007,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blastdbcmd_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblastdbcmd -db {database} -entry {entry} -out {output_file}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blastdbcmd"
+   }
   },
   {
    "id": "blastn-search",
@@ -1486,18 +1572,30 @@
    "description": "Run BLASTN nucleotide homology search and emit tabular hits.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blastn_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3358,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blastn_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblastn -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blastn, makeblastdb"
+   }
   },
   {
    "id": "blastp-search",
@@ -1505,18 +1603,30 @@
    "description": "Run BLASTP protein homology search and emit tabular hits.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blastp_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3123,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blastp_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblastp -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blastp"
+   }
   },
   {
    "id": "blastx-search",
@@ -1524,18 +1634,30 @@
    "description": "Run BLASTX translated nucleotide-to-protein search and emit tabular hits.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/blastx_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3651,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/blastx_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nblastx -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "blastx, makeblastdb"
+   }
   },
   {
    "id": "bowtie2-align",
@@ -1543,18 +1665,30 @@
    "description": "Align short-read DNA sequencing reads with Bowtie2 and produce indexed",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/bowtie2_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3791,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/bowtie2_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nbowtie2 -x {index_base} -1 {reads_1} -2 {reads_2} -p {threads} | samtools sort -@ {threads} -o {output_bam} -\n```\n\n先验证索引与样本单双端；输出采用新 BAM 路径，检查管道每段退出码。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "bowtie2, bowtie2-build, samtools"
+   }
   },
   {
    "id": "bwa-mem-align",
@@ -1562,18 +1696,30 @@
    "description": "Align short-read DNA sequencing reads with BWA-MEM and produce indexed",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/bwa_mem_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4525,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/bwa_mem_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nbwa mem -t {threads} {reference_fasta} {reads_1} {reads_2} | samtools sort -@ {threads} -o {output_bam} -\n```\n\n先验证 BWA 索引与参考匹配；输出采用新 BAM 路径，检查管道每段退出码。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "bwa, samtools"
+   }
   },
   {
    "id": "cellranger-count",
@@ -1581,18 +1727,30 @@
    "description": "Run 10x Cell Ranger gene-expression counting pipeline.",
    "category": "single-cell",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/cellranger_count",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3198,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/cellranger_count/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ncellranger count --id={run_id} --transcriptome={transcriptome_ref} --fastqs={fastq_dir} --sample={sample_name}\n```\n\n需用户可使用的 Cell Ranger 安装、兼容参考和实际样本文库设计；不随技能下载发行商业软件。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "cellranger"
+   }
   },
   {
    "id": "cnv-cnvkit-style",
@@ -1604,14 +1762,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/cnv_cnvkit_style",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3087,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "cutadapt-run",
@@ -1619,18 +1778,30 @@
    "description": "Trim sequencing adapters from FASTQ reads with Cutadapt.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/cutadapt_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 5651,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/cutadapt_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ncutadapt -a {adapter_3prime_r1} -o {output_reads_1} {reads_1}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "cutadapt"
+   }
   },
   {
    "id": "deltablast-search",
@@ -1638,18 +1809,30 @@
    "description": "Run DELTA-BLAST protein search and emit tabular hits.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/deltablast_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3510,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/deltablast_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ndeltablast -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n需准备合适的 RPS/保守结构域数据库及目标 BLAST 数据库，并按当前程序帮助指定。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "deltablast, makeblastdb"
+   }
   },
   {
    "id": "deseq2-run",
@@ -1661,14 +1844,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/deseq2_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4249,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "dexseq-run",
@@ -1680,14 +1864,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/dexseq_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3429,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "edger-run",
@@ -1699,14 +1884,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/edger_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3805,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "fallback-skill-builder",
@@ -1718,14 +1904,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/fallback_skill_builder",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4766,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "fastp-run",
@@ -1733,18 +1920,30 @@
    "description": "Trim adapters and low-quality bases from FASTQ reads with fastp.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/fastp_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 6435,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/fastp_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nfastp -i {reads_1} -o {output_reads_1}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "fastp"
+   }
   },
   {
    "id": "fastqc-run",
@@ -1756,14 +1955,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/fastqc_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4299,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "featurecounts-run",
@@ -1775,14 +1975,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/featurecounts_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 5043,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "flye-assemble",
@@ -1790,18 +1991,30 @@
    "description": "Assemble long reads with Flye.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/flye_assemble",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3289,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/flye_assemble/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nflye --{read_mode} {reads_fastq} --threads {threads} --out-dir {output_dir} --genome-size {genome_size}\n```\n\nread_mode 必须来自当前安装版本支持的选项，并由实际测序平台和数据质量决定。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "flye"
+   }
   },
   {
    "id": "freebayes-call",
@@ -1813,33 +2026,46 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/freebayes_call",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3718,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "fusion-star-fusion-style",
    "name": "fusion_star_fusion_style",
-   "description": "Run STAR-Fusion-style fusion transcript detection with deterministic",
+   "description": "Detect fusion transcripts using STAR-Fusion and its required reference library.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/fusion_star_fusion_style",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3332,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/fusion_star_fusion_style/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nSTAR-Fusion --genome_lib_dir {genome_lib_dir} --left_fq {reads_1} --right_fq {reads_2} --CPU {threads} --output_dir {output_dir}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "STAR-Fusion"
+   }
   },
   {
    "id": "gatk-haplotypecaller",
@@ -1847,18 +2073,30 @@
    "description": "Call germline SNPs/indels with GATK HaplotypeCaller.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/gatk_haplotypecaller",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3008,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/gatk_haplotypecaller/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ngatk HaplotypeCaller -R {reference_fasta} -I {input_bam} -O {output_vcf}\n```\n\n先核对 BAM 排序/索引、read groups、参考和序列字典；调用、联合分型与过滤分别报告，不能混为完成。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "gatk"
+   }
   },
   {
    "id": "gatk-mutect2-call",
@@ -1866,18 +2104,30 @@
    "description": "Call somatic variants with GATK Mutect2 (tumor-only or tumor-normal mode).",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/gatk_mutect2_call",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3692,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/gatk_mutect2_call/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ngatk Mutect2 -R {reference_fasta} -I {tumor_bam} -tumor {tumor_sample} -O {output_vcf}\n```\n\n先核对样本 RG/SM、参考、肿瘤/正常设计、版本和所需资源；Mutect2 原始调用不等于已完成 FilterMutectCalls。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "gatk"
+   }
   },
   {
    "id": "hisat2-align",
@@ -1885,18 +2135,30 @@
    "description": "Align reads to genome/transcriptome using HISAT2.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/hisat2_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3590,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/hisat2_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nhisat2 -x {index_base} -1 {reads_1} -2 {reads_2} -p {threads} -S {output_sam}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "hisat2"
+   }
   },
   {
    "id": "hmmscan-search",
@@ -1904,18 +2166,30 @@
    "description": "Run HMMER hmmscan for protein domain annotation against an HMM database.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/hmmscan_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 2964,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/hmmscan_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nhmmscan --cpu {threads} --tblout {output_tbl} {hmm_db} {query_fasta} > {output_txt}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "hmmscan"
+   }
   },
   {
    "id": "immune-repertoire-mixcr-style",
@@ -1927,14 +2201,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/immune_repertoire_mixcr_style",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 2995,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "kallisto-quant",
@@ -1942,18 +2217,30 @@
    "description": "Quantify transcript abundance with kallisto pseudoalignment.",
    "category": "transcriptomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/kallisto_quant",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3586,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/kallisto_quant/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nkallisto quant -i {index_path} -o {output_dir} -t {threads} {reads_1} {reads_2}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "kallisto"
+   }
   },
   {
    "id": "limma-voom-run",
@@ -1965,14 +2252,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/limma_voom_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3788,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "macs2-atacseq-callpeak",
@@ -1984,14 +2272,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/macs2_atacseq_callpeak",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3002,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "macs2-chipseq-callpeak",
@@ -1999,18 +2288,30 @@
    "description": "Call ChIP-seq peaks with MACS2/3 callpeak mode.",
    "category": "epigenomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/macs2_chipseq_callpeak",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3089,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/macs2_chipseq_callpeak/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nmacs2 callpeak -t {treatment_bam} -c {control_bam} -f BAM -g {genome_size} -n {name} --outdir {output_dir}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "macs2"
+   }
   },
   {
    "id": "mafft-align",
@@ -2018,18 +2319,30 @@
    "description": "Align multiple nucleotide or protein sequences with MAFFT.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/mafft_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 2883,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/mafft_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nmafft --auto --thread {threads} {input_fasta} > {output_fasta}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "mafft"
+   }
   },
   {
    "id": "majiq-run",
@@ -2041,14 +2354,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/majiq_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3251,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "makeblastdb-run",
@@ -2056,18 +2370,30 @@
    "description": "Build a nucleotide or protein BLAST database from a FASTA file.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/makeblastdb_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3303,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/makeblastdb_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nmakeblastdb -in {input_fasta} -input_type {input_type} -dbtype {dbtype} -out {output_prefix}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "makeblastdb"
+   }
   },
   {
    "id": "makeprofiledb-run",
@@ -2075,18 +2401,30 @@
    "description": "Build an RPS, DELTA, or COBALT profile database for domain-aware BLAST",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/makeprofiledb_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3646,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/makeprofiledb_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nmakeprofiledb -in {input_list} -out {output_prefix} -dbtype {dbtype}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "makeprofiledb"
+   }
   },
   {
    "id": "metabolomics-diff-abundance",
@@ -2098,14 +2436,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/metabolomics_diff_abundance",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 6161,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "metagenomics-kraken2-bracken-style",
@@ -2117,33 +2456,46 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/metagenomics_kraken2_bracken_style",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 5405,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "methylation-bismark-style",
    "name": "methylation_bismark_style",
-   "description": "Run Bismark-style bisulfite methylation analysis with deterministic degrade",
+   "description": "Align bisulfite sequencing reads with Bismark for methylation analysis.",
    "category": "epigenomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/methylation_bismark_style",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3780,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/methylation_bismark_style/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nbismark --genome_folder {genome_folder} -1 {reads_1} -2 {reads_2} --parallel {threads} --basename {sample_name} -o {output_dir}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "bismark"
+   }
   },
   {
    "id": "minimap2-align",
@@ -2151,18 +2503,30 @@
    "description": "Align long-read (or mixed) sequencing reads with minimap2 and produce",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/minimap2_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3724,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/minimap2_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nminimap2 -ax {preset} -t {threads} {reference_fasta} {reads} | samtools sort -@ {threads} -o {output_bam} -\n```\n\npreset 必须由实际测序平台和任务确定；输出采用新 BAM 路径，检查管道每段退出码。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "minimap2, samtools"
+   }
   },
   {
    "id": "multiqc-report",
@@ -2174,33 +2538,46 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/multiqc_report",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 2945,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "phylogenetics-iqtree-style",
    "name": "phylogenetics_iqtree_style",
-   "description": "Run IQ-TREE-style phylogenetic inference with deterministic fallback",
+   "description": "Infer maximum-likelihood phylogenetic trees from aligned sequences using IQ-TREE.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/phylogenetics_iqtree_style",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3555,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/phylogenetics_iqtree_style/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\niqtree -s {alignment_fasta} -m {model} -T {threads} -seed {seed} -pre {output_prefix}\n```\n\n读取当前 IQ-TREE 版本帮助确认可执行名称与参数。使用新的结果前缀，不添加 -redo；模型和支持度方法按分析设计明确选择。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "iqtree"
+   }
   },
   {
    "id": "prodigal-annotate",
@@ -2212,14 +2589,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/prodigal_annotate",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3840,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "prokka-annotate",
@@ -2227,18 +2605,30 @@
    "description": "Annotate prokaryotic assemblies with Prokka.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/prokka_annotate",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4018,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/prokka_annotate/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nprokka --outdir {output_dir} --prefix {sample_prefix} {input_fasta}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "prokka"
+   }
   },
   {
    "id": "proteomics-diff-abundance",
@@ -2250,14 +2640,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/proteomics_diff_abundance",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 6116,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "psiblast-search",
@@ -2265,18 +2656,30 @@
    "description": "Run PSI-BLAST iterative protein-to-protein search and emit tabular hits.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/psiblast_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3655,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/psiblast_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\npsiblast -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "psiblast, makeblastdb"
+   }
   },
   {
    "id": "quarto-report",
@@ -2288,14 +2691,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/quarto_report",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 2891,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "rmats-run",
@@ -2307,14 +2711,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/rmats_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3765,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "rpsblast-search",
@@ -2322,18 +2727,30 @@
    "description": "Run RPS-BLAST protein-to-domain search and emit tabular hits.",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/rpsblast_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3349,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/rpsblast_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nrpsblast -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "rpsblast"
+   }
   },
   {
    "id": "rpstblastn-search",
@@ -2341,18 +2758,30 @@
    "description": "Run RPSTBLASTN translated nucleotide-to-domain search and emit tabular",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/rpstblastn_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3490,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/rpstblastn_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nrpstblastn -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "rpstblastn"
+   }
   },
   {
    "id": "salmon-quant",
@@ -2360,18 +2789,30 @@
    "description": "Quantify transcript abundance with Salmon quasi-mapping.",
    "category": "transcriptomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/salmon_quant",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4037,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/salmon_quant/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsalmon quant -i {index_dir} -l {library_type} -1 {reads_1} -2 {reads_2} --validateMappings -p {threads} -o {output_dir}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "salmon"
+   }
   },
   {
    "id": "samtools-flagstat",
@@ -2379,18 +2820,30 @@
    "description": "Compute alignment summary counts from BAM or CRAM with samtools flagstat.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/samtools_flagstat",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 2772,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/samtools_flagstat/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsamtools flagstat -@ {threads} {input_bam} > {output_txt}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "samtools"
+   }
   },
   {
    "id": "samtools-idxstats",
@@ -2398,18 +2851,30 @@
    "description": "Report per-reference mapped and unmapped read counts with samtools idxstats.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/samtools_idxstats",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 2577,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/samtools_idxstats/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsamtools idxstats {input_bam} > {output_tsv}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "samtools"
+   }
   },
   {
    "id": "samtools-stats",
@@ -2417,18 +2882,30 @@
    "description": "Compute detailed alignment statistics from BAM or CRAM with samtools",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/samtools_stats",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 2889,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/samtools_stats/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsamtools stats -@ {threads} {input_bam} > {output_txt}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "samtools"
+   }
   },
   {
    "id": "sc-count-and-cluster",
@@ -2440,14 +2917,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/sc_count_and_cluster",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4735,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "scanpy-workflow",
@@ -2459,14 +2937,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/scanpy_workflow",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4756,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "seurat-rscript-workflow",
@@ -2478,14 +2957,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/seurat_rscript_workflow",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 3209,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "shared-variants-export-run",
@@ -2497,14 +2977,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/shared_variants_export_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4245,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "sniffles-sv-call",
@@ -2512,18 +2993,30 @@
    "description": "Call structural variants from aligned long-read BAM or CRAM data with",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/sniffles_sv_call",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3813,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/sniffles_sv_call/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsniffles --input {input_bam} --vcf {output_vcf} --reference {reference_fasta} --threads {threads}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "sniffles, samtools"
+   }
   },
   {
    "id": "snpeff-annotate",
@@ -2531,18 +3024,30 @@
    "description": "Annotate variants with predicted functional impact via SnpEff.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/snpeff_annotate",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4648,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/snpeff_annotate/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsnpEff {genome_db} {input_vcf} > {output_vcf}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "snpeff"
+   }
   },
   {
    "id": "spades-assemble",
@@ -2550,18 +3055,30 @@
    "description": "Assemble short-read genomes/transcriptomes with SPAdes.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/spades_assemble",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4133,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/spades_assemble/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nspades.py -1 {reads_1} -2 {reads_2} -t {threads} -m {memory_gb} -o {output_dir}\n```\n\n默认模板不包含模式开关；根据样本类型单独选择模式，不能把 --meta、--careful 和 --isolate 全部叠加。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "spades.py"
+   }
   },
   {
    "id": "spatial-transcriptomics-workflow",
@@ -2573,14 +3090,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/spatial_transcriptomics_workflow",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 5212,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "star-2pass-align",
@@ -2588,18 +3106,30 @@
    "description": "Run STAR two-pass alignment mode for improved novel junction detection.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/star_2pass_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4539,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/star_2pass_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nSTAR --runMode alignReads --twopassMode Basic --runThreadN {threads} --genomeDir {genome_dir} --readFilesIn {reads_1} {reads_2} --readFilesCommand zcat --outFileNamePrefix {output_prefix}\n```\n\n按实际 reads 压缩格式决定 readFilesCommand；核对索引版本与参考，使用独立输出目录。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "star"
+   }
   },
   {
    "id": "star-align",
@@ -2607,18 +3137,30 @@
    "description": "Align RNA-seq reads to reference genome using STAR.",
    "category": "transcriptomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/star_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4400,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/star_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nSTAR --runThreadN {threads} --genomeDir {genome_dir} --readFilesIn {reads_1} {reads_2} --readFilesCommand zcat --outFileNamePrefix {output_prefix}\n```\n\n按实际 reads 压缩格式决定 readFilesCommand；核对索引版本与参考。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "star"
+   }
   },
   {
    "id": "star-solo-count",
@@ -2630,14 +3172,15 @@
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/star_solo_count",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
    "files": 2,
    "size": 4584,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "unavailableReason": "此工具需要原项目的配套组件或完整分析说明，暂不提供新增；已添加的文件仍保留。"
   },
   {
    "id": "stringtie-quant",
@@ -2645,18 +3188,30 @@
    "description": "Quantify expression from aligned RNA-seq BAMs with StringTie.",
    "category": "transcriptomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/stringtie_quant",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4332,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/stringtie_quant/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nstringtie {input_bam} -G {annotation_gtf} -o {output_gtf} -A {gene_abundance_tsv} -p {threads}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "stringtie, samtools"
+   }
   },
   {
    "id": "subread-align",
@@ -2664,18 +3219,30 @@
    "description": "Align paired-end reads with the Subread suite using Subjunc/Subread and",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/subread_align",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 4101,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/subread_align/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsubread-buildindex -o {index_base} {reference_fasta} && subjunc -T {threads} -i {index_base} -r {reads_1} -R {reads_2} -o {output_bam}\n```\n\n索引建立到新的可写工作目录；已有索引可直接复用，勿无条件覆盖。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "subread, samtools"
+   }
   },
   {
    "id": "tabix-index-run",
@@ -2683,18 +3250,30 @@
    "description": "Build one tabix index for a bgzipped genomic file as a single atomic",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/tabix_index_run",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 2987,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/tabix_index_run/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ntabix -p {preset} {input_file}\n```\n\n输入需为按坐标排序的 BGZF 文件。索引写在输入旁；若为登记的原始数据路径，先复制到可写工作目录再索引。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "tabix"
+   }
   },
   {
    "id": "tblastn-search",
@@ -2702,18 +3281,30 @@
    "description": "Run TBLASTN protein-to-translated-nucleotide search and emit tabular",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/tblastn_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3513,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/tblastn_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ntblastn -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "tblastn, makeblastdb"
+   }
   },
   {
    "id": "tblastx-search",
@@ -2721,18 +3312,30 @@
    "description": "Run TBLASTX translated nucleotide-to-translated-nucleotide search and",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/tblastx_search",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3992,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/tblastx_search/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\ntblastx -query {query_fasta} -db {database} -out {output_tsv} -outfmt {outfmt} -num_threads {threads} -evalue {evalue}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "tblastx, makeblastdb"
+   }
   },
   {
    "id": "trinity-assemble",
@@ -2740,18 +3343,30 @@
    "description": "Assemble transcriptomes de novo with Trinity.",
    "category": "general",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/trinity_assemble",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3190,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/trinity_assemble/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nTrinity --seqType fq --left {reads_1} --right {reads_2} --CPU {threads} --max_memory {max_memory_gb}G --output {output_dir}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "trinity"
+   }
   },
   {
    "id": "varscan-call",
@@ -2759,18 +3374,30 @@
    "description": "Call germline variants from a BAM using VarScan2 mpileup2cns.",
    "category": "genomics",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/varscan_call",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 3453,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/varscan_call/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nsamtools mpileup -f {reference_fasta} {input_bam} | varscan mpileup2cns --output-vcf 1 > {output_vcf}\n```\n\n检查当前程序帮助、输入格式、样本设计以及数据库/索引是否匹配，按实际任务调整参数。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "samtools, varscan, java"
+   }
   },
   {
    "id": "vep-annotate",
@@ -2778,18 +3405,30 @@
    "description": "Annotate variants with Ensembl VEP using either offline cache/database",
    "category": "database",
    "tags": [],
-   "version": "1.0.0",
+   "version": "1.0.1",
    "author": "",
    "origin": {
     "repo": "BioHarness",
-    "url": "https://github.com/coco11563/BioHarness",
+    "url": "https://github.com/jared-richardson/BioHarness",
     "path": "bio_harness/skills/catalog/vep_annotate",
-    "license": "MIT"
+    "license": "MIT",
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a"
    },
    "has_scripts": false,
-   "files": 2,
-   "size": 5022,
-   "unavailableReason": "上游已移除原工具目录，已暂停添加；请使用同类可用工具。"
+   "files": 1,
+   "size": 0,
+   "modelInvocable": true,
+   "sourceGuide": {
+    "revision": "d76a05dbf288b65d296d699a335002c58e9b698a",
+    "files": [
+     "bio_harness/skills/catalog/vep_annotate/SKILL.md"
+    ],
+    "licenseFiles": [
+     "LICENSE"
+    ],
+    "instructions": "此工具是 OMaaX 的命令行操作指南。references 中的上游文档用于参数和输入输出参考；其 typed contract、wrapper 或专属 harness 并未安装，不能调用这些内部接口或沿用它们的审批要求。根据任务选择本地或已连接服务器，先检查实际软件、版本、输入、参考文件与依赖；缺失环境由模型配置，不能把添加指南等同于装好软件。\n\n将以下模板中的占位符替换为真实值并按实际输入调整可选参数，路径使用适合当前shell的引用，绝不可原样执行占位符：\n```text\nvep --cache --offline --assembly {assembly} -i {input_vcf} -o {output_vcf} --vcf\n```\n\noffline 模式必须先准备与 VEP 版本和参考组装一致的 cache；不能仅凭技能添加成功宣称注释环境已就绪。\n\n正式分析仍通过 OMaaX 内置固定流程；指南用于环境准备、参数选择和结果核验，不能创建绕过固定流程的另一个入口。登记的原始数据保持只读，输出使用新的可写目录。保留日志、检查真实退出状态和结果文件后再报告成功。\n\n真实性要求：缺少软件、依赖或参考数据库时，必须先配置环境；仍无法解决就如实报告错误并说明未完成。上游文档提到的 fallback、模拟输出、空占位结果或占位树仅作历史参考，禁止生成或使用它们冒充真实分析结果；不能仅因文件存在或命令正常退出就宣称分析成功。",
+    "requirements": "vep"
+   }
   },
   {
    "id": "instrument-data-to-allotrope",
@@ -6919,10 +7558,64 @@
     "url": "https://github.com/ClawBio/ClawBio",
     "path": "skills/fine-mapping",
     "license": "MIT",
-    "revision": "dc83a8c4451f56cca28408084958be80dcef5283"
+    "revision": "dc83a8c4451f56cca28408084958be80dcef5283",
+    "manifest": {
+     "files": [
+      {
+       "path": "SKILL.md",
+       "sha": "c742984270922de5146ce77cbcec0fc335ba93d3"
+      },
+      {
+       "path": "fine_mapping.py",
+       "sha": "5434e872ed979cd892766c8e1f277e9a1d269499"
+      },
+      {
+       "path": "fine_mapping_core/__init__.py",
+       "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+       "path": "fine_mapping_core/abf.py",
+       "sha": "4281aa2efc286d4e641c7b44d41be2b67365b06c"
+      },
+      {
+       "path": "fine_mapping_core/credible_sets.py",
+       "sha": "d3eb867268b9cc026fb971ddc836deda80283549"
+      },
+      {
+       "path": "fine_mapping_core/io.py",
+       "sha": "9c2737eb0e7bf41c0bb0a54212c30f04381c8892"
+      },
+      {
+       "path": "fine_mapping_core/report.py",
+       "sha": "537e6747b67402ef0cdf29548f4e557e3b354072"
+      },
+      {
+       "path": "fine_mapping_core/susie.py",
+       "sha": "eef606a50100dee026b2312b7c618519cc839592"
+      },
+      {
+       "path": "fine_mapping_core/susie_inf.py",
+       "sha": "3d774a8c461a2cae8613597137287d04d7fc4a6c"
+      },
+      {
+       "path": "tests/fixtures/demo_susie_known_answer.json",
+       "sha": "a00a470bd71a890ba2e5daf1a4969eb638ea2ffe"
+      },
+      {
+       "path": "tests/test_fine_mapping.py",
+       "sha": "ed2e4a5fd70c3098c968adad37d8130c2e57b11e"
+      }
+     ],
+     "licenses": [
+      {
+       "path": "LICENSE",
+       "sha": "e62ffe0245ee80a595286c0562372452f5fc9263"
+      }
+     ]
+    }
    },
    "has_scripts": true,
-   "files": 10,
+   "files": 11,
    "size": 119078
   },
   {

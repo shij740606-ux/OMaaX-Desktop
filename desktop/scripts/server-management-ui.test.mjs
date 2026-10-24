@@ -23,7 +23,11 @@ function harness(api){
    if(name.endsWith('.css'))return {};if(name==='react')return React;if(name==='react/jsx-runtime')return realRequire(name);
    if(name==='lucide-react')return new Proxy({},{get:(_,key)=>key==='__esModule'?false:()=>null});
    if(name.endsWith('/store'))return {useApp:()=>({currentSession:'test-dialogue',setTab:()=>{}})};
-   if(name.endsWith('/i18n'))return {useT:()=>({t:value=>value})};
+   if(name.endsWith('/i18n')){
+    // Exercise the Chinese UI contract, including parameter interpolation used by live localization.
+    const t=(value,vars={})=>value.replace(/\{(\w+)\}/g,(token,key)=>Object.hasOwn(vars,key)?String(vars[key]):token);
+    return {useT:()=>({lang:'zh',t}),translate:(_lang,value,vars)=>t(value,vars)};
+   }
    if(name.startsWith('.')){const p=path.resolve(path.dirname(file),name);return load(['','.ts','.tsx'].map(e=>p+e).find(p=>fs.existsSync(p)));}
    throw Error('Unexpected dependency '+name);
   };

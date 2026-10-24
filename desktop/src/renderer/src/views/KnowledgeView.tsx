@@ -77,8 +77,8 @@ export default function KnowledgeView() {
       const rows = await window.biodsh.knowledgeSearch([selectedId], question.trim()); setCitations(rows); setError('');
       if (send) {
         if (!currentSession) throw new Error(t('请先新建或打开一个对话'));
-        const context = rows.slice(0, 8).map((row, index) => `[资料${index + 1}] ${row.documentName}${row.page ? `，第 ${row.page} 页` : ''}\n${row.content}`).join('\n\n');
-        const content = `${question.trim()}\n\n请优先根据以下知识库原文回答，并在结论后标注[资料编号]；资料不足时明确说明。\n\n${context}`;
+        const context = rows.slice(0, 8).map((row, index) => `${t('[资料{n}]',{n:index+1})} ${row.documentName}${row.page ? `, ${t('第 {page} 页',{page:row.page})}` : ''}\n${row.content}`).join('\n\n');
+        const content = `${question.trim()}\n\n${t('请优先根据以下知识库原文回答，并在结论后标注[资料编号]；资料不足时明确说明。')}\n\n${context}`;
         await window.biodsh.dshRpc('session.prompt', { sessionId: currentSession, mode: 'queue', content: [{ type: 'text', text: content }] });
         setTab('chat');
       }
@@ -95,12 +95,12 @@ export default function KnowledgeView() {
           <div className="seg self-start"><button className={mode === 'local' ? 'active' : ''} onClick={() => { setMode('local'); if (!url.trim() || url === settings?.ragflowUrl) setUrl('http://127.0.0.1:9380'); }}>{t('本机解析')}</button><button className={mode === 'server' ? 'active' : ''} onClick={() => { setMode('server'); if (url === 'http://127.0.0.1:9380') setUrl(''); }}>{t('服务器解析')}</button></div>
           <div className="t-caption">{mode === 'local' ? t('使用本机 RAGFlow，原文件和索引保留在当前电脑。') : t('文件上传到服务器，由服务器完成文档解析和向量计算。')}</div>
           <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-          <label className="t-caption">{t('RAGFlow 服务器地址')}<input className="field mt-1 w-full" placeholder="http://服务器地址:9380" value={url} onChange={(e) => setUrl(e.target.value)} /></label>
+          <label className="t-caption">{t('RAGFlow 服务器地址')}<input className="field mt-1 w-full" placeholder={t("http://服务器地址:9380")} value={url} onChange={(e) => setUrl(e.target.value)} /></label>
           <label className="t-caption">{t('RAGFlow API 密钥')}<input className="field mt-1 w-full" type="password" placeholder={credential.masked ?? 'ragflow-...'} value={key} onChange={(e) => setKey(e.target.value)} /></label>
           <button className="btn btn-primary" disabled={busy === 'config' || !url.trim()} onClick={() => void configure()}>{busy === 'config' && <Loader2 size={14} className="spin" />}{t('连接')}</button>
           </div>
         </div>
-        {error && <div className="card p-3 t-caption" style={{ color: 'var(--red)' }}>{error}</div>}
+        {error && <div className="card p-3 t-caption" style={{ color: 'var(--red)' }}>{t(error.replace(/^Error:\s*/,''))}</div>}
         <div className="grid lg:grid-cols-[280px_1fr] gap-4 min-h-[560px]">
           <aside className="card p-3 flex flex-col gap-2">
             <div className="flex items-center gap-2"><BookOpen size={16} /><span className="t-headline flex-1">{t('我的知识库')}</span><button className="p-1" onClick={() => void load()}><RefreshCw size={14} /></button></div>

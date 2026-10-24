@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { syncLanguage, useT } from './i18n';
 import type { AppSettings, CatalogSkill, CredentialStatus, DshStatus, EnvStatus, PlatformSession, SkillStatus } from '@shared/types';
 
 export type Tab = 'drawing' | 'chat' | 'knowledge' | 'data' | 'workflows' | 'db' | 'hosts' | 'tasks' | 'servers' | 'store' | 'account' | 'education' | 'env' | 'settings';
@@ -40,11 +41,13 @@ export const useApp = () => useContext(Ctx)!;
 const emptyEnv: EnvStatus = { ready: false, step: 'idle', message: '', progress: 0, log: [] };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useT();
   const api = window.biodsh;
   const [ready, setReady] = useState(false);
   const [loadError,setLoadError]=useState(false);
   const [info, setInfo] = useState<AppState['info']>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  useEffect(() => { if (settings) syncLanguage(settings.language ?? 'system'); }, [settings?.language]);
   const [platform, setPlatform] = useState<PlatformSession>({ authenticated: false, projects: [] });
   const [credential, setCredential] = useState<CredentialStatus>({ hasKey: false });
   const [env, setEnv] = useState<EnvStatus>(emptyEnv);
@@ -129,7 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={{ ready, info, settings, platform, credential, env, dsh, catalog, statuses, busy, tab, setTab, overlay, pushOverlay, popOverlay, currentSession, setCurrentSession, refresh, updateSettings, platformLogin, platformLogout, refreshPlatform, saveKey, installEnv, startDsh, restartDsh, install, uninstall }}>
-      {loadError?<div role="alert" className="h-full flex flex-col items-center justify-center gap-4"><p>暂时无法加载工作空间，请检查连接后重试。</p><button className="btn btn-primary" onClick={()=>void refresh()}>重新加载</button></div>:children}
+      {loadError?<div role="alert" className="h-full flex flex-col items-center justify-center gap-4"><p>{t('暂时无法加载工作空间，请检查连接后重试。')}</p><button className="btn btn-primary" onClick={()=>void refresh()}>{t('重新加载')}</button></div>:children}
     </Ctx.Provider>
   );
 }

@@ -388,8 +388,8 @@ nav > [draggable] > .nav-item { width: 100%; }
 @media(max-width:650px) {.omaax-settings-topbar{padding:16px 125px 16px 18px;gap:8px}.omaax-settings-layout{flex-direction:column}.omaax-settings-nav{display:flex;gap:5px;width:100%;overflow-x:auto;padding:10px;flex-shrink:0}.omaax-settings-nav>button{white-space:nowrap;width:auto;margin:0;padding:7px 10px;flex-shrink:0}.omaax-settings-nav small,.omaax-settings-nav-note,.omaax-settings-nav>button>svg{display:none}.omaax-settings-nav-icon{width:20px;height:22px}.omaax-settings-panel{border-left:0;border-top:1px solid var(--border)}.omaax-settings-content{padding:20px}.omaax-form-grid,.omaax-connection-presets{grid-template-columns:1fr}.omaax-section-heading{gap:8px}}
 
 /* OMaaX product surfaces */
-.omaax-wordmark {font-size:27px;font-weight:650;letter-spacing:-1.5px;color:var(--text)}
-.omaax-wordmark span {color:#7770e7}
+.omaax-wordmark {display:block;width:100px;height:auto;flex-shrink:1;color:var(--text)}
+.omaax-wordmark--about {width:200px;max-width:100%}
 .omaax-page {background:var(--bg)}
 .omaax-hero {padding:26px 30px 22px;background:linear-gradient(120deg,rgba(92,107,225,.13),rgba(153,113,222,.07));border-bottom:1px solid var(--border);flex-shrink:0}
 .omaax-eyebrow {font-size:10px;letter-spacing:2px;color:#7770c8;font-weight:700}

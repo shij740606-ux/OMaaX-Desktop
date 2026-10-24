@@ -8,6 +8,7 @@
      复制 Markdown = clipboard API（安全上下文）→ execCommand 兜底（LAN http:// 非安全上下文）。
      不动 presubmit 后端 / self_review.py / 六维 Prompt，纯前端只读展示。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, onUnmounted, ref } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -56,40 +57,40 @@ function buildMarkdown() {
   if (!r) return '';
   const m = meta.value || {};
   const lines = [
-    '# AI 预审稿报告',
+    et('# AI 预审稿报告'),
     '',
-    `- 文件：${m.filename || '—'}`,
-    `- 目标期刊：${m.target_journal || '未指定'}`,
-    `- 生成时间：${createdAtText.value}`,
-    `- 推荐决定：${rec.value.label}（${r.recommendation}）`,
+    et(`- 文件：${m.filename || '—'}`),
+    et(`- 目标期刊：${m.target_journal || et('未指定')}`),
+    et(`- 生成时间：${createdAtText.value}`),
+    et(`- 推荐决定：${et(rec.value.label)}（${r.recommendation}）`),
     '',
-    '## 总体评价',
+    et('## 总体评价'),
     '',
-    r.summary || '无',
+    r.summary || et('无'),
     '',
   ];
   const weakSec = (title, items) => {
-    lines.push(`## ${title}`, '');
+    lines.push(`## ${et(title)}`, '');
     if (!items || !items.length) {
-      lines.push('无', '');
+      lines.push(et('无'), '');
       return;
     }
     items.forEach((it, i) => {
       lines.push(`${i + 1}. ${it.title}`, '');
       if (it.detail) lines.push(it.detail, '');
-      if (it.evidence) lines.push(`   - 证据：${it.evidence}`);
-      if (it.suggestion) lines.push(`   - 建议：${it.suggestion}`);
+      if (it.evidence) lines.push(et(`   - 证据：${it.evidence}`));
+      if (it.suggestion) lines.push(et(`   - 建议：${it.suggestion}`));
       lines.push('');
     });
   };
   weakSec('主要问题', r.major_weaknesses);
   weakSec('次要问题', r.minor_weaknesses);
   weakSec('排版与规范', r.presentation_format);
-  lines.push('## 给作者的问题', '');
+  lines.push(et('## 给作者的问题'), '');
   const qs = r.questions_for_authors || [];
-  if (!qs.length) lines.push('无', '');
+  if (!qs.length) lines.push(et('无'), '');
   else qs.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
-  lines.push('', '---', `*正文 ${m.text_chars ?? '—'} 字符${m.truncated ? ' · 已截断' : ''}*`);
+  lines.push('', '---', et(`*正文 ${m.text_chars ?? '—'} 字符${m.truncated ? et(' · 已截断') : ''}*`));
   return lines.join('\n');
 }
 
@@ -136,58 +137,54 @@ onUnmounted(() => clearTimeout(toastTimer));
     <!-- ========== ① 无报告 → 引导 ========== -->
     <div v-if="!edu.hasReport" class="rp-guide">
       <div class="rp-guide-icon" aria-hidden="true">📝</div>
-      <p class="rp-guide-text">尚无审稿报告。先上传 PDF 运行 AI 预审稿，生成后在此查看正式报告。</p>
-      <button class="rp-guide-btn" type="button" @click="edu.setSection('presubmit')">
-        去预审稿 →
-      </button>
+      <p class="rp-guide-text">{{ et("尚无审稿报告。先上传 PDF 运行 AI 预审稿，生成后在此查看正式报告。") }}</p>
+      <button class="rp-guide-btn" type="button" @click="edu.setSection('presubmit')">{{ et(" 去预审稿 → ") }}</button>
     </div>
 
     <!-- ========== ② 有报告 → 正式报告（读者视角） ========== -->
     <template v-else>
       <div class="rp-toolbar">
-        <button class="rp-tool" type="button" @click="exportPdf">📥 导出 PDF</button>
-        <button class="rp-tool" type="button" @click="copyMarkdown">📋 复制为 Markdown</button>
+        <button class="rp-tool" type="button" @click="exportPdf">{{ et("📥 导出 PDF") }}</button>
+        <button class="rp-tool" type="button" @click="copyMarkdown">{{ et("📋 复制为 Markdown") }}</button>
         <transition name="rp-fade">
-          <span v-if="toast" class="rp-toast" role="status">已复制</span>
+          <span v-if="toast" class="rp-toast" role="status">{{ et("已复制") }}</span>
         </transition>
       </div>
 
       <article class="rp-sheet">
         <header class="rp-head">
-          <h1 class="rp-title">AI 预审稿报告</h1>
+          <h1 class="rp-title">{{ et("AI 预审稿报告") }}</h1>
           <div class="rp-headmeta">
             <span class="rp-meta-line">
               📄 {{ meta?.filename || '—' }}
-              <template v-if="meta?.target_journal"> · 目标期刊 {{ meta.target_journal }}</template>
-              · 生成于 {{ createdAtText }}
+              <template v-if="meta?.target_journal">{{ et(" · 目标期刊 ") }}{{ meta.target_journal }}</template>{{ et(" · 生成于 ") }}{{ createdAtText }}
             </span>
-            <span class="rp-rec" :class="rec.cls">{{ rec.label }} · {{ report.recommendation }}</span>
+            <span class="rp-rec" :class="rec.cls">{{ et(rec.label) }} · {{ report.recommendation }}</span>
           </div>
         </header>
 
         <!-- 1. 总体评价 -->
         <section class="rp-sec">
-          <h2 class="rp-h2">1. 总体评价</h2>
-          <p class="rp-summary">{{ report.summary || '无' }}</p>
+          <h2 class="rp-h2">{{ et("1. 总体评价") }}</h2>
+          <p class="rp-summary">{{ report.summary || et('无') }}</p>
         </section>
 
         <!-- 2..5 列表节 -->
         <section v-for="(s, si) in sections" :key="s.title" class="rp-sec">
-          <h2 class="rp-h2">{{ si + 2 }}. {{ s.title }}（{{ s.items.length }}）</h2>
+          <h2 class="rp-h2">{{ si + 2 }}. {{ et(s.title) }}（{{ s.items.length }}）</h2>
           <div v-for="(it, i) in s.items" :key="i" class="rp-item">
             <p class="rp-item-title">{{ i + 1 }}. {{ it.title }}</p>
             <p v-if="it.detail" class="rp-item-detail">{{ it.detail }}</p>
-            <p v-if="it.evidence" class="rp-item-evi"><b>证据：</b>{{ it.evidence }}</p>
-            <p v-if="it.suggestion" class="rp-item-sug"><b>建议：</b>{{ it.suggestion }}</p>
+            <p v-if="it.evidence" class="rp-item-evi"><b>{{ et("证据：") }}</b>{{ it.evidence }}</p>
+            <p v-if="it.suggestion" class="rp-item-sug"><b>{{ et("建议：") }}</b>{{ it.suggestion }}</p>
           </div>
-          <p v-if="!s.items.length" class="rp-none">无</p>
+          <p v-if="!s.items.length" class="rp-none">{{ et("无") }}</p>
         </section>
 
-        <footer class="rp-foot">
-          正文 {{ meta?.text_chars ?? '—' }} 字符<template
+        <footer class="rp-foot">{{ et(" 正文 ") }}{{ meta?.text_chars ?? '—' }}{{ et(" 字符") }}<template
             v-if="meta?.truncated"
-            > · 已截断至 6 万字符</template
-          > · 报告生成于 {{ createdAtText }}
+            >{{ et(" · 已截断至 6 万字符") }}</template
+          >{{ et(" · 报告生成于 ") }}{{ createdAtText }}
         </footer>
       </article>
     </template>

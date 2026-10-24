@@ -4,13 +4,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { once } from 'node:events';
 import { patchContinuation } from './patch-dsh-continuation.mjs';
+import { patchCompaction } from './patch-dsh-compaction.mjs';
 
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = process.env.OMAAX_TEST_DSH_RUNTIME ? path.resolve(process.env.OMAAX_TEST_DSH_RUNTIME) : path.join(desktop, 'dsh-runtime');
@@ -21,17 +23,29 @@ test('continuation patch is idempotent', () => {
   const files = patchContinuation(runtime);
   const before = files.map(f => readFileSync(f, 'utf8'));
   patchContinuation(runtime);
+  patchCompaction(runtime);
   assert.deepEqual(files.map(f => readFileSync(f, 'utf8')), before);
 });
 
 test('real DSH automatically continues output limits, preserves history and honors stop/errors', {timeout:120000}, async t => {
   const home = mkdtempSync(path.join(tmpdir(), 'omaax-continue-'));
   const workspace = path.join(home, 'workspace'); mkdirSync(workspace);
-  const counts = new Map(), requests = new Map(); let pendingCancel;
+  const counts = new Map(), requests = new Map(), sessions = new Map(); let pendingCancel, pendingCompact;
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
     const body = JSON.parse(raw);
+    if (body.stream !== true) { res.writeHead(200, {'Content-Type':'application/json'}); res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'Fixture title'},finish_reason:'stop'}]})); return; }
     const match = JSON.stringify(body.messages).match(/CASE:(\w+)/);
+    if (match && JSON.stringify(body.messages).includes('You are now acting as a compaction engine')) {
+      const mode = match[1] + '_summary', count = (counts.get(mode) ?? 0) + 1;
+      counts.set(mode,count); requests.set(mode,[...requests.get(mode) ?? [],body]);
+      res.writeHead(200, {'Content-Type':'text/event-stream'});
+      if (mode === 'oversized_summary') {res.end(sse({content:'CASE:oversized Completed tool: todo list already updated exactly once. Server job running-175 already submitted; query it before any resume. Continue the remaining task.'}));return;}
+      if (mode === 'compact_cancel_summary' && count === 2) {res.write('data: '+JSON.stringify({choices:[{index:0,delta:{content:'waiting'},finish_reason:null}]})+'\n\n');pendingCompact=res;return;}
+      if (mode === 'compact_empty_summary') {res.end(sse({},'length'));return;}
+      res.end(sse({content:count===1?'## Primary Request\nKeep the fixture history.\n':count===2?'## Progress\nAnalysis completed.\n':'## Next Steps\nAnswer the next request.\n'},count<3?'length':'stop'));
+      return;
+    }
     if (!match || !body.tools?.length) { res.writeHead(200, {'Content-Type':'text/event-stream'}); res.end(sse({content:'Fixture title'})); return; }
     const mode = match[1], count = (counts.get(mode) ?? 0) + 1;
     counts.set(mode, count); requests.set(mode, [...requests.get(mode) ?? [], body]);
@@ -40,6 +54,10 @@ test('real DSH automatically continues output limits, preserves history and hono
     if (mode === 'cancel' && count === 2) { res.write('data: '+JSON.stringify({choices:[{index:0,delta:{content:'in flight'},finish_reason:null}]})+'\n\n'); pendingCancel = res; return; }
     if (mode === 'empty') { res.end(sse({}, 'length')); return; }
     if (mode === 'repeated') { res.end(sse({content:'Identical response'}, 'length')); return; }
+    if (mode === 'reasoning') {
+      res.end(sse(count <= 3 ? {reasoning_content:`Reasoning segment ${count}`} : {content:'Reasoning completed; final answer'}, count <= 3 ? 'length' : 'stop'));
+      return;
+    }
     if (mode === 'tool') {
       if (count === 1) res.end(sse({tool_calls:[{index:0,id:'cut',type:'function',function:{name:'todo_write',arguments:'{"todos":['}}]}, 'length'));
       else if (count === 2) res.end(sse({tool_calls:[{index:0,id:'complete',type:'function',function:{name:'todo_write',arguments:JSON.stringify({todos:[{content:'Fixture completed',status:'completed'}]})}}]}, 'tool_calls'));
@@ -51,14 +69,39 @@ test('real DSH automatically continues output limits, preserves history and hono
       else res.end(sse({content:`done tool segment ${count}`},count===2?'length':'stop'));
       return;
     }
+    if (mode === 'oversized') {
+      if (count === 1) res.end(sse({tool_calls:[{index:0,id:'big-once',type:'function',function:{name:'todo_write',arguments:JSON.stringify({todos:[{content:'Already submitted running-175',status:'completed'}]})}}]},'tool_calls'));
+      else if (count === 2) res.end(sse({content:'CASE:oversized Preserve original provenance and task running-175. '.repeat(19000)},'length'));
+      else res.end(sse({content:'Recovered automatically; remaining task completed without repeating the completed tool.'}));
+      return;
+    }
     if (mode === 'normal') { res.end(sse({content:'Normal answer'})); return; }
+    if (mode.startsWith('compact_')) { res.end(sse({content:'History fixture answer completed'})); return; }
     const limit = mode === 'long' ? 6 : 1;
     res.end(sse({content:`${mode} segment ${count}`}, count <= limit ? 'length' : 'stop'));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let companyBridge;
+  if (process.env.OMAAX_TEST_COMPANY_BRIDGE) {
+    const {startBridge} = await import(pathToFileURL(path.resolve(process.env.OMAAX_TEST_COMPANY_BRIDGE)).href);
+    const endpoint = `http://127.0.0.1:${server.address().port}/v1/chat/completions`;
+    companyBridge = await startBridge({
+      key:'fixture-only', session:async()=>({hub:'https://company-fixture.invalid',token:'fixture-session'}), endpoint,
+      fetcher:async(url, options)=>{
+        if(url==='https://company-fixture.invalid/api/llm/models') return Response.json({ok:true,models:[{id:'fixture-company',contextLength:1048576}]});
+        if(url==='https://company-fixture.invalid/api/llm/token') return Response.json({ok:true,token:'fixture-proxy',expires_in:3600});
+        assert.equal(url,endpoint,'test may only contact its local fixture');
+        assert.ok(Buffer.byteLength(options.body)<=1048576,'oversized requests must never reach the company gateway');
+        const body=JSON.parse(options.body);
+        if(body.stream===true) { assert.equal(body.max_tokens,undefined); assert.equal(body.max_completion_tokens,undefined); }
+        return fetch(url,options);
+      },
+    });
+  }
+  const servicePort = companyBridge?.port ?? server.address().port;
   const eventFile = path.join(home, 'test-events.jsonl'), observer = path.join(home, 'observer.mjs');
   writeFileSync(observer, `import {appendFileSync} from 'node:fs'; export function apply(ctx){ctx.on('session/event',(session,event)=>appendFileSync(${JSON.stringify(eventFile)},JSON.stringify({sessionId:session.id,event})+'\\n'),{global:true});}`);
-  writeFileSync(path.join(home, 'cordis.patch.yml'), `- id: llm-deepseek\n  config:\n    baseURL: http://127.0.0.1:${server.address().port}/v1\n    apiKeyEnv: OMAAX_TEST_KEY\n    maxTokens: 128000\n- insert:\n    - id: continuation-observer\n      name: ${JSON.stringify(pathToFileURL(observer).href)}\n`);
+  writeFileSync(path.join(home, 'cordis.patch.yml'), `- id: llm-deepseek\n  config:\n    baseURL: http://127.0.0.1:${servicePort}/v1\n    apiKeyEnv: OMAAX_TEST_KEY\n    maxTokens: 128000\n- insert:\n    - id: continuation-observer\n      name: ${JSON.stringify(pathToFileURL(observer).href)}\n`);
   if (JSON.parse(readFileSync(path.join(runtime, 'node_modules/@deepseek-ai/dsh/package.json'), 'utf8')).version.startsWith('0.2.')) {
     const config = path.join(home, 'cordis.patch.yml');
     const observerConfig = readFileSync(config, 'utf8').split('- insert:')[1];
@@ -82,11 +125,24 @@ test('real DSH automatically continues output limits, preserves history and hono
       assert.equal(result?.ok, true, JSON.stringify(result)); return result.value;
     }
     const ws = await rpc('workspace/create', {request:{path:workspace}});
+    await t.test('fresh profile resolves the same patched agent loop as the shipped entry', () => {
+      const fromProfile = createRequire(path.join(home, 'profiles/web/cordis.yml'));
+      const fromEntry = createRequire(path.join(runtime, 'node_modules/@deepseek-ai/dsh/lib/bin.js'));
+      const profileAgent = realpathSync(fromProfile.resolve('@deepseek-ai/dsh-agent-loop'));
+      const shippedAgent = realpathSync(fromEntry.resolve('@deepseek-ai/dsh-agent-loop'));
+      assert.equal(profileAgent, shippedAgent);
+      assert.match(readFileSync(profileAgent, 'utf8'), /OMAAX_AUTO_CONTINUE_V1/);
+      const profileCompaction=realpathSync(fromProfile.resolve('@deepseek-ai/dsh-compaction-basic'));
+      assert.equal(profileCompaction,realpathSync(fromEntry.resolve('@deepseek-ai/dsh-compaction-basic')));
+      assert.match(readFileSync(profileCompaction,'utf8'),/OMAAX_COMPACTION_CONTINUE_V1/);
+      if (process.env.OMAAX_TEST_DIAGNOSTICS) console.log('Fresh profile agent SHA256:', createHash('sha256').update(readFileSync(profileAgent)).digest('hex'));
+    });
     async function run(mode, cancel = false) {
       const created = await rpc('session/create', {request:{workspaceId:ws.workspace?.workspaceId ?? ws.workspaceId}});
       const sessionId = created.sessionId ?? created.session?.sessionId ?? created.id;
+      sessions.set(mode,sessionId);
       if(mode==='legacy') await rpc('session/selectModel',{request:{sessionId,provider:'deepseek-official',model:'deepseek-flash',reasoningEffort:'high'}});
-      await rpc('session/prompt', {request:{sessionId,mode:'queue',requestId:randomUUID(),content:[{type:'text',text:`CASE:${mode} Complete fixture.`}]}});
+      await rpc('session/prompt', {request:{sessionId,mode:'queue',requestId:randomUUID(),content:[{type:'text',text:`CASE:${mode} Complete fixture.`+(mode.startsWith('compact_')?' Preserve fixture detail and its original provenance. '.repeat(600):'')}]}});
       const deadline = Date.now() + 15000;
       if (cancel) {
         while (!pendingCancel && Date.now() < deadline) await sleep(25);
@@ -115,7 +171,14 @@ test('real DSH automatically continues output limits, preserves history and hono
       const second = requests.get('long')[1]; assert.match(JSON.stringify(second.messages), /long segment 1/); assert.match(JSON.stringify(second.messages), /自动续接/);
     });
     await t.test('normal completion makes one call', async () => {await run('normal');assert.equal(counts.get('normal'),1);});
-    await t.test('legacy model and reasoning selection still answer and auto-continue', async () => {const events=await run('legacy');assert.equal(counts.get('legacy'),2);assert.equal(events.find(e=>e.type==='turn/end').data.reason.kind,'completed');assert.equal(requests.get('legacy')[0].model,'deepseek-flash');});
+    await t.test('reasoning-only truncations continue until a visible answer is complete', async () => {
+      const events = await run('reasoning');
+      assert.equal(counts.get('reasoning'), 4);
+      assert.equal(events.find(e => e.type === 'turn/end').data.reason.kind, 'completed');
+      assert.equal(events.filter(e => e.type === 'user/message' && e.data.source.plugin === 'omaax-output-continuation').length, 3);
+      assert.match(JSON.stringify(events.filter(e => e.type === 'assistant/message')), /Reasoning completed; final answer/);
+    });
+    await t.test('legacy model and reasoning selection still answer and auto-continue', async () => {const events=await run('legacy');assert.equal(counts.get('legacy'),2);assert.equal(events.find(e=>e.type==='turn/end').data.reason.kind,'completed');assert.equal(requests.get('legacy')[0].model,companyBridge?'fixture-company':'deepseek-flash');});
     await t.test('truncated tool arguments never execute; regenerated complete call executes once', async () => {
       const events = await run('tool');
       assert.equal(counts.get('tool'),3);
@@ -133,6 +196,17 @@ test('real DSH automatically continues output limits, preserves history and hono
       assert.equal(events.find(e=>e.type==='turn/end').data.reason.kind,'completed');
       assert.match(JSON.stringify(requests.get('done_tool')[2].messages),/Updated todo list/);
     });
+    await t.test('oversized history is summarized in batches and the same task completes automatically', {skip:!companyBridge}, async()=>{
+      const events=await run('oversized');
+      assert.equal(events.find(e=>e.type==='turn/end').data.reason.kind,'completed');
+      assert.equal(events.filter(e=>e.type==='todo/write').length,1,'completed tools cannot be executed twice');
+      assert.equal(counts.get('oversized'),3,'transport rejection must not reach the cloud');
+      assert.ok(counts.get('oversized_summary')>=4,'large checkpoint uses multiple small requests');
+      assert.equal(events.filter(e=>e.type==='compaction/end'&&!e.data.error).length,1);
+      assert.ok(events.some(e=>e.type==='assistant/message'&&Buffer.byteLength(JSON.stringify(e.data.message))>1048576),'original large message remains in durable history');
+      assert.match(JSON.stringify(requests.get('oversized').at(-1).messages),/running-175/);
+      assert.ok(Buffer.byteLength(JSON.stringify(requests.get('oversized').at(-1)))<1048576);
+    });
     await t.test('empty and identical provider responses do not loop forever', async () => {
       for (const mode of ['empty','repeated']) {const events=await run(mode);assert.equal(events.find(e=>e.type==='turn/end').data.reason.error.code,'AUTO_CONTINUE_STALLED');}
       assert.equal(counts.get('empty'),2);assert.equal(counts.get('repeated'),3);
@@ -140,9 +214,49 @@ test('real DSH automatically continues output limits, preserves history and hono
     await t.test('HTTP rejection does not cause a continuation or retry', async () => {
       const events=await run('error');assert.equal(counts.get('error'),1);assert.equal(events.find(e=>e.type==='turn/end').data.reason.kind,'error');
     });
+    const history = sessionId => readFileSync(eventFile,'utf8').trim().split('\n').map(JSON.parse).filter(row=>row.sessionId===sessionId).map(row=>row.event);
+    await t.test('truncated checkpoint continues, commits once, keeps history and allows the next turn', async()=>{
+      const original = await run('compact_ok'), sessionId=sessions.get('compact_ok');
+      await rpc('commands/execute',{agentId:sessionId,line:'/compact',submittedAttachments:[]});
+      const events=history(sessionId);
+      assert.equal(counts.get('compact_ok_summary'),3);
+      const summaries=events.filter(e=>e.type==='compaction/summary');
+      assert.equal(summaries.length,1);
+      assert.match(JSON.stringify(summaries[0].data.summary),/Primary Request/);
+      assert.match(JSON.stringify(summaries[0].data.summary),/Next Steps/);
+      assert.equal(summaries[0].data.usage.totalTokens,72);
+      assert.equal(events.filter(e=>e.type==='compaction/end'&&!e.data.error).length,1);
+      assert.equal(events.filter(e=>e.type==='user/message'&&e.surfaceOp?.op==='replace').length,1);
+      for(const event of original) assert.ok(events.some(e=>e.seq===event.seq&&JSON.stringify(e)===JSON.stringify(event)),'original history must remain durable');
+      await rpc('session/prompt',{request:{sessionId,mode:'queue',requestId:randomUUID(),content:[{type:'text',text:'CASE:normal Continue after compaction.'}]}});
+      const deadline=Date.now()+10000;
+      while(history(sessionId).filter(e=>e.type==='turn/end').length<2&&Date.now()<deadline) await sleep(30);
+      assert.equal(history(sessionId).filter(e=>e.type==='turn/end').at(-1).data.reason.kind,'completed');
+      assert.equal(history(sessionId).filter(e=>e.type==='turn/end').length,2);
+    });
+    await t.test('failed or cancelled checkpoint never replaces the original conversation',async()=>{
+      for(const mode of ['compact_empty','compact_cancel']) {
+        await run(mode); const sessionId=sessions.get(mode);
+        const command=rpc('commands/execute',{agentId:sessionId,line:'/compact',submittedAttachments:[]});
+        if(mode==='compact_cancel') {
+          const deadline=Date.now()+10000;
+          while(!pendingCompact&&Date.now()<deadline)await sleep(25);
+          assert.ok(pendingCompact,'checkpoint continuation did not start');
+          await rpc('session/cancel',{request:{sessionId}});
+        }
+        await command;
+        const events=history(sessionId);
+        assert.equal(events.filter(e=>e.type==='compaction/summary').length,0);
+        assert.equal(events.filter(e=>e.surfaceOp?.op==='replace').length,0);
+        assert.equal(events.filter(e=>e.type==='compaction/end'&&e.data.error).length,1);
+        assert.ok(events.some(e=>e.type==='user/message'&&JSON.stringify(e).includes('Preserve fixture detail')));
+      }
+    });
   } finally {
     pendingCancel?.destroy();
+    pendingCompact?.destroy();
     if(child.exitCode===null){const stopped=once(child,'exit');child.kill();await stopped;}
+    await companyBridge?.close();
     server.closeAllConnections(); await new Promise(resolve=>server.close(resolve));
     const temporaryRoot=path.resolve(tmpdir()), resolvedHome=path.resolve(home);
     assert.ok(resolvedHome.startsWith(temporaryRoot+path.sep) && path.basename(resolvedHome).startsWith('omaax-continue-'));

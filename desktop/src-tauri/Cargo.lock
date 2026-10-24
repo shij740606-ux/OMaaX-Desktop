@@ -287,13 +287,14 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "biodsh-desktop"
-version = "0.4.49"
+version = "0.4.53"
 dependencies = [
  "base64 0.22.1",
  "flate2",
  "gtk",
  "keyring",
  "minisign-verify",
+ "quick-xml",
  "reqwest",
  "serde",
  "serde_json",

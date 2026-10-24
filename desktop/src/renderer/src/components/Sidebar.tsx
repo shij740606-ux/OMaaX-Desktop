@@ -5,15 +5,16 @@ import { Palette, SquarePen, Plus, Cpu, Store, Settings, Minus, Square, X, Folde
 import { useApp, type Tab } from '../store';
 import { Database, Globe } from 'lucide-react';
 import ContextMenu, { type MenuState } from './ContextMenu';
+import OmaaxWordmark from './OmaaxWordmark';
 import { useT } from '../i18n';
 
 interface Workspace { workspaceId: string; path: string; title: string; sessionIds: string[]; updatedAt: string }
 interface SessionRow { sessionId: string; updatedAt: number; running: boolean; blank: boolean; cwd?: string; projections?: { values: Record<string, unknown> } }
 interface GitInfo { available: boolean; isRepo: boolean; branch?: string; dirty: number; lastCommit?: string }
 
-function sessionTitle(s: SessionRow): string {
-  const t = s.projections?.values?.title;
-  return typeof t === 'string' && t.trim() ? t : (s.blank ? '新对话' : '未命名对话');
+function sessionTitle(s: SessionRow, translate: (value: string) => string): string {
+  const title = s.projections?.values?.title;
+  return typeof title === 'string' && title.trim() ? title : translate(s.blank ? '新对话' : '未命名对话');
 }
 function sessionTokens(s: SessionRow): number {
   const u = s.projections?.values?.tokenUsage as { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number } | undefined;
@@ -133,13 +134,13 @@ export default function Sidebar() {
     const pinned = pins.includes(s.sessionId);
     setMenu({ x: e.clientX, y: e.clientY, items: [
       { label: pinned ? t('取消置顶') : t('置顶'), icon: <Pin size={13} />, onClick: () => savePins(pinned ? pins.filter((p) => p !== s.sessionId) : [s.sessionId, ...pins]) },
-      { label: t('重命名'), icon: <Pencil size={13} />, onClick: () => { const v = window.prompt(t('新的对话名称'), t(sessionTitle(s))); if (v && v.trim()) void rpc('session.rename', { sessionId: s.sessionId, title: v.trim() }, t('已重命名')); } },
+      { label: t('重命名'), icon: <Pencil size={13} />, onClick: () => { const v = window.prompt(t('新的对话名称'), sessionTitle(s, t)); if (v && v.trim()) void rpc('session.rename', { sessionId: s.sessionId, title: v.trim() }, t('已重命名')); } },
       { label: t('分享（导出对话记录）'), icon: <Share2 size={13} />, onClick: () => { void (api.sessionExport(s.sessionId) as Promise<string | null>).then((p) => p && toast(t('已导出到 {path}', { path: p }))).catch((err: unknown) => toast(t('导出失败：{msg}', { msg: String(err).slice(0, 80) }))); } },
       'sep',
       { label: t('归档'), icon: <Archive size={13} />, onClick: () => { void rpc('workspace.archiveSession', { sessionId: s.sessionId }, t('已归档')); if (current === s.sessionId) setCurrent(null); } },
-      { label: t('永久删除'), icon: <Trash2 size={13} />, danger: true, onClick: () => { if (window.confirm(t('永久删除对话「{title}」？记录文件会从磁盘删除，无法恢复。', { title: t(sessionTitle(s)) }))) { void (api.sessionDelete(s.sessionId) as Promise<number>).then(() => { if (current === s.sessionId) setCurrent(null); return refresh(); }).then(() => toast(t('已永久删除'))).catch((err: unknown) => toast(`${t('删除失败')}: ${String(err).slice(0, 80)}`)); } } },
+      { label: t('永久删除'), icon: <Trash2 size={13} />, danger: true, onClick: () => { if (window.confirm(t('永久删除对话「{title}」？记录文件会从磁盘删除，无法恢复。', { title: sessionTitle(s, t) }))) { void (api.sessionDelete(s.sessionId) as Promise<number>).then(() => { if (current === s.sessionId) setCurrent(null); return refresh(); }).then(() => toast(t('已永久删除'))).catch((err: unknown) => toast(`${t('删除失败')}: ${String(err).slice(0, 80)}`)); } } },
       'sep',
-      { label: t('问一下：这个对话是什么？'), icon: <Sparkles size={13} />, onClick: () => ask(e.clientX, e.clientY, t('项目「{project}」里的对话「{session}」', { project: w.title, session: t(sessionTitle(s)) }), t('这个对话是关于什么的？')) },
+      { label: t('问一下：这个对话是什么？'), icon: <Sparkles size={13} />, onClick: () => ask(e.clientX, e.clientY, t('项目「{project}」里的对话「{session}」', { project: w.title, session: sessionTitle(s, t) }), t('这个对话是关于什么的？')) },
     ] });
   };
   const projectMenu = (e: React.MouseEvent, w: Workspace) => {
@@ -174,7 +175,7 @@ export default function Sidebar() {
   return (
     <aside className="w-[264px] shrink-0 h-full flex flex-col relative" style={{ background: 'var(--sidebar)', borderRight: '0.5px solid var(--border)', backdropFilter: 'blur(20px)' }}>
       <div className={`drag h-[52px] flex items-center ${isMac ? 'pl-[84px]' : 'pl-4'} pr-3`}>
-        <div className="omaax-wordmark" aria-label="OMaaX">OMaa<span>X</span></div>
+        <OmaaxWordmark />
         <div className="flex-1" />
         <div className="no-drag flex items-center gap-1">
           <button className="btn btn-ghost !px-2" title={t('重新加载页面')} onClick={() => window.biodsh.dshReload()}><RefreshCw size={14} /></button>
@@ -184,14 +185,14 @@ export default function Sidebar() {
 
       <nav className="px-3 flex flex-col gap-[2px]">
         {ordered([{id:'new', content: <button className="nav-item no-drag text-left" onClick={() => newSession()} disabled={busy || dsh.state !== 'running'}><SquarePen size={16} strokeWidth={2} /><span className="flex-1">{t('新对话')}</span></button>},
-{id:'knowledge', content: nav('knowledge', '知识库问答', MessageSquare)},
+{id:'knowledge', content: nav('knowledge', t('知识库问答'), MessageSquare)},
 {id:'data', content: nav('data', t('分析结果'), Database)},
 {id:'workflows', content: nav('workflows', t('一体化分析流程'), GitBranch)},
 {id:'db', content: nav('db', t('数据资源'), Globe)},
 {id:'hosts', content: nav('hosts', t('服务器管理'), Server)},
 {id:'env', content: nav('env', t('计算环境'), Cpu, envDot ? <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ background: envDot }} /> : undefined)},
 {id:'store', content: nav('store', t('工具中心'), Store)},
-{id:'drawing', content: nav('drawing', '科研绘图', Palette)},
+{id:'drawing', content: nav('drawing', t('科研绘图'), Palette)},
 {id:'education', content: nav('education', t('教育科研'), GraduationCap)}].filter(item=>item.id==='education'?bioflow:item.id==='knowledge'?hasUnit(user,'qa'):item.id==='new'?chat:bioflow), orders.nav || [], item => item.id).map(item => item.content && <div key={item.id} {...sortable('nav', item.id, ordered(['new','knowledge','data','workflows','db','hosts','env','store','drawing','education'], orders.nav || [], id => id))}>{item.content}</div>)}
       </nav>
 
@@ -220,7 +221,7 @@ export default function Sidebar() {
                 return (
                   <button key={s.sessionId} {...sortable('sessions:' + w.workspaceId, s.sessionId, rows.map(row => row.sessionId))} className="w-full text-left flex items-center gap-2 h-[28px] pl-8 pr-2 rounded-lg" style={{ background: active ? 'var(--accent-soft)' : undefined, color: active ? 'var(--accent)' : undefined }} onClick={() => openSession(s.sessionId)} onContextMenu={(e) => sessionMenu(e, s, w)} onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--fill)'; }} onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = ''; }}>
                     {pins.includes(s.sessionId) ? <Pin size={11} style={{ color: 'var(--orange)' }} /> : <MessageSquare size={12} style={{ color: s.running ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text-3)' }} />}
-                    <span className="t-body truncate flex-1" style={{ fontSize: 12.5, fontWeight: active ? 600 : 400 }}>{t(sessionTitle(s))}</span>
+                    <span className="t-body truncate flex-1" style={{ fontSize: 12.5, fontWeight: active ? 600 : 400 }}>{sessionTitle(s, t)}</span>
                     {sessionTokens(s) > 0 && <span className="t-caption" style={{ color: active ? 'var(--accent)' : 'var(--text-3)' }}>{fmtTokens(sessionTokens(s))}</span>}
                   </button>
                 );
@@ -239,18 +240,19 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {notice && <div className="absolute left-3 right-3 bottom-[76px] z-[65] px-3 py-2 rounded-lg t-caption rise" style={{ background: 'var(--text)', color: 'var(--bg)' }}>{notice}</div>}
+      {notice && <div className="absolute left-3 right-3 bottom-[76px] z-[65] px-3 py-2 rounded-lg t-caption rise" style={{ background: 'var(--text)', color: 'var(--bg)' }}>{t(notice)}</div>}
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </aside>
   );
 }
 
 export function WindowControls({ compact = false }: { compact?: boolean }) {
+  const {t}=useT();
   const { info } = useApp() || {info:null};
   if (info?.platform === 'darwin') return null;
   const size = compact ? 'w-[30px] h-[30px]' : 'w-[46px] h-[44px]';
   const b = (a: 'minimize' | 'maximize' | 'close', I: typeof Minus) => (
-    <button className={`no-drag ${size} flex items-center justify-center rounded-md hover:bg-[var(--fill)]`} onClick={() => window.biodsh.windowControl(a)}><I size={13} strokeWidth={1.5} /></button>
+    <button aria-label={t({minimize:"最小化",maximize:"最大化 / 还原",close:"关闭窗口"}[a])} className={`no-drag ${size} flex items-center justify-center rounded-md hover:bg-[var(--fill)]`} onClick={() => window.biodsh.windowControl(a)}><I size={13} strokeWidth={1.5} /></button>
   );
   return <div className="flex" style={{ color: 'var(--text-2)' }}>{b('minimize', Minus)}{b('maximize', Square)}{b('close', X)}</div>;
 }

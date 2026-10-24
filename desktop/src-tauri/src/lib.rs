@@ -4,6 +4,7 @@
 mod drawing;
 mod dsh;
 mod instance;
+mod startup;
 mod child_job;
 mod company_llm;
 pub use hub_auth::company_session_cli;
@@ -56,6 +57,9 @@ pub struct AppState {
 }
 
 const DSH_INIT_SCRIPT: &str = r#"(() => {
+  // WebView initialization runs before the HTML root exists.
+  let uiLanguage = document.documentElement?.lang || navigator.language || 'en';
+  const isEnglish = () => !uiLanguage.toLowerCase().startsWith('zh');
   const css = `    [class*="_sidebarCol"] { visibility: hidden !important; overflow: hidden !important; min-width: 0 !important; }
     [class*="_handle"][data-side="left"] { display: none !important; }
     [class*="_headline"], [class*="_heroGlow"] { display: none !important; }
@@ -82,6 +86,7 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
     [class*="_turnStatus"] { display: none !important; }
   `;
   const apply = () => {
+    uiLanguage = document.documentElement?.lang || uiLanguage;
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     const fix = () => { const f = document.querySelector('[class*="_frame"]'); if (!f) return; const v = f.style.gridTemplateColumns; if (v && !v.startsWith('0px')) f.style.gridTemplateColumns = v.replace(/^\S+/, '0px'); };
     const mo = new MutationObserver(fix);
@@ -126,8 +131,10 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
         sum.setAttribute('data-open', isOpen ? '1' : '0'); sum.setAttribute('data-live', live ? '1' : '0');
         const last = mid[mid.length - 1];
         const lastTitle = KIND(last) === 'tool-call' ? titleOf(last) : '思考';
-        sum.querySelector('.biodsh-txt').textContent = live ? `OMaaX 正在处理，请稍候…` : `OMaaX 完成了 ${mid.length} 步（思考 ${thinks} · 操作 ${tools}）· 点开查看过程`;
-        sum.querySelector('.biodsh-n').textContent = live ? `${mid.length} 步` : '';
+        const summary = live ? (isEnglish() ? 'OMaaX is working. Please wait…' : 'OMaaX 正在处理，请稍候…') : (isEnglish() ? `OMaaX completed ${mid.length} steps (${thinks} reasoning · ${tools} actions) · View details` : `OMaaX 完成了 ${mid.length} 步（思考 ${thinks} · 操作 ${tools}）· 点开查看过程`);
+        const count = live ? (isEnglish() ? `${mid.length} steps` : `${mid.length} 步`) : '';
+        if (sum.querySelector('.biodsh-txt').textContent !== summary) sum.querySelector('.biodsh-txt').textContent = summary;
+        if (sum.querySelector('.biodsh-n').textContent !== count) sum.querySelector('.biodsh-n').textContent = count;
         for (const e of mid) { e.setAttribute('data-biodsh-hidden', isOpen ? '0' : '1'); e.setAttribute('data-biodsh-mid', '1'); }
       }
       if (final) { final.setAttribute('data-biodsh-final', '1'); final.setAttribute('data-biodsh-open', isOpen ? '1' : '0'); final.removeAttribute('data-biodsh-hidden'); final.removeAttribute('data-biodsh-mid'); }
@@ -140,8 +147,10 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
         if (legacy) {
           el.setAttribute('data-omaax-internal-handoff','1');
           if (!el.previousElementSibling?.classList.contains('omaax-handoff')) {
-            const note=document.createElement('div');note.className='omaax-handoff';note.textContent='已选择服务器，请查看可用资源并协助后续分析。';el.before(note);
+            const note=document.createElement('div');note.className='omaax-handoff';el.before(note);
           }
+          const handoff = isEnglish() ? 'Server selected. Check available resources and continue the analysis.' : '已选择服务器，请查看可用资源并协助后续分析。';
+          if (el.previousElementSibling.textContent !== handoff) el.previousElementSibling.textContent = handoff;
         } else {
           el.removeAttribute('data-omaax-internal-handoff');
           if(el.previousElementSibling?.classList.contains('omaax-handoff'))el.previousElementSibling.remove();
@@ -194,6 +203,7 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
   }); };
   let scheduled = false;
   const schedule = () => { if (scheduled) return; scheduled = true; requestAnimationFrame(() => { scheduled = false; try { hideHeader(); regroup(); decorate(); } catch (e) { console.warn('biodsh collapse', e); } }); };
+  window.addEventListener('omaax-reasoning', event => { if (['en','zh'].includes(event.detail?.language) && uiLanguage !== event.detail.language) { uiLanguage = event.detail.language; schedule(); } });
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state', 'data-streaming'] });
   schedule();
   };
@@ -452,7 +462,7 @@ async fn knowledge_documents(state: State<'_, AppState>, dataset_id: String) -> 
 #[tauri::command]
 async fn knowledge_add_files(app: AppHandle, state: State<'_, AppState>, dataset_id: String) -> Result<knowledge::SyncResult, String> {
     let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog().file().add_filter("Word 和 PDF", &["pdf", "doc", "docx"]).pick_files(move |paths| { let _ = tx.send(paths); });
+    app.dialog().file().add_filter("Word / PDF", &["pdf", "doc", "docx"]).pick_files(move |paths| { let _ = tx.send(paths); });
     let files = tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten().unwrap_or_default().into_iter().map(|p| std::path::PathBuf::from(p.to_string())).collect::<Vec<_>>()).await.map_err(|e| e.to_string())?;
     let url = state.settings.lock().unwrap().ragflow_url.clone(); let root = state.paths.root.clone();
     Ok(tauri::async_runtime::spawn_blocking(move || knowledge::upload_files(&root, &url, &dataset_id, &files)).await.map_err(|e| e.to_string())?)
@@ -1062,7 +1072,8 @@ async fn assistant_ask(app:AppHandle,state: State<'_, AppState>, model: String, 
 async fn session_export(app: AppHandle, state: State<'_, AppState>, session_id: String) -> Result<Option<String>, String> {
     let url = dsh_url(&state)?;
     let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog().file().set_file_name(format!("biodsh-对话-{}.zip", &session_id.chars().take(12).collect::<String>())).add_filter("对话记录", &["zip"]).save_file(move |p| { let _ = tx.send(p); });
+    let english = dsh::ui_language(&state.settings.lock().unwrap().language) == "en";
+    app.dialog().file().set_file_name(format!("OMaaX-{}-{}.zip", if english { "conversation" } else { "对话" }, &session_id.chars().take(12).collect::<String>())).add_filter(if english { "Conversation archive" } else { "对话记录" }, &["zip"]).save_file(move |p| { let _ = tx.send(p); });
     let Some(target) = tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten()).await.map_err(|e| e.to_string())? else { return Ok(None) };
     let target = target.to_string();
     let t2 = target.clone();
@@ -1180,7 +1191,7 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<Window> {
     if let Some(icon) = app.default_window_icon() { window.set_icon(icon.clone())?; }
     let size = window.inner_size()?.to_logical::<f64>(window.scale_factor()?);
     let _ui = window.add_child(
-        tauri::webview::WebviewBuilder::new("ui", WebviewUrl::App("index.html".into())).data_directory(app.state::<AppState>().paths.root.join("webview-ui")).disable_drag_drop_handler().auto_resize(),
+        tauri::webview::WebviewBuilder::new("ui", WebviewUrl::App("index.html".into())).initialization_script(startup::initialization_script()).data_directory(app.state::<AppState>().paths.root.join("webview-ui")).disable_drag_drop_handler().auto_resize(),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(size.width, size.height),
     )?;
@@ -1209,7 +1220,8 @@ async fn cloud_qa(app:AppHandle,state:State<'_,AppState>,action:String,body:serd
     if action=="save_image" {
         let (bytes,ext)=cloud_qa::image_bytes(body["data"].as_str().unwrap_or(""))?;
         let (tx,rx)=std::sync::mpsc::channel();
-        app.dialog().file().set_file_name(format!("文献图片.{ext}")).add_filter("图片",&[ext]).save_file(move|p|{let _=tx.send(p);});
+        let english = body["lang"].as_str() == Some("en") || (body["lang"].is_null() && dsh::ui_language(&state.settings.lock().unwrap().language) == "en");
+        app.dialog().file().set_file_name(format!("{}.{ext}", if english { "Literature-image" } else { "文献图片" })).add_filter(if english { "Images" } else { "图片" },&[ext]).save_file(move|p|{let _=tx.send(p);});
         return tauri::async_runtime::spawn_blocking(move||{
             let Some(target)=rx.recv().ok().flatten() else{return Ok(serde_json::json!({"saved":false}));};
             std::fs::write(target.to_string(),bytes).map_err(|_|"图片保存失败，请检查保存位置".to_string())?;
@@ -1237,6 +1249,7 @@ async fn hub_login(app: AppHandle, state: State<'_, AppState>, hub: String, user
         }
         Ok::<(),String>(())
     }).await.map_err(|e|e.to_string())??;
+    startup::arm_account_restart();
     instance::release();
     app.restart();
 }
@@ -1254,6 +1267,7 @@ async fn hub_forget_login(webview:tauri::Webview)->Result<(),String>{
 async fn hub_logout(app: AppHandle, state: State<'_, AppState>) -> Result<(),String> {
     company_llm::stop(); education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); }
     tauri::async_runtime::spawn_blocking(hub_auth::logout).await.map_err(|e|e.to_string())??;
+    startup::arm_account_restart();
     instance::release();
     app.restart();
 }
@@ -1265,6 +1279,7 @@ async fn hub_admin(app:AppHandle,state:State<'_,AppState>) -> Result<(),String> 
 }
 
 pub fn run() {
+    startup::initialize();
     let base=instance::data_root();
     match instance::claim(&base) {
         Ok(true)=>{},

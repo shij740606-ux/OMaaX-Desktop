@@ -18,6 +18,7 @@
       （原子消费 inspect；信封与 P3b 同构复用 compile* 字段；失败也带 log_url）。
       结果跨菜单保留（store reformatResult/compile*）；样式 rf- 前缀，零新增依赖。 -->
 <script setup>
+import {et, etList, educationLocale} from '../../../i18n.js';
 import { computed, onMounted, ref, watch } from 'vue';
 import { getDirectory, reviewErrorMessage } from '../../../api/review.js';
 import { useEduStore } from '../../../stores/edu.js';
@@ -361,58 +362,54 @@ function download() {
 <template>
   <section class="rf">
     <header class="rf-head">
-      <h1 class="rf-title">论文自动重排版</h1>
-      <span class="rf-sub">LaTeX (.tex) · 字号 · 页边距 · 行距 · 参考文献 · 纯规则不编译</span>
+      <h1 class="rf-title">{{ et("论文自动重排版") }}</h1>
+      <span class="rf-sub">{{ et("LaTeX (.tex) · 字号 · 页边距 · 行距 · 参考文献 · 纯规则不编译") }}</span>
     </header>
 
     <!-- ========== ① 有结果 → 结果区 ========== -->
     <template v-if="hasResult">
       <div class="rf-meta">
-        📄 {{ meta?.filename || '—' }} · 目标：{{ meta?.journal_name || '—' }}（{{ sourceLabel }}）
+        📄 {{ meta?.filename || '—' }}{{ et(" · 目标：") }}{{ meta?.journal_name || '—' }}（{{ et(sourceLabel) }}）
         <template v-if="generatedShort"> · {{ generatedShort }}</template>
         <!-- 内部 job id 默认不展示；报错/反馈时可点复制 -->
         <button
           v-if="result.job_id" class="rf-copy-id" type="button"
-          title="复制任务 ID（报错反馈时使用）" @click="copyJobId"
-        >
-          复制任务 ID
-        </button>
+          :title="et(&quot;复制任务 ID（报错反馈时使用）&quot;)" @click="copyJobId"
+        >{{ et(" 复制任务 ID ") }}</button>
       </div>
       <!-- 目标期刊规则摘要：diff=0 时也能看到"该刊要求什么"（次级文字，不抢 diff 主视觉） -->
-      <p v-if="rulesSummary" class="rf-rules" data-testid="rf-rules-summary">
-        📋 该刊规则：{{ rulesSummary }}
-        <span class="rf-rules-status">（{{ rulesStatusText }}）</span>
+      <p v-if="rulesSummary" class="rf-rules" data-testid="rf-rules-summary">{{ et(" 📋 该刊规则：") }}{{ etList(rulesSummary) }}
+        <span class="rf-rules-status">（{{ et(rulesStatusText) }}）</span>
       </p>
-      <p v-if="meta?.rules_note" class="rf-note" role="note">{{ meta.rules_note }}</p>
+      <p v-if="meta?.rules_note" class="rf-note" role="note">{{ et(meta.rules_note) }}</p>
 
       <!-- 汇总：已修改 / 建议（橙，不计入修改）/ 结构提示 -->
       <div class="rf-summary">
-        <span class="rf-count mod">{{ modifiedCount }} 处已修改</span>
-        <span class="rf-count sug">{{ suggestCount }} 条建议</span>
-        <span class="rf-count warn" v-if="structWarnings.length">{{ structWarnings.length }} 条结构提示</span>
-        <button class="rf-again" type="button" @click="reset">重新排版</button>
-        <button class="rf-dl" type="button" @click="download">下载修改后源码</button>
+        <span class="rf-count mod">{{ modifiedCount }}{{ et(" 处已修改") }}</span>
+        <span class="rf-count sug">{{ suggestCount }}{{ et(" 条建议") }}</span>
+        <span class="rf-count warn" v-if="structWarnings.length">{{ structWarnings.length }}{{ et(" 条结构提示") }}</span>
+        <button class="rf-again" type="button" @click="reset">{{ et("重新排版") }}</button>
+        <button class="rf-dl" type="button" @click="download">{{ et("下载修改后源码") }}</button>
       </div>
 
       <article v-for="(w, i) in structWarnings" :key="'w' + i" class="rf-struct">
-        ⚠ {{ w.message }}
+        ⚠ {{ et(w.message) }}
       </article>
 
       <!-- Tab：修改后源码 | Diff 报告 | 编译 PDF（P3a） -->
       <div class="rf-tabs" role="tablist">
         <button class="rf-tab" :class="{ active: tab === 'source' }" type="button"
-          role="tab" @click="tab = 'source'">修改后源码</button>
+          role="tab" @click="tab = 'source'">{{ et("修改后源码") }}</button>
         <button class="rf-tab" :class="{ active: tab === 'diff' }" type="button"
-          role="tab" @click="tab = 'diff'">Diff 报告</button>
+          role="tab" @click="tab = 'diff'">{{ et("Diff 报告") }}</button>
         <button class="rf-tab" :class="{ active: tab === 'pdf' }" type="button"
-          role="tab" @click="tab = 'pdf'">编译 PDF</button>
+          role="tab" @click="tab = 'pdf'">{{ et("编译 PDF") }}</button>
       </div>
 
       <pre v-if="tab === 'source'" class="rf-src">{{ result.modified_tex }}</pre>
 
       <div v-else-if="tab === 'diff'" class="rf-diff">
-        <p v-if="!changes.length" class="rf-empty">
-          ✅ 未发现违反目标规则的可修改项——源码未被触碰（规则：{{ sourceLabel }}）。
+        <p v-if="!changes.length" class="rf-empty">{{ et(" ✅ 未发现违反目标规则的可修改项——源码未被触碰（规则：") }}{{ et(sourceLabel) }}）。
         </p>
         <article
           v-for="(c, i) in changes"
@@ -422,17 +419,17 @@ function download() {
         >
           <header class="rf-row-head">
             <span class="rf-line">L{{ c.line }}</span>
-            <span class="rf-rule" :class="RULE_MOD[c.rule_key]">{{ RULE_LABEL[c.rule_key] || c.rule_key }}</span>
+            <span class="rf-rule" :class="RULE_MOD[c.rule_key]">{{ et(RULE_LABEL[c.rule_key] || c.rule_key) }}</span>
             <span class="rf-act" :class="c.action">
-              {{ c.action === 'modified' ? '已修改' : '建议' }}
+              {{ et(c.action === 'modified' ? '已修改' : '建议') }}
             </span>
           </header>
           <div class="rf-pair">
             <pre class="rf-old">{{ c.original }}</pre>
             <pre v-if="c.action === 'modified'" class="rf-new">{{ c.modified }}</pre>
-            <pre v-else class="rf-skip">（未修改 — 缺少可安全修改的插入点）</pre>
+            <pre v-else class="rf-skip">{{ et("（未修改 — 缺少可安全修改的插入点）") }}</pre>
           </div>
-          <p class="rf-reason" :class="{ sug: c.action === 'warning' }">{{ c.reason }}</p>
+          <p class="rf-reason" :class="{ sug: c.action === 'warning' }">{{ et(c.reason) }}</p>
         </article>
       </div>
 
@@ -440,18 +437,15 @@ function download() {
       <div v-else class="rf-compile">
         <!-- 无 job_id（未完成重排版）→ 引导 -->
         <div v-if="!result?.job_id" class="rf-wip" role="note" data-testid="rf-compile-guide">
-          <p class="rf-wip-main">请先完成重排版再编译。</p>
-          <p class="rf-wip-sub">编译基于重排版后的 .tex 源码，重排版成功后此页会出现「编译 PDF」按钮。</p>
+          <p class="rf-wip-main">{{ et("请先完成重排版再编译。") }}</p>
+          <p class="rf-wip-sub">{{ et("编译基于重排版后的 .tex 源码，重排版成功后此页会出现「编译 PDF」按钮。") }}</p>
         </div>
 
         <template v-else>
           <!-- 首次编译慢提示（loading 期间显示，可手动关闭） -->
           <div v-if="showFirstHint" class="rf-first-hint" role="note" data-testid="rf-first-hint">
-            <span>
-              首次编译需要 1-3 分钟（下载 TeX 环境），后续编译秒级。
-              可以切到其他面板，编译会在后台继续。
-            </span>
-            <button class="rf-hint-x" type="button" aria-label="关闭提示"
+            <span>{{ et(" 首次编译需要 1-3 分钟（下载 TeX 环境），后续编译秒级。 可以切到其他面板，编译会在后台继续。 ") }}</span>
+            <button class="rf-hint-x" type="button" :aria-label="et(&quot;关闭提示&quot;)"
               @click="firstHintDismissed = true">×</button>
           </div>
 
@@ -464,24 +458,24 @@ function download() {
               :disabled="compiling"
               @click="startCompile"
             >
-              {{ compiling ? '编译中…（首次约 1-3 分钟）' : '编译 PDF' }}
+              {{ et(compiling ? '编译中…（首次约 1-3 分钟）' : '编译 PDF') }}
             </button>
             <template v-if="compileReady">
               <button class="rf-compile-btn" type="button" data-testid="rf-download-pdf"
-                @click="downloadPdf">下载 PDF</button>
+                @click="downloadPdf">{{ et("下载 PDF") }}</button>
               <button class="rf-compile-btn rf-compile-ghost" type="button"
                 data-testid="rf-recompile"
                 :disabled="compiling" @click="startCompile">
-                {{ compiling ? '编译中…' : '重新编译' }}
+                {{ et(compiling ? '编译中…' : '重新编译') }}
               </button>
             </template>
             <template v-if="compileErrored">
               <button class="rf-compile-btn" type="button" data-testid="rf-recompile"
                 :disabled="compiling" @click="startCompile">
-                {{ compiling ? '编译中…' : '重新编译' }}
+                {{ et(compiling ? '编译中…' : '重新编译') }}
               </button>
               <button class="rf-compile-btn rf-compile-ghost" type="button"
-                data-testid="rf-download-log" @click="downloadFullLog">查看详细记录</button>
+                data-testid="rf-download-log" @click="downloadFullLog">{{ et("查看详细记录") }}</button>
             </template>
             <span v-if="compileReady && pdfSizeText" class="rf-compile-size"
               data-testid="rf-pdf-size">{{ pdfSizeText }}</span>
@@ -491,21 +485,17 @@ function download() {
           <div v-if="compiling" class="rf-compile-loading" role="status"
             data-testid="rf-compile-loading">
             <span class="rf-compile-spin" aria-hidden="true" />
-            <p class="rf-state-msg">
-              正在生成 PDF，请稍候…
-              可切换到其他面板，编译在后台继续。
-            </p>
+            <p class="rf-state-msg">{{ et(" 正在生成 PDF，请稍候… 可切换到其他面板，编译在后台继续。 ") }}</p>
           </div>
 
           <!-- 成功：内嵌 PDF 预览（blob URL） -->
           <div v-else-if="compileReady" class="rf-compile-ready">
             <iframe
-              class="rf-compile-frame" :src="pdfSrc" title="PDF 预览"
+              class="rf-compile-frame" :src="pdfSrc" :title="et(&quot;PDF 预览&quot;)"
               data-testid="rf-pdf-frame"
             />
             <div class="rf-compile-foot">
-              <span class="rf-compile-secs" data-testid="rf-compile-secs">
-                编译耗时 {{ compileMeta?.seconds != null ? `${Number(compileMeta.seconds).toFixed(1)} 秒` : '—' }}
+              <span class="rf-compile-secs" data-testid="rf-compile-secs">{{ et(" 编译耗时 ") }}{{ et(compileMeta?.seconds != null ? `${Number(compileMeta.seconds).toFixed(1)} 秒` : '—') }}
               </span>
             </div>
           </div>
@@ -513,14 +503,12 @@ function download() {
           <!-- 失败：错误摘要 + log 尾折叠 + 完整 log 下载 -->
           <div v-else-if="compileErrored" class="rf-compile-error" role="alert"
             data-testid="rf-compile-error">
-            <p class="rf-compile-msg">{{ edu.compileError }}</p>
+            <p class="rf-compile-msg">{{ et(edu.compileError) }}</p>
             <details
               v-if="compileLog" class="rf-log" :open="!logCollapsed"
               data-testid="rf-log-details"
             >
-              <summary class="rf-log-sum" @click="logCollapsed = !logCollapsed">
-                编译日志（尾 200 行）
-              </summary>
+              <summary class="rf-log-sum" @click="logCollapsed = !logCollapsed">{{ et(" 编译日志（尾 200 行） ") }}</summary>
               <pre class="rf-log-body" data-testid="rf-log-body">{{ compileLog }}</pre>
             </details>
           </div>
@@ -531,32 +519,32 @@ function download() {
     <!-- ========== ② loading ========== -->
     <div v-else-if="loading" class="rf-state" aria-busy="true">
       <div class="rf-skel"></div>
-      <p class="rf-state-msg">重排版中…（纯规则引擎，通常 &lt;1 秒）</p>
+      <p class="rf-state-msg">{{ et("重排版中…（纯规则引擎，通常 <1 秒）") }}</p>
     </div>
 
     <!-- ========== ③ error ========== -->
     <div v-else-if="errored" class="rf-state" role="alert">
-      <p class="rf-state-msg rf-state-error">{{ edu.reformatError }}</p>
+      <p class="rf-state-msg rf-state-error">{{ et(edu.reformatError) }}</p>
       <div class="rf-err-btns">
-        <button v-if="file" class="rf-retry" type="button" @click="submit">重试</button>
-        <button class="rf-retry" type="button" @click="reset">重新开始</button>
+        <button v-if="file" class="rf-retry" type="button" @click="submit">{{ et("重试") }}</button>
+        <button class="rf-retry" type="button" @click="reset">{{ et("重新开始") }}</button>
       </div>
     </div>
 
     <!-- ========== ④ 上传区 ========== -->
     <div v-else class="rf-upload">
       <!-- P4 模式切换：单文件 .tex（P3 重排版链路）| 项目 .zip（两段式编译，不经重排版） -->
-      <div class="rf-modes" role="tablist" aria-label="上传模式">
+      <div class="rf-modes" role="tablist" :aria-label="et(&quot;上传模式&quot;)">
         <button
           class="rf-mode" :class="{ active: uploadMode === 'tex' }" type="button"
           role="tab" :aria-selected="uploadMode === 'tex'" data-testid="rf-mode-tex"
           @click="switchMode('tex')"
-        >单文件 .tex</button>
+        >{{ et("单文件 .tex") }}</button>
         <button
           class="rf-mode" :class="{ active: uploadMode === 'zip' }" type="button"
           role="tab" :aria-selected="uploadMode === 'zip'" data-testid="rf-mode-zip"
           @click="switchMode('zip')"
-        >项目 .zip</button>
+        >{{ et("项目 .zip") }}</button>
       </div>
 
       <!-- ========== ④-zip 项目上传（P4 两段式） ========== -->
@@ -582,14 +570,14 @@ function download() {
           />
           <template v-if="edu.zipFile">
             <span class="rf-file-name">🗜 {{ edu.zipFile.name }} · {{ (edu.zipFile.size / 1024 / 1024).toFixed(1) }} MB</span>
-            <button class="rf-remove" type="button" title="移除文件" @click.stop="removeZip">×</button>
+            <button class="rf-remove" type="button" :title="et(&quot;移除文件&quot;)" @click.stop="removeZip">×</button>
           </template>
           <template v-else>
-            <span class="rf-drop-main">拖拽 LaTeX 项目（.zip）到此处，或点击选择</span>
-            <span class="rf-hint">打包建议：main.tex 放 zip 根目录，图片用相对路径引用，不要包含 .git / node_modules / 无关大文件。</span>
+            <span class="rf-drop-main">{{ et("拖拽 LaTeX 项目（.zip）到此处，或点击选择") }}</span>
+            <span class="rf-hint">{{ et("打包建议：main.tex 放 zip 根目录，图片用相对路径引用，不要包含 .git / node_modules / 无关大文件。") }}</span>
           </template>
         </div>
-        <p v-if="zipError" class="rf-file-error" data-testid="rf-zip-error">{{ zipError }}</p>
+        <p v-if="zipError" class="rf-file-error" data-testid="rf-zip-error">{{ et(zipError) }}</p>
 
         <button
           class="rf-submit"
@@ -598,24 +586,20 @@ function download() {
           data-testid="rf-zip-inspect-btn"
           @click="startZipInspect"
         >
-          {{ zipInspecting ? '检查中…' : '上传并检查' }}
+          {{ et(zipInspecting ? '检查中…' : '上传并检查') }}
         </button>
 
         <!-- inspect 通过：项目摘要 + 编译入口 + 编译结果（复用 P3b compile* 状态） -->
         <template v-if="zipInspected">
-          <div class="rf-zip-meta" data-testid="rf-zip-meta">
-            📦 主文件：<code>{{ edu.zipInspect?.main }}</code>
-            · 文件 {{ edu.zipInspect?.stats?.files }} 个
-            · .tex {{ edu.zipInspect?.stats?.tex }}
-            <template v-if="edu.zipInspect?.stats?.images"> · 图片 {{ edu.zipInspect.stats.images }}</template>
+          <div class="rf-zip-meta" data-testid="rf-zip-meta">{{ et(" 📦 主文件：") }}<code>{{ edu.zipInspect?.main }}</code>{{ et(" · 文件 ") }}{{ edu.zipInspect?.stats?.files }}{{ et(" 个 · .tex ") }}{{ edu.zipInspect?.stats?.tex }}
+            <template v-if="edu.zipInspect?.stats?.images">{{ et(" · 图片 ") }}{{ edu.zipInspect.stats.images }}</template>
             <template v-if="edu.zipInspect?.stats?.cls"> · .cls {{ edu.zipInspect.stats.cls }}</template>
             <template v-if="edu.zipInspect?.stats?.bib"> · .bib {{ edu.zipInspect.stats.bib }}</template>
             <template v-if="edu.zipInspect?.skipped_count">
-              · <span class="rf-zip-skipped">{{ edu.zipInspect.skipped_count }} 个文件已跳过</span>
+              · <span class="rf-zip-skipped">{{ edu.zipInspect.skipped_count }}{{ et(" 个文件已跳过") }}</span>
             </template>
           </div>
-          <p v-if="edu.zipInspect?.skipped_count" class="rf-zip-skipped-list" data-testid="rf-zip-skipped">
-            已跳过（不参与编译）：{{ (edu.zipInspect?.skipped || []).map((s) => s.name).join('、') }}
+          <p v-if="edu.zipInspect?.skipped_count" class="rf-zip-skipped-list" data-testid="rf-zip-skipped">{{ et(" 已跳过（不参与编译）：") }}{{ (edu.zipInspect?.skipped || []).map((s) => s.name).join('、') }}
           </p>
 
           <div class="rf-compile-bar">
@@ -626,23 +610,23 @@ function download() {
               :disabled="compiling"
               @click="startZipCompile"
             >
-              {{ compiling ? '编译中…' : '编译 PDF' }}
+              {{ et(compiling ? '编译中…' : '编译 PDF') }}
             </button>
             <template v-if="compileReady">
               <button class="rf-compile-btn" type="button" data-testid="rf-download-pdf"
-                @click="downloadZipPdf">下载 PDF</button>
+                @click="downloadZipPdf">{{ et("下载 PDF") }}</button>
               <button class="rf-compile-btn rf-compile-ghost" type="button"
                 data-testid="rf-recompile" :disabled="compiling" @click="startZipCompile">
-                {{ compiling ? '编译中…' : '重新编译' }}
+                {{ et(compiling ? '编译中…' : '重新编译') }}
               </button>
             </template>
             <template v-if="compileErrored">
               <button class="rf-compile-btn" type="button" data-testid="rf-recompile"
                 :disabled="compiling" @click="startZipCompile">
-                {{ compiling ? '编译中…' : '重新编译' }}
+                {{ et(compiling ? '编译中…' : '重新编译') }}
               </button>
               <button class="rf-compile-btn rf-compile-ghost" type="button"
-                data-testid="rf-download-log" @click="downloadZipLog">查看详细记录</button>
+                data-testid="rf-download-log" @click="downloadZipLog">{{ et("查看详细记录") }}</button>
             </template>
             <span v-if="compileReady && pdfSizeText" class="rf-compile-size"
               data-testid="rf-pdf-size">{{ pdfSizeText }}</span>
@@ -651,31 +635,28 @@ function download() {
           <div v-if="compiling" class="rf-compile-loading" role="status"
             data-testid="rf-compile-loading">
             <span class="rf-compile-spin" aria-hidden="true" />
-            <p class="rf-state-msg">编译中…（tectonic 单槽队列，常规 10-30 秒；项目首次编译需下载宏包可能更慢）</p>
+            <p class="rf-state-msg">{{ et("编译中…（tectonic 单槽队列，常规 10-30 秒；项目首次编译需下载宏包可能更慢）") }}</p>
           </div>
 
           <div v-else-if="compileReady" class="rf-compile-ready">
             <iframe
-              class="rf-compile-frame" :src="pdfSrc" title="PDF 预览"
+              class="rf-compile-frame" :src="pdfSrc" :title="et(&quot;PDF 预览&quot;)"
               data-testid="rf-pdf-frame"
             />
             <div class="rf-compile-foot">
-              <span class="rf-compile-secs" data-testid="rf-compile-secs">
-                编译耗时 {{ compileMeta?.seconds != null ? `${Number(compileMeta.seconds).toFixed(1)} 秒` : '—' }}
+              <span class="rf-compile-secs" data-testid="rf-compile-secs">{{ et(" 编译耗时 ") }}{{ et(compileMeta?.seconds != null ? `${Number(compileMeta.seconds).toFixed(1)} 秒` : '—') }}
               </span>
             </div>
           </div>
 
           <div v-else-if="compileErrored" class="rf-compile-error" role="alert"
             data-testid="rf-compile-error">
-            <p class="rf-compile-msg">{{ edu.compileError }}</p>
+            <p class="rf-compile-msg">{{ et(edu.compileError) }}</p>
             <details
               v-if="compileLog" class="rf-log" :open="!logCollapsed"
               data-testid="rf-log-details"
             >
-              <summary class="rf-log-sum" @click="logCollapsed = !logCollapsed">
-                编译日志（尾 200 行）
-              </summary>
+              <summary class="rf-log-sum" @click="logCollapsed = !logCollapsed">{{ et(" 编译日志（尾 200 行） ") }}</summary>
               <pre class="rf-log-body" data-testid="rf-log-body">{{ compileLog }}</pre>
             </details>
           </div>
@@ -705,27 +686,27 @@ function download() {
         />
         <template v-if="file">
           <span class="rf-file-name">📄 {{ file.name }} · {{ (file.size / 1024).toFixed(1) }} KB</span>
-          <button class="rf-remove" type="button" title="移除文件" @click.stop="removeFile">×</button>
+          <button class="rf-remove" type="button" :title="et(&quot;移除文件&quot;)" @click.stop="removeFile">×</button>
         </template>
         <template v-else>
-          <span class="rf-drop-main">拖拽 LaTeX 源码（.tex）到此处，或点击选择</span>
-          <span class="rf-hint">仅 .tex 单文件（多文件 \input 工程请先合并）· ≤ 2MB · UTF-8</span>
+          <span class="rf-drop-main">{{ et("拖拽 LaTeX 源码（.tex）到此处，或点击选择") }}</span>
+          <span class="rf-hint">{{ et("仅 .tex 单文件（多文件 \\input 工程请先合并）· ≤ 2MB · UTF-8") }}</span>
         </template>
       </div>
-      <p v-if="fileError" class="rf-file-error">{{ fileError }}</p>
+      <p v-if="fileError" class="rf-file-error">{{ et(fileError) }}</p>
 
-      <label class="rf-label" for="rf-target">目标期刊（必选，决定规则集）</label>
+      <label class="rf-label" for="rf-target">{{ et("目标期刊（必选，决定规则集）") }}</label>
       <select id="rf-target" v-model="targetChoice" class="rf-input rf-select" :disabled="loading">
-        <optgroup label="通用规则">
-          <option value="default">通用规则（APA + 通用论文规范）</option>
+        <optgroup :label="et(&quot;通用规则&quot;)">
+          <option value="default">{{ et("通用规则（APA + 通用论文规范）") }}</option>
         </optgroup>
-        <optgroup v-if="edu.journals.length" label="精选期刊">
+        <optgroup v-if="edu.journals.length" :label="et(&quot;精选期刊&quot;)">
           <option v-for="j in edu.journals" :key="j.id" :value="j.id">{{ j.name }}</option>
         </optgroup>
-        <optgroup label="期刊目录（1056 本）">
-          <option value="__dir_en__">国际目录 · 搜索选择…</option>
-          <option value="__dir_zh__">中文目录 · 搜索选择…</option>
-          <option v-if="dirPick" :value="`dir:${dirPick.id}`">{{ dirPick.name }}（已选定）</option>
+        <optgroup :label="et(&quot;期刊目录（1056 本）&quot;)">
+          <option value="__dir_en__">{{ et("国际目录 · 搜索选择…") }}</option>
+          <option value="__dir_zh__">{{ et("中文目录 · 搜索选择…") }}</option>
+          <option v-if="dirPick" :value="`dir:${dirPick.id}`">{{ dirPick.name }}{{ et("（已选定）") }}</option>
         </optgroup>
       </select>
 
@@ -735,12 +716,12 @@ function download() {
           v-model="dirQuery"
           class="rf-input"
           type="search"
-          :placeholder="dirMode === 'en' ? '搜索国际目录期刊名 / ISSN…' : '搜索中文目录期刊名 / ISSN…'"
+          :placeholder="et(dirMode === 'en' ? '搜索国际目录期刊名 / ISSN…' : '搜索中文目录期刊名 / ISSN…')"
           :disabled="loading"
         />
-        <p v-if="dirError" class="rf-file-error">{{ dirError }}</p>
-        <p v-if="dirLoading" class="rf-dirhint">搜索中…</p>
-        <p v-else-if="dirQuery.trim() && !dirResults.length && !dirError" class="rf-dirhint">无匹配期刊</p>
+        <p v-if="dirError" class="rf-file-error">{{ et(dirError) }}</p>
+        <p v-if="dirLoading" class="rf-dirhint">{{ et("搜索中…") }}</p>
+        <p v-else-if="dirQuery.trim() && !dirResults.length && !dirError" class="rf-dirhint">{{ et("无匹配期刊") }}</p>
         <ul v-if="dirResults.length" class="rf-dirlist">
           <li v-for="it in dirResults" :key="it.id">
             <button class="rf-diritem" type="button" @click="pickDir(it)">
@@ -754,19 +735,15 @@ function download() {
           </li>
         </ul>
       </div>
-      <p v-else-if="targetChoice.startsWith('dir:') && !dirPick" class="rf-dirhint">
-        ⚠ 目录选中记录缺失，请重新搜索选择期刊
-      </p>
+      <p v-else-if="targetChoice.startsWith('dir:') && !dirPick" class="rf-dirhint">{{ et(" ⚠ 目录选中记录缺失，请重新搜索选择期刊 ") }}</p>
 
       <button
         class="rf-submit"
         type="button"
         :disabled="!file || !targetReady || loading"
         @click="submit"
-      >
-        开始自动重排版
-      </button>
-      <p v-if="dirMode && !actualTarget" class="rf-dirhint">请从搜索结果中选择期刊后提交</p>
+      >{{ et(" 开始自动重排版 ") }}</button>
+      <p v-if="dirMode && !actualTarget" class="rf-dirhint">{{ et("请从搜索结果中选择期刊后提交") }}</p>
       </template>
     </div>
   </section>

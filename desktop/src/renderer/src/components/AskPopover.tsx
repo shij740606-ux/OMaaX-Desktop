@@ -28,6 +28,7 @@ export default function AskPopover() {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [q, setQ] = useState('');
   const [answer, setAnswer] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -40,12 +41,12 @@ export default function AskPopover() {
       const d = describeTarget(e.target as Element, lang);
       const x = Math.min(e.clientX, window.innerWidth - 380), y = Math.min(e.clientY, window.innerHeight - 220);
       setAnchor({ x, y, context: `${TAB_NAME[tab] ? t(TAB_NAME[tab]) : tab} · ${d.context}`, hint: d.hint });
-      setQ(''); setAnswer('');
+      setQ(''); setAnswer(''); setError('');
       setTimeout(() => inputRef.current?.focus(), 30);
     };
     const onDown = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setAnchor(null); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAnchor(null); };
-    const onAsk = (e: Event) => { const d = (e as CustomEvent).detail as { x: number; y: number; context: string; hint: string }; setAnchor({ x: Math.min(d.x, window.innerWidth - 380), y: Math.min(d.y, window.innerHeight - 220), context: d.context, hint: d.hint }); setQ(''); setAnswer(''); setTimeout(() => inputRef.current?.focus(), 30); };
+    const onAsk = (e: Event) => { const d = (e as CustomEvent).detail as { x: number; y: number; context: string; hint: string }; setAnchor({ x: Math.min(d.x, window.innerWidth - 380), y: Math.min(d.y, window.innerHeight - 220), context: d.context, hint: d.hint }); setQ(''); setAnswer(''); setError(''); setTimeout(() => inputRef.current?.focus(), 30); };
     window.addEventListener('biodsh:ask', onAsk);
     window.addEventListener('contextmenu', onMenu);
     window.addEventListener('mousedown', onDown);
@@ -57,9 +58,9 @@ export default function AskPopover() {
   if (!anchor) return null;
   const send = async () => {
     const question = q.trim() || anchor.hint;
-    setLoading(true); setAnswer('');
+    setLoading(true); setAnswer(''); setError('');
     try { setAnswer(String(await window.biodsh.assistantAsk('omaax', question, anchor.context))); }
-    catch (e) { setAnswer(t('出错了：{msg}', { msg: String(e).replace(/^Error: /, '') })); }
+    catch (e) { setError(String(e).replace(/^Error: /, '')); }
     finally { setLoading(false); }
   };
   return (
@@ -74,9 +75,9 @@ export default function AskPopover() {
         <input ref={inputRef} className="field flex-1" placeholder={anchor.hint} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !loading && send()} />
         <button className="btn btn-primary !px-3" disabled={loading} onClick={send}>{loading ? <span className="ring spin" style={{ ['--p' as string]: 30, width: 14, height: 14 }} /> : <Send size={14} />}</button>
       </div>
-      {(answer || loading) && (
+      {(answer || error || loading) && (
         <div className="px-3 pb-3">
-          <div className="rounded-xl px-3 py-2 selectable max-h-[260px] overflow-y-auto" style={{ background: 'var(--surface-2)' }}>{loading ? <span className="t-body">{t('正在想…')}</span> : <Markdown text={answer} />}</div>
+          <div className="rounded-xl px-3 py-2 selectable max-h-[260px] overflow-y-auto" style={{ background: 'var(--surface-2)' }}>{loading ? <span className="t-body">{t('正在想…')}</span> : error ? <span role="alert">{t('出错了：{msg}', { msg: error })}</span> : <Markdown text={answer} />}</div>
         </div>
       )}
     </div>

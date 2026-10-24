@@ -6,7 +6,7 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),React=require('react'),{act,create}=require('react-test-renderer');
 const module={exports:{}};
 const code=ts.transpileModule(fs.readFileSync(new URL('../src/renderer/src/views/KnowledgeMarkdown.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
-new Function('require','module','exports',code)(n=>['react-markdown','remark-gfm'].includes(n)?()=>null:require(n),module,module.exports);
+new Function('require','module','exports',code)(n=>n==='../i18n'?{useT:()=>({lang:'zh',t:value=>value})}:['react-markdown','remark-gfm'].includes(n)?()=>null:require(n),module,module.exports);
 const {KnowledgeImage,copyKnowledgeImage}=module.exports;
 const text=n=>typeof n==='string'?n:(n.children||[]).map(text).join('');
 test('image copy writes PNG bytes; save uses the loaded image and handles cancel and failure',async()=>{

@@ -3,6 +3,7 @@ use tauri::{AppHandle};
 use tauri_plugin_dialog::DialogExt;
 use std::{fs,io::Write,path::Path,time::Duration};
 #[path="drawing_molecular.rs"] mod molecular;
+#[path="drawing_figure.rs"] mod figure;
 
 fn text<'a>(body:&'a Value,key:&str,max:usize)->Result<&'a str,String>{
     let s=body[key].as_str().ok_or("绘图内容无效")?;
@@ -34,6 +35,8 @@ fn save_molecular_project(project:&str,document:&str,image:&[u8],svg:Option<&str
     Ok(json!({"path":target.to_string_lossy()}))
 }
 pub fn run(app:&AppHandle,paths:&crate::paths::AppPaths,action:&str,body:Value)->Result<Value,String>{
+    if action.starts_with("figure_"){return figure::run(app,paths,action,body);}
+    let english=body["lang"].as_str()==Some("en");
     match action {
         "interactions"=>molecular::run(app,paths,&body),
         "save_molecule"=>{
@@ -61,7 +64,7 @@ pub fn run(app:&AppHandle,paths:&crate::paths::AppPaths,action:&str,body:Value)-
             Ok(json!({"text":v["choices"][0]["message"]["content"].as_str().ok_or("未收到绘图内容")?}))
         },
         "open"=>{
-            let Some(file)=app.dialog().file().add_filter("OMaaX 绘图",&["json"]).blocking_pick_file() else{return Ok(Value::Null);};
+            let Some(file)=app.dialog().file().add_filter(if english{"OMaaX Drawing"}else{"OMaaX 绘图"},&["json"]).blocking_pick_file() else{return Ok(Value::Null);};
             let path=file.to_string();crate::files::validate_local_path(&path)?;
             let file=fs::File::open(path).map_err(|_|"无法打开绘图文件")?;
             use std::io::Read;
@@ -72,7 +75,8 @@ pub fn run(app:&AppHandle,paths:&crate::paths::AppPaths,action:&str,body:Value)-
         "export"=>{
             let format=text(&body,"format",8)?;
             let data=match format{"svg"=>text(&body,"svg",20_000_000)?.as_bytes().to_vec(),"png"=>png(&body)?,_=>return Err("不支持此导出格式".into())};
-            let Some(file)=app.dialog().file().set_file_name(format!("科研绘图.{format}")).add_filter("图片",&[format]).blocking_save_file() else{return Ok(Value::Null);};
+            let name=if english{"Research-drawing"}else{"科研绘图"};
+            let Some(file)=app.dialog().file().set_file_name(format!("{name}.{format}")).add_filter(if english{"Images"}else{"图片"},&[format]).blocking_save_file() else{return Ok(Value::Null);};
             let target=file.to_string();
             let parent=Path::new(&target).parent().ok_or("保存位置无效")?;crate::files::validate_local_path(&parent.to_string_lossy())?;
             fs::write(&target,data).map_err(|_|"图片保存失败")?;Ok(json!({"path":target}))

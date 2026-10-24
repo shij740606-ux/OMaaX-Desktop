@@ -115,7 +115,7 @@ if (existsSync(communityIndex)) {
 const GOOD_REPOS = new Set(['OmicVerse', 'GPTomics-bioSkills', 'ClawBio', 'hcls-agent-skills', 'omics-skills', 'SciAgent-Skills']);
 const perDomain = new Map();
 for (const c of community) {
-  if (!c.has_scripts || !GOOD_REPOS.has(c.origin?.repo) || (c.summary ?? '').length < 30) continue;
+  if (c.unavailableReason || !c.has_scripts || !GOOD_REPOS.has(c.origin?.repo) || (c.summary ?? '').length < 30) continue;
   const n = perDomain.get(c.domain_zh) ?? 0;
   if (n >= 6) continue;
   c.featured = true; perDomain.set(c.domain_zh, n + 1);

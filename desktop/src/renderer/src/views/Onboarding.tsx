@@ -49,11 +49,11 @@ export default function Onboarding() {
                 <div className="flex items-center gap-2 t-body"><span className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--green)', color: '#fff' }}><Check size={12} strokeWidth={3} /></span>{t('环境已就绪 · Python {v}', { v: env.pythonVersion ?? '' })}</div>
               ) : installing ? (
                 <>
-                  <div className="t-body">{env.message}</div>
+                  <div className="t-body">{t(env.message || "")}</div>
                   <div className="mt-2 h-[6px] rounded-full overflow-hidden" style={{ background: 'var(--fill)' }}><div className="h-full rounded-full transition-all" style={{ width: `${Math.round(env.progress * 100)}%`, background: 'var(--accent)' }} /></div>
                 </>
               ) : env.step === 'error' ? (
-                <div className="t-body" style={{ color: 'var(--red)' }}>{env.message}</div>
+                <div className="t-body" style={{ color: 'var(--red)' }}>{t(env.message || "")}</div>
               ) : (
                 <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('安装位置：应用数据目录/bioenv（不影响系统 Python）')}</div>
               )}
@@ -64,7 +64,7 @@ export default function Onboarding() {
             </div>
           </>
         )}
-        {step === 3 && <><Logo size={64}/><div className="t-title1 mt-5">准备开始</div><p className="t-body mt-3">新建项目、添加数据，然后用自然语言描述你的分析目标。</p><button className="btn btn-primary mt-6" onClick={()=>finish(false)}>进入 OMaaX</button></>}
+        {step === 3 && <><Logo size={64}/><div className="t-title1 mt-5">{t("准备开始")}</div><p className="t-body mt-3">{t("新建项目、添加数据，然后用自然语言描述你的分析目标。")}</p><button className="btn btn-primary mt-6" onClick={()=>finish(false)}>{t("进入 OMaaX")}</button></>}
 
       </div>
       </div>

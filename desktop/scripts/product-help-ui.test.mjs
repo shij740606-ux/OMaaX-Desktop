@@ -132,6 +132,51 @@ test('opening tool catalog does not install software or demand a local environme
   assert.doesNotMatch(text(view.root), /全部.*已评测/); await act(async () => view.unmount());
 });
 
+test('catalog hides missing sources from discovery, recommendations, search and counts', async () => {
+  const tool = (id, extra = {}) => ({ id, name: id, summary: id, tags: [], tier: 'community', domain_zh: '数据与工具', ...extra });
+  const catalog = [
+    tool('基础工具', { tier: 'official' }),
+    tool('可用推荐', { featured: true }),
+    tool('可用普通'),
+    tool('失效推荐', { featured: true, unavailableReason: 'missing source', domain_zh: '单细胞与空间' }),
+  ];
+  const View = harness({ state: { catalog } }).load('views/StoreView.tsx').default;
+  let view; await act(async () => { view = create(React.createElement(View)); await settle(); });
+  const button = label => view.root.findAllByType('button').find(b => text(b).trim() === label);
+  const search = () => view.root.findByProps({ 'aria-label': '搜索工具' });
+  assert.equal(search().props.placeholder, '搜索 3 个工具');
+  assert.match(text(view.root), /推荐工具 1/);
+  assert.match(text(view.root), /可用推荐/);
+  assert.doesNotMatch(text(view.root), /失效推荐/);
+  await act(async () => button('扩展工具 · 2').props.onClick());
+  assert.ok(button('全部2')); assert.ok(button('数据与工具2'));
+  assert.doesNotMatch(text(view.root), /单细胞与空间|失效推荐/);
+  await act(async () => search().props.onChange({ target: { value: '失效' } }));
+  assert.match(text(view.root), /没有匹配的技能/);
+  await act(async () => view.unmount());
+});
+
+test('installed tools remain searchable and accessible after their source disappears', async () => {
+  const tool = id => ({ id, name: id, summary: id, tags: [], tier: 'community', domain_zh: '数据与工具', unavailableReason: 'missing source' });
+  const catalog = [tool('已安装旧工具'), tool('待更新旧工具'), tool('未安装旧工具')];
+  const statuses = { 已安装旧工具: { state: 'installed' }, 待更新旧工具: { state: 'update_available' } };
+  const writes = [];
+  const View = harness({ state: { catalog, statuses, uninstall: id => writes.push(id) }, api: { skillReadme: async () => '已安装的使用说明' } }).load('views/StoreView.tsx').default;
+  let view; await act(async () => { view = create(React.createElement(View)); await settle(); });
+  await act(async () => view.root.findAllByType('button').find(b => text(b) === '已添加').props.onClick());
+  const search = view.root.findByProps({ 'aria-label': '搜索工具' });
+  assert.equal(search.props.placeholder, '搜索 2 个工具');
+  assert.match(text(view.root), /已安装旧工具/); assert.match(text(view.root), /待更新旧工具/);
+  assert.doesNotMatch(text(view.root), /未安装旧工具/);
+  await act(async () => search.props.onChange({ target: { value: '已安装旧工具' } }));
+  assert.doesNotMatch(text(view.root), /待更新旧工具/);
+  await act(async () => view.root.findAll(n => typeof n.type === 'string' && n.props.className?.includes('omaax-tool-card'))[0].props.onClick());
+  assert.ok(view.root.findAllByType('button').some(b => text(b).trim() === '打开文件夹'));
+  assert.deepEqual(writes, []);
+  assert.equal(catalog.length, 3);
+  await act(async () => view.unmount());
+});
+
 test('resource cards separate server usage from task limits and retain metrics', async () => {
   const View = harness().load('views/HostsView.tsx').ResourceSummary;
   const value = { cpuPercent: 25, logicalCores: 40, physicalCores: 20, cpuModel: 'Test CPU', memoryUsed: 1024 ** 3, memoryTotal: 4 * 1024 ** 3, swapUsed: 0, swapTotal: 0, disks: [], sampledAt: 1, hostname: 'test', system: 'Linux', architecture: 'x86_64', uptimeSeconds: 86400, load: [1, 2, 3] };

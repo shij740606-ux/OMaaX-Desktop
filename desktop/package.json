@@ -1,7 +1,7 @@
 {
   "name": "omaax-desktop",
   "productName": "OMaaX",
-  "version": "0.4.49",
+  "version": "0.4.53",
   "description": "OMaaX — One Model, Beyond the Max.",
   "author": "OMaaX contributors",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:build:app": "tauri build --no-bundle",
-    "patch:dsh": "node scripts/patch-dsh-continuation.mjs",
+    "patch:dsh": "node scripts/patch-dsh-continuation.mjs && node scripts/patch-dsh-compaction.mjs",
     "release:win": "tauri build --bundles nsis",
     "release:linux": "bash scripts/release-linux.sh",
     "setup": "node scripts/setup-dev.mjs",

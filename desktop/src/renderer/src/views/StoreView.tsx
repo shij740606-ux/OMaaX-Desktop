@@ -5,15 +5,15 @@ import { useApp } from '../store';
 import InstallButton from '../components/InstallButton';
 import Markdown from '../components/Markdown';
 import type { CatalogSkill } from '@shared/types';
-import { useT } from '../i18n';
+import { useT,translate,type Lang } from '../i18n';
 import HelpTip, { useHelp } from '../components/HelpTip';
 
 const PAGE = 48;
 const DOMAIN_ORDER = ['单细胞与空间', '转录组与表达', '基因组与变异', '群体遗传', '遗传育种与性状定位', '比较基因组与进化', '植物基因组组装与注释', '植物表型与性状分析', '表观与调控', '蛋白与结构', '药物与化学', '临床与医学', '微生物与免疫', '代谢与其他组学', '数据与工具'];
 type Tier = 'official' | 'community' | 'installed';
-// 英文模式下社区技能显示英文原名与原简介；官方技能保持 name/summary。
-const skillName = (s: CatalogSkill, lang: string) => (lang === 'en' && s.tier === 'community' ? (s.name_en ?? s.name) : s.name);
-const skillSummary = (s: CatalogSkill, lang: string) => (lang === 'en' && s.tier === 'community' ? (s.description || s.summary) : s.summary);
+// Prefer original English metadata and translate the bundled Chinese-only entries.
+const skillName = (s: CatalogSkill, lang: Lang) => lang === 'en' ? translate(lang,s.name_en || s.name || s.id || '') : s.name || s.name_en || s.id || '';
+const skillSummary = (s: CatalogSkill, lang: Lang) => lang === 'en' ? translate(lang,(s.tier === 'community' ? s.description || s.summary : s.summary || s.description) || '') : s.summary || s.description || '';
 
 interface Rating { vote: number; comment?: string; at?: number }
 let ratingsCache: Record<string, Rating> = {};
@@ -36,9 +36,10 @@ export default function StoreView() {
   useEffect(() => { setSub('all'); }, [domain, tier]);
   useEffect(() => { const h = (e: Event) => setTier((e as CustomEvent).detail as Tier); window.addEventListener('biodsh:tier', h); return () => window.removeEventListener('biodsh:tier', h); }, []);
 
+  const availableCatalog = useMemo(() => catalog.filter((s) => !s.unavailableReason), [catalog]);
   const pool = useMemo(() => catalog.filter((s) => {
     if (tier === 'installed') { const st = statuses[s.id]?.state; return st === 'installed' || st === 'update_available'; }
-    return (s.tier ?? 'official') === tier;
+    return !s.unavailableReason && (s.tier ?? 'official') === tier;
   }), [catalog, statuses, tier]);
   const domains = useMemo(() => {
     const c = new Map<string, number>();
@@ -55,17 +56,16 @@ export default function StoreView() {
     if (sub !== 'all' && s.subcategory !== sub) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
-    return [s.name, s.name_en ?? '', s.summary, s.description ?? '', s.id, s.subcategory ?? '', ...s.tags].some((x) => x.toLowerCase().includes(needle));
-  }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1)), [inDomain, sub, q]); // 有评分的排前(按分降序),未评测的保持原序在后
+    return [s.name ?? '', s.name_en ?? '', s.summary ?? '', s.description ?? '', skillName(s,lang),skillSummary(s,lang),s.id, t(s.subcategory ?? ''), ...(s.tags ?? []).map(v=>t(v))].some((x) => x.toLowerCase().includes(needle));
+  }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1)), [inDomain, sub, q,lang]); // 有评分的排前(按分降序),未评测的保持原序在后
   const shown = list.slice(0, page * PAGE);
-  const featuredCommunity = catalog.filter((s) => s.tier === 'community' && s.featured);
-  const featured = catalog.filter((s) => s.featured);
-  const communityCount = catalog.filter((s) => s.tier === 'community').length;
+  const featuredCommunity = availableCatalog.filter((s) => s.tier === 'community' && s.featured);
+  const communityCount = availableCatalog.filter((s) => s.tier === 'community').length;
 
   return (
     <div className="h-full flex flex-col omaax-page omaax-tools">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>工具中心 <HelpTip topic="tools"/></h1><p>{help.summary}</p><div className="omaax-tool-search"><Search size={18}/><input aria-label="搜索工具" value={q} onChange={e=>setQ(e.target.value)} placeholder={`搜索 ${catalog.length} 个工具`}/></div></header>
-      <nav className="omaax-filter" aria-label="工具来源"><button className={tier==='official'?'selected':''} onClick={()=>setTier('official')}>精选工具</button><button className={tier==='community'?'selected':''} onClick={()=>setTier('community')}>扩展工具 · {communityCount}</button><button className={tier==='installed'?'selected':''} onClick={()=>setTier('installed')}>已添加</button></nav>
+      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>{t("工具中心")}<HelpTip topic="tools"/></h1><p>{help.summary}</p><div className="omaax-tool-search"><Search size={18}/><input aria-label={t("搜索工具")} value={q} onChange={e=>setQ(e.target.value)} placeholder={t('搜索 {n} 个工具',{n:tier==='installed'?pool.length:availableCatalog.length})}/></div></header>
+      <nav className="omaax-filter" aria-label={t("工具来源")}><button className={tier==='official'?'selected':''} onClick={()=>setTier('official')}>{t("精选工具")}</button><button className={tier==='community'?'selected':''} onClick={()=>setTier('community')}>{t("扩展工具 ·")} {communityCount}</button><button className={tier==='installed'?'selected':''} onClick={()=>setTier('installed')}>{t("已添加")}</button></nav>
       <div className="flex-1 min-h-0 flex">
         {/* 左侧分类栏 */}
         <nav className="w-[196px] shrink-0 overflow-y-auto py-3 px-2 hairline-r" style={{ background: 'var(--surface-2)', borderRight: '0.5px solid var(--border)' }}>
@@ -102,7 +102,7 @@ export default function StoreView() {
             {subs.length > 1 && domain !== 'all' ? (
               <DragRow>
                 <button className={`chip ${sub === 'all' ? 'active' : ''}`} onClick={() => setSub('all')}>{t('全部小类')}</button>
-                {subs.map(([s, n]) => <button key={s} className={`chip ${sub === s ? 'active' : ''}`} onClick={() => setSub(s)}>{s} <span className="opacity-50">{n}</span></button>)}
+                {subs.map(([s, n]) => <button key={s} className={`chip ${sub === s ? 'active' : ''}`} onClick={() => setSub(s)}>{t(s)} <span className="opacity-50">{n}</span></button>)}
               </DragRow>
             ) : domain === 'all' && tier !== 'installed' ? (
               <span className="t-caption">{t('左侧选一个领域，再按小类筛选')}</span>
@@ -139,6 +139,7 @@ export default function StoreView() {
 
 // 横向拖拽条：隐藏滚动条，鼠标按住拖动（像手指滑）+ 滚轮横向滚动；拖拽时吞掉点击避免误触。
 function DragRow({ children }: { children: React.ReactNode }) {
+
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current; if (!el) return;
@@ -185,6 +186,7 @@ function ScoreInfoModal({ onClose }: { onClose: () => void }) {
 }
 
 function Icon({ skill, size = 44 }: { skill: CatalogSkill; size?: number }) {
+
   return (
     <div className="flex items-center justify-center shrink-0" style={{ width: size, height: size, borderRadius: size * 0.23, background: 'var(--surface-2)', color: 'var(--accent)', boxShadow: 'inset 0 0 0 0.5px var(--border)' }}><SkillIcon category={skill.category} domain={skill.domain_zh} size={Math.round(size * 0.5)} /></div>
   );
@@ -211,18 +213,18 @@ function Badges({ skill }: { skill: CatalogSkill }) {
   if (skill.tier === 'community') {
     return (
       <>
-        {skill.subcategory && <span className="badge badge-blue">{skill.subcategory}</span>}
-        {skill.level && <span className="badge">{skill.level}</span>}
+        {skill.subcategory && <span className="badge badge-blue">{t(skill.subcategory)}</span>}
+        {skill.level && <span className="badge">{t(skill.level)}</span>}
         {skill.has_scripts ? <span className="badge">{t('含脚本')}</span> : <span className="badge">{t('操作指南')}</span>}
       </>
     );
   }
   return (
     <>
-      {typeof skill.score === 'number' && <span className="badge badge-blue" title={skill.score_source ?? t('内部评测')}><Award size={11} /> {t('评分')} {skill.score}</span>}
+      {typeof skill.score === 'number' && <span className="badge badge-blue" title={t(skill.score_source ?? '内部评测')}><Award size={11} /> {t('评分')} {skill.score}</span>}
       {skill.offline && <span className="badge badge-green"><WifiOff size={11} /> {t('离线')}</span>}
       {skill.evidence?.reproducible && <span className="badge badge-green"><RotateCcw size={11} /> {t('可复现')}</span>}
-      {skill.evidence?.tests && <span className="badge badge-blue"><ShieldCheck size={11} /> {t('评测')} {skill.evidence.tests}</span>}
+      {skill.evidence?.tests && <span className="badge badge-blue"><ShieldCheck size={11} /> {t('评测')} {t(skill.evidence.tests)}</span>}
       {!skill.mutates_input && <span className="badge">{t('不改动原始数据')}</span>}
     </>
   );
@@ -295,24 +297,24 @@ function DetailSheet({ skill, onClose, rating, onRate }: { skill: CatalogSkill; 
               <p className="t-body selectable" style={{ fontSize: 14, lineHeight: '21px' }}>{skillSummary(skill, lang)}</p>
               {community ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <Info label={t('分类')} value={`${skill.domain_zh ? t(skill.domain_zh) : '—'} / ${skill.subcategory ?? '—'}`} />
-                  <Info label={t('使用门槛')} value={skill.level || '—'} />
+                  <Info label={t('分类')} value={`${skill.domain_zh ? t(skill.domain_zh) : '—'} / ${t(skill.subcategory ?? '—')}`} />
+                  <Info label={t('使用门槛')} value={t(skill.level || '—')} />
                   <Info label={t('来源仓库')} value={skill.origin?.repo ?? '—'} sub={skill.origin?.path} />
                   <Info label={t('许可证')} value={skill.origin?.license ?? '—'} />
                   <Info label={t('类型')} value={skill.has_scripts ? t('包含脚本，准备环境后由助手调用') : t('提供操作指南，依赖软件另行准备')} />
-                  {skill.sourceGuide && <Info label={t('配置需求')} value={skill.sourceGuide.requirements} sub={t('添加指南后，分析软件按需配置')} />}
+                  {skill.sourceGuide && <Info label={t('配置需求')} value={t(skill.sourceGuide.requirements)} sub={t('添加指南后，分析软件按需配置')} />}
                   <Info label={t('来源评测')} value={t('未评测，运行前请自行判断')} />
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <Info label={t('综合评分')} value={typeof skill.score === 'number' ? `${skill.score} / 100` : t('未评测')} sub={typeof skill.score === 'number' ? (skill.score_source ?? t('五维加权：正确性/鲁棒性/可复现/离线/效率')) : t('尚无公认 benchmark 分数')} />
-                  {skill.benchmarks && skill.benchmarks.length > 0 && <Info label={t('计划接入 benchmark')} value={skill.benchmarks.join(' · ')} />}
+                  <Info label={t('综合评分')} value={typeof skill.score === 'number' ? `${skill.score} / 100` : t('未评测')} sub={typeof skill.score === 'number' ? t(skill.score_source ?? '五维加权：正确性/鲁棒性/可复现/离线/效率') : t('尚无公认 benchmark 分数')} />
+                  {skill.benchmarks && skill.benchmarks.length > 0 && <Info label={t('计划接入 benchmark')} value={skill.benchmarks.map(v=>t(v)).join(' · ')} />}
                   <Info label={t('运行方式')} value={t('按工具要求选择本机或服务器环境')} />
                   <Info label={t('可复现性')} value={skill.evidence?.reproducible ? t('同输入重跑结果逐字节一致') : t('未验证')} />
-                  <Info label={t('评测')} value={skill.evidence?.tests ? t('独立评分器 {tests} 通过', { tests: skill.evidence.tests }) : t('暂无')} />
+                  <Info label={t('评测')} value={skill.evidence?.tests ? t('独立评分器 {tests} 通过', { tests: t(skill.evidence.tests) }) : t('暂无')} />
                   <Info label={t('验证数据集')} value={skill.evidence?.dataset ?? '—'} />
                   <Info label={t('需要')} value={t('见工具文档；本机与服务器分别准备')} />
-                  <Info label={t('标签')} value={skill.tags.join(' · ') || '—'} />
+                  <Info label={t('标签')} value={(skill.tags ?? []).map(v=>t(v)).join(' · ') || '—'} />
                 </div>
               )}
               {community && skill.origin?.url && <button className="btn btn-ghost self-start" onClick={() => window.biodsh.openExternal(skill.origin!.url)}><ExternalLink size={13} /> {t('查看来源仓库')}</button>}

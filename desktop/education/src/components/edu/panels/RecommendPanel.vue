@@ -6,6 +6,7 @@
      tier chips 为纯前端结果筛选（不改 payload 语义）；结果与草稿存 edu store，
      切菜单往返不丢、mount 无请求。D2 同样只读。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -67,14 +68,13 @@ const riskClass = (note) => {
 <template>
   <section class="rp">
     <header class="rp-head">
-      <h1 class="rp-title">智能投稿推荐</h1>
-      <span class="rp-sub">根据论文摘要推荐适合的投稿期刊</span>
+      <h1 class="rp-title">{{ et("智能投稿推荐") }}</h1>
+      <span class="rp-sub">{{ et("根据论文摘要推荐适合的投稿期刊") }}</span>
     </header>
 
     <!-- ========== 表单区（草稿存 edu.drafts，切菜单不丢） ========== -->
     <div class="rp-form">
-      <label class="rp-label" for="rp-abstract">
-        论文摘要 <span class="rp-req">必填</span>
+      <label class="rp-label" for="rp-abstract">{{ et(" 论文摘要 ") }}<span class="rp-req">{{ et("必填") }}</span>
       </label>
       <textarea
         id="rp-abstract"
@@ -82,16 +82,15 @@ const riskClass = (note) => {
         class="rp-textarea"
         rows="7"
         maxlength="20000"
-        placeholder="粘贴论文摘要（≥50 字符），或粘贴全文前 500 字"
+        :placeholder="et(&quot;粘贴论文摘要（≥50 字符），或粘贴全文前 500 字&quot;)"
       ></textarea>
       <div class="rp-count" :class="{ ok: abstractOk }">
-        {{ edu.drafts.abstract.trim().length }} / 20000 字符
-        <span v-if="!abstractOk">· 至少需要 50 字符</span>
+        {{ edu.drafts.abstract.trim().length }}{{ et(" / 20000 字符 ") }}<span v-if="!abstractOk">{{ et("· 至少需要 50 字符") }}</span>
       </div>
 
       <div class="rp-prefs">
         <div class="rp-field">
-          <label class="rp-label" for="rp-weeks">最大审稿周期（周，选填）</label>
+          <label class="rp-label" for="rp-weeks">{{ et("最大审稿周期（周，选填）") }}</label>
           <input
             id="rp-weeks"
             v-model.number="edu.drafts.prefs.max_review_weeks"
@@ -99,11 +98,11 @@ const riskClass = (note) => {
             type="number"
             min="1"
             max="104"
-            placeholder="如 8"
+            :placeholder="et(&quot;如 8&quot;)"
           />
         </div>
         <div class="rp-field">
-          <label class="rp-label" for="rp-if">最低影响因子（选填）</label>
+          <label class="rp-label" for="rp-if">{{ et("最低影响因子（选填）") }}</label>
           <input
             id="rp-if"
             v-model.number="edu.drafts.prefs.min_impact_factor"
@@ -112,7 +111,7 @@ const riskClass = (note) => {
             min="0"
             max="200"
             step="0.1"
-            placeholder="如 3"
+            :placeholder="et(&quot;如 3&quot;)"
           />
         </div>
       </div>
@@ -123,7 +122,7 @@ const riskClass = (note) => {
         :disabled="!abstractOk || loading"
         @click="submit"
       >
-        {{ loading ? '推荐生成中…（约 10–30 秒）' : '开始推荐' }}
+        {{ et(loading ? '推荐生成中…（约 10–30 秒）' : '开始推荐') }}
       </button>
     </div>
 
@@ -132,32 +131,30 @@ const riskClass = (note) => {
       <div class="rp-skel"></div>
       <div class="rp-skel rp-skel-mid"></div>
       <div class="rp-skel"></div>
-      <p class="rp-state-msg">正在匹配适合的期刊，请稍候…</p>
+      <p class="rp-state-msg">{{ et("正在匹配适合的期刊，请稍候…") }}</p>
     </div>
 
     <div v-else-if="errored" class="rp-state" role="alert">
-      <p class="rp-state-msg rp-state-error">{{ edu.recommendError }}</p>
-      <button class="rp-retry" type="button" @click="submit">重试</button>
+      <p class="rp-state-msg rp-state-error">{{ et(edu.recommendError) }}</p>
+      <button class="rp-retry" type="button" @click="submit">{{ et("重试") }}</button>
     </div>
 
     <div v-else-if="!result" class="rp-state">
-      <p class="rp-state-msg">粘贴摘要后点击「开始推荐」：从期刊库语义匹配候选，按挑战/适配/稳妥三档给出匹配理由与风险提示。</p>
+      <p class="rp-state-msg">{{ et("粘贴摘要后点击「开始推荐」：从期刊库语义匹配候选，按挑战/适配/稳妥三档给出匹配理由与风险提示。") }}</p>
     </div>
 
     <!-- ========== 结果区 ========== -->
     <template v-else>
       <!-- 降级横幅（meta 标志，非报错红） -->
       <div v-if="meta && !meta.llm_ok" class="rp-degraded">
-        {{ !meta.llm_ok ? '智能推荐暂不可用，以下按影响因子和审稿周期排序' : '已扩大期刊范围进行匹配' }}
+        {{ et(!meta.llm_ok ? '智能推荐暂不可用，以下按影响因子和审稿周期排序' : '已扩大期刊范围进行匹配') }}
       </div>
 
       <!-- 结果元信息 -->
-      <div v-if="meta" class="rp-meta">
-        已匹配 {{ meta.candidate_count }} 本候选期刊
-      </div>
+      <div v-if="meta" class="rp-meta">{{ et(" 已匹配 ") }}{{ meta.candidate_count }}{{ et(" 本候选期刊 ") }}</div>
 
       <!-- 档位 chips（纯前端筛选，不重查） -->
-      <div class="rp-chips" role="tablist" aria-label="档位筛选">
+      <div class="rp-chips" role="tablist" :aria-label="et(&quot;档位筛选&quot;)">
         <button
           v-for="f in FILTERS"
           :key="f.key"
@@ -168,42 +165,41 @@ const riskClass = (note) => {
           :aria-selected="edu.drafts.tierFilter === f.key"
           @click="setFilter(f.key)"
         >
-          {{ f.label }}
+          {{ et(f.label) }}
         </button>
       </div>
 
       <section v-for="key in visibleTiers" :key="key" class="rp-tier">
         <h2 class="rp-tier-head">
           <span class="rp-dot" :class="key" aria-hidden="true"></span>
-          {{ labelOf(key) }}
-          <span class="rp-tier-count">{{ itemsOf(key).length }} 本</span>
+          {{ et(labelOf(key)) }}
+          <span class="rp-tier-count">{{ itemsOf(key).length }}{{ et(" 本") }}</span>
         </h2>
 
-        <p v-if="!itemsOf(key).length" class="rp-empty">本档暂无期刊</p>
+        <p v-if="!itemsOf(key).length" class="rp-empty">{{ et("本档暂无期刊") }}</p>
 
         <article v-for="it in itemsOf(key)" :key="it.id" class="rp-card">
           <header class="rp-card-head">
             <span class="rp-card-name">{{ it.name }}</span>
             <span class="rp-card-metrics">
               <span class="rp-metric">IF {{ fmt(it.impact_factor) }}</span>
-              <span class="rp-metric">约 {{ fmt(it.review_time_weeks) }} 周</span>
+              <span class="rp-metric">{{ et("约 ") }}{{ fmt(it.review_time_weeks) }}{{ et(" 周") }}</span>
               <a
                 v-if="it.official_url"
                 class="rp-link"
                 :href="it.official_url"
                 target="_blank"
                 rel="noopener"
-              >官网 ↗</a>
+              >{{ et("官网 ↗") }}</a>
             </span>
           </header>
-          <p v-if="it.similarity !== null && it.similarity !== undefined" class="rp-sim">
-            语义匹配 {{ Number(it.similarity).toFixed(2) }}
+          <p v-if="it.similarity !== null && it.similarity !== undefined" class="rp-sim">{{ et(" 语义匹配 ") }}{{ Number(it.similarity).toFixed(2) }}
           </p>
           <p class="rp-reason">
-            <span class="rp-k">匹配理由</span>{{ it.match_reason }}
+            <span class="rp-k">{{ et("匹配理由") }}</span>{{ it.match_reason }}
           </p>
           <p class="rp-risk" :class="riskClass(it.risk_note)">
-            <span class="rp-k">风险</span>{{ it.risk_note }}
+            <span class="rp-k">{{ et("风险") }}</span>{{ it.risk_note }}
           </p>
         </article>
       </section>

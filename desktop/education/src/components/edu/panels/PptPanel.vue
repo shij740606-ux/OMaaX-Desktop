@@ -8,13 +8,14 @@
      预览：build 返回 meta.previews → 缩略图条 + 大图（preview/{page}.png 直链）；
      旧响应无 previews / 编辑后 pptx 失效 → 区块隐藏。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 import { pptDownloadUrl, pptPreviewUrl } from '../../../api/review.js';
 import './ppt-styles.css';
 
 const edu = useEduStore();
-const warningText = text => String(text).replace(/\bsection\b/g, '章节分隔').replace(/\bevidence\b/g, '证据').replace(/\bquote\b/g, '原文引文').replace(/\bpara_id\b/g, '段落编号');
+const warningText = text => educationLocale.value === 'en' ? et(String(text)) : String(text).replace(/\bsection\b/g, '章节分隔').replace(/\bevidence\b/g, '证据').replace(/\bquote\b/g, '原文引文').replace(/\bpara_id\b/g, '段落编号');
 const ppt = computed(() => edu.ppt);
 const job = computed(() => edu.ppt.job);
 
@@ -115,9 +116,9 @@ function badgeClass(page, i) {
 }
 function badgeTitle(page, i) {
   const ev = evOf(page, i);
-  if (!ev) return '无来源';
+  if (!ev) return et('无来源');
   const q = String(ev.quote || '').slice(0, 80);
-  return `${ev.status === 'verified' ? '已核实' : '未核实'} ${ev.para_id || ''}：${q}`;
+  return `${et(ev.status === 'verified' ? '已核实' : '未核实')} ${ev.para_id || ''}: ${q}`;
 }
 function removeBullet(pi, bi) {
   const p = localPages.value[pi];
@@ -162,7 +163,7 @@ function onFileChange(e) {
   edu.ppt.form.file = (e.target.files && e.target.files[0]) || null;
 }
 function onReset() {
-  if (dirty.value && !window.confirm('有未保存的修改，放弃并重新生成？')) return;
+  if (dirty.value && !window.confirm(et('有未保存的修改，放弃并重新生成？'))) return;
   edu.clearPpt();
 }
 async function onDelete() {
@@ -236,124 +237,121 @@ watch(
   <section class="ppt-root">
     <header class="ppt-head">
       <div>
-        <h2 class="ppt-title">科研汇报助手</h2>
-        <p class="ppt-sub">论文 PDF → 证据可溯的大纲 → 逐页编辑 → PPTX 初稿 + 逐页页面预览（{{ styleTag }}）</p>
+        <h2 class="ppt-title">{{ et("科研汇报助手") }}</h2>
+        <p class="ppt-sub">{{ et("论文 PDF → 证据可溯的大纲 → 逐页编辑 → PPTX 初稿 + 逐页页面预览（") }}{{ et(styleTag) }}）</p>
       </div>
       <span v-if="job" class="ppt-status" :class="`st-${ppt.status}`" data-test="status-chip">
-        {{ statusLabel }}
+        {{ et(statusLabel) }}
       </span>
     </header>
 
     <!-- ============ ① 生成表单（无 job） ============ -->
     <div v-if="!job" class="ppt-form" data-test="ppt-form">
       <div class="ppt-field">
-        <label class="ppt-label">输入方式</label>
+        <label class="ppt-label">{{ et("输入方式") }}</label>
         <div class="ppt-seg">
           <button type="button" :class="{ on: ppt.form.mode === 'pdf' }"
-                  data-test="mode-pdf" @click="ppt.form.mode = 'pdf'">上传 PDF</button>
+                  data-test="mode-pdf" @click="ppt.form.mode = 'pdf'">{{ et("上传 PDF") }}</button>
           <button type="button" :class="{ on: ppt.form.mode === 'text' }"
-                  data-test="mode-text" @click="ppt.form.mode = 'text'">粘贴文本</button>
+                  data-test="mode-text" @click="ppt.form.mode = 'text'">{{ et("粘贴文本") }}</button>
         </div>
       </div>
 
       <div v-if="ppt.form.mode === 'pdf'" class="ppt-field">
-        <label class="ppt-label">论文 PDF（不超过 50 MB）</label>
+        <label class="ppt-label">{{ et("论文 PDF（不超过 50 MB）") }}</label>
         <input type="file" accept=".pdf,application/pdf" data-test="file-input" @change="onFileChange" />
         <span v-if="ppt.form.file" class="ppt-file">{{ ppt.form.file.name }}</span>
       </div>
       <div v-else class="ppt-field">
-        <label class="ppt-label">论文正文（≥300 字）</label>
+        <label class="ppt-label">{{ et("论文正文（≥300 字）") }}</label>
         <textarea v-model="ppt.form.text" rows="6" data-test="text-input"
-                  placeholder="粘贴论文纯文本（标题/摘要/正文/参考文献）" />
+                  :placeholder="et(&quot;粘贴论文纯文本（标题/摘要/正文/参考文献）&quot;)" />
       </div>
 
       <div class="ppt-field">
-        <label class="ppt-label">汇报场景</label>
+        <label class="ppt-label">{{ et("汇报场景") }}</label>
         <select v-model="ppt.form.scenario" data-test="scenario-select">
-          <option v-for="s in SCENARIOS" :key="s.key" :value="s.key">{{ s.label }}</option>
+          <option v-for="s in SCENARIOS" :key="s.key" :value="s.key">{{ et(s.label) }}</option>
         </select>
       </div>
 
       <div class="ppt-field">
-        <label class="ppt-label">汇报时长</label>
+        <label class="ppt-label">{{ et("汇报时长") }}</label>
         <div class="ppt-seg">
           <button v-for="m in MINUTES" :key="m.v" type="button"
                   :class="{ on: ppt.form.minutes === m.v }"
                   :data-test="`minutes-${m.v}`"
                   @click="ppt.form.minutes = m.v">
-            {{ m.v }} 分钟<span class="min-pages">{{ m.pages }}</span>
+            {{ m.v }}{{ et(" 分钟") }}<span class="min-pages">{{ et(m.pages) }}</span>
           </button>
         </div>
       </div>
 
       <div class="ppt-field">
-        <label class="ppt-label">风格模板（卡面为该风格真实版式封面）</label>
+        <label class="ppt-label">{{ et("风格模板（卡面为该风格真实版式封面）") }}</label>
         <div class="ppt-styles">
           <button v-for="s in styleCards" :key="s.id" type="button"
                   class="ppt-style-card" :class="[s.id, { on: ppt.form.styleId === s.id }]"
                   :data-test="`style-${s.id}`" @click="ppt.form.styleId = s.id">
-            <img class="ppt-style-cover" :src="styleCover(s.id)" :alt="`${s.label} 版式封面`"
+            <div v-if="educationLocale === 'en'" class="ppt-style-cover ppt-style-cover-en" role="img" :aria-label="et(`${et(s.label)} 版式封面`)">
+              <strong>{{ et(s.label) }}</strong><span>Research presentation</span>
+            </div>
+            <img v-else class="ppt-style-cover" :src="styleCover(s.id)" :alt="et(`${et(s.label)} 版式封面`)"
                  :data-test="`cover-${s.id}`" />
             <span class="ppt-style-meta">
-              <span class="ppt-style-name">{{ s.label }}</span>
-              <span class="ppt-style-desc">{{ s.desc }}</span>
+              <span class="ppt-style-name">{{ et(s.label) }}</span>
+              <span class="ppt-style-desc">{{ et(s.desc) }}</span>
             </span>
           </button>
         </div>
       </div>
 
       <p v-if="ppt.status === 'error' && ppt.error" class="ppt-error" data-test="form-error">
-        {{ ppt.error }}
+        {{ et(ppt.error) }}
       </p>
 
       <div class="ppt-actions">
         <button type="button" class="ppt-primary" data-test="generate"
                 :disabled="isBusy" @click="onGenerate">
-          {{ ppt.status === 'loading' ? '大纲生成中（约 1-3 分钟）…' : '生成大纲' }}
+          {{ et(ppt.status === 'loading' ? '大纲生成中（约 1-3 分钟）…' : '生成大纲') }}
         </button>
-        <span class="ppt-hint">目标 {{ pageTarget }}（超上限自动裁剪，不足不凑页）</span>
+        <span class="ppt-hint">{{ et("目标 ") }}{{ et(pageTarget) }}{{ et("（超上限自动裁剪，不足不凑页）") }}</span>
       </div>
     </div>
 
     <!-- ============ ② 编辑器（有 job） ============ -->
     <div v-else class="ppt-editor" data-test="ppt-editor">
       <div class="ppt-toolbar">
-        <span class="ppt-chip">{{ SCENARIOS.find(s => s.key === job.scenario)?.label || '科研汇报' }} · {{ job.minutes }} 分钟</span>
-        <span class="ppt-chip">{{ styleCards.find(s => s.id === job.style_id)?.label || '汇报样式' }}</span>
-        <span class="ppt-chip" data-test="page-count">{{ localPages.length }} 页</span>
-        <span v-if="ppt.createMeta && ppt.createMeta.target_pages" class="ppt-chip">
-          目标 {{ ppt.createMeta.target_pages[0] }}-{{ ppt.createMeta.target_pages[1] }} 页
-        </span>
-        <span v-if="figsExtracted" class="ppt-chip" data-test="figs-chip">
-          提取原图 {{ figsExtracted }} 张
-        </span>
-        <span v-if="evStats.total" class="ppt-chip" data-test="ev-stats">
-          证据 {{ evStats.ok }}/{{ evStats.total }} 已核实
-        </span>
+        <span class="ppt-chip">{{ et(SCENARIOS.find(s => s.key === job.scenario)?.label || '科研汇报') }} · {{ job.minutes }}{{ et(" 分钟") }}</span>
+        <span class="ppt-chip">{{ et(styleCards.find(s => s.id === job.style_id)?.label || '汇报样式') }}</span>
+        <span class="ppt-chip" data-test="page-count">{{ localPages.length }}{{ et(" 页") }}</span>
+        <span v-if="ppt.createMeta && ppt.createMeta.target_pages" class="ppt-chip">{{ et(" 目标 ") }}{{ ppt.createMeta.target_pages[0] }}-{{ ppt.createMeta.target_pages[1] }}{{ et(" 页 ") }}</span>
+        <span v-if="figsExtracted" class="ppt-chip" data-test="figs-chip">{{ et(" 提取原图 ") }}{{ figsExtracted }}{{ et(" 张 ") }}</span>
+        <span v-if="evStats.total" class="ppt-chip" data-test="ev-stats">{{ et(" 证据 ") }}{{ evStats.ok }}/{{ evStats.total }}{{ et(" 已核实 ") }}</span>
         <span class="ppt-spacer" />
         <button type="button" data-test="save" :disabled="!dirty || ppt.saving"
-                :title="dirty ? '保存编辑' : '无修改'" @click="onSave">
-          {{ ppt.saving ? '保存中…' : dirty ? '保存' : '已保存' }}
+                :title="et(dirty ? '保存编辑' : '无修改')" @click="onSave">
+          {{ et(ppt.saving ? '保存中…' : dirty ? '保存' : '已保存') }}
         </button>
         <button type="button" class="ppt-primary" data-test="build"
                 :disabled="isBusy" @click="onBuild">
-          {{ ppt.status === 'building' ? '生成中…' : '生成 PPT' }}
+          {{ et(ppt.status === 'building' ? '生成中…' : '生成 PPT') }}
         </button>
         <a v-if="job.pptx_ready" class="ppt-dl" data-test="download"
-           :href="pptDownloadUrl(job.id)" download>下载 PPTX</a>
-        <button type="button" data-test="regenerate" :disabled="isBusy" @click="onReset">重新生成</button>
-        <button type="button" class="ppt-danger" data-test="delete" :disabled="isBusy" @click="onDelete">删除</button>
+           :href="pptDownloadUrl(job.id)" download>{{ et("下载 PPTX") }}</a>
+        <button type="button" data-test="regenerate" :disabled="isBusy" @click="onReset">{{ et("重新生成") }}</button>
+        <button type="button" class="ppt-danger" data-test="delete" :disabled="isBusy" @click="onDelete">{{ et("删除") }}</button>
       </div>
 
       <p v-if="ppt.error" class="ppt-error" data-test="editor-error">
-        {{ ppt.error }}
+        {{ et(ppt.error) }}
       </p>
-      <p v-if="dirty" class="ppt-dirty" data-test="dirty-hint">有未保存修改（生成 PPT 前会自动保存）</p>
+      <p v-if="dirty" class="ppt-dirty" data-test="dirty-hint">{{ et("有未保存修改（生成 PPT 前会自动保存）") }}</p>
 
       <details v-if="job.warnings && job.warnings.length" class="ppt-warnings" data-test="warnings" open>
-        <summary>生成提示（{{ job.warnings.length }}）</summary>
+        <summary>{{ et("生成提示（") }}{{ job.warnings.length }}）</summary>
         <ul>
-          <li v-for="(w, i) in job.warnings" :key="i">{{ warningText(w) }}</li>
+          <li v-for="(w, i) in job.warnings" :key="i">{{ et(warningText(w)) }}</li>
         </ul>
       </details>
 
@@ -361,15 +359,15 @@ watch(
       <div v-if="previewCount" class="ppt-previews" data-test="preview-wrap">
         <div class="ppt-preview-main-wrap">
           <img class="ppt-preview-main" :src="previewSrc(activePreview)"
-               :data-test="`preview-main-${activePreview}`" :alt="`第 ${activePreview} 页预览`"
+               :data-test="`preview-main-${activePreview}`" :alt="et(`第 ${activePreview} 页预览`)"
                @error="onPreviewError(activePreview)" />
         </div>
         <div class="ppt-preview-thumbs" data-test="preview-strip">
           <button v-for="p in previewPages" :key="p" type="button"
                   class="ppt-preview-thumb" :class="{ on: p === activePreview }"
-                  :data-test="`thumb-${p}`" :title="`第 ${p} 页`"
+                  :data-test="`thumb-${p}`" :title="et(`第 ${p} 页`)"
                   @click="activePreview = p">
-            <img :src="previewSrc(p)" :alt="`第 ${p} 页`" loading="lazy" @error.stop="onPreviewError(p)" />
+            <img :src="previewSrc(p)" :alt="et(`第 ${p} 页`)" loading="lazy" @error.stop="onPreviewError(p)" />
           </button>
         </div>
       </div>
@@ -379,50 +377,47 @@ watch(
             data-test="page-card">
           <div class="ppt-page-head">
             <span class="ppt-page-no">{{ page.slide_number }}</span>
-            <span class="ppt-type" data-test="page-type">{{ TYPE_LABELS[page.type] || page.type }}</span>
+            <span class="ppt-type" data-test="page-type">{{ et(TYPE_LABELS[page.type] || page.type) }}</span>
             <input v-model="page.title" class="ppt-page-title" data-test="page-title"
-                   placeholder="页标题" @input="touch" />
+                   :placeholder="et(&quot;页标题&quot;)" @input="touch" />
           </div>
 
           <!-- 分隔页只暴露副标题（渲染端 40pt 主标题 + 20pt 副标题，见 ppt_build._add_section_page） -->
           <div v-if="page.type === 'section'" class="ppt-sub-row">
             <input :value="page.bullets[0] || page.subtitle || ''" class="ppt-page-subtitle"
-                   data-test="page-subtitle" placeholder="副标题（默认取该章第一页标题）"
+                   data-test="page-subtitle" :placeholder="et(&quot;副标题（默认取该章第一页标题）&quot;)"
                    @input="onSectionSubtitle(pi, $event)" />
           </div>
           <template v-else>
             <ul class="ppt-bullets">
               <li v-for="(b, bi) in page.bullets" :key="bi" class="ppt-bullet-row">
                 <span class="ppt-ev" :class="badgeClass(page, bi)" data-test="ev-badge"
-                      :title="badgeTitle(page, bi)" />
+                      :title="et(badgeTitle(page, bi))" />
                 <input v-model="page.bullets[bi]" class="ppt-bullet-input" :data-test="`bullet-${pi}-${bi}`"
-                       placeholder="要点" @input="touch" />
+                       :placeholder="et(&quot;要点&quot;)" @input="touch" />
                 <button type="button" class="ppt-x" :data-test="`rm-${pi}-${bi}`"
-                        title="删除要点" @click="removeBullet(pi, bi)">×</button>
+                        :title="et(&quot;删除要点&quot;)" @click="removeBullet(pi, bi)">×</button>
               </li>
             </ul>
-            <button type="button" class="ppt-add" :data-test="`add-${pi}`" @click="addBullet(pi)">+ 要点</button>
+            <button type="button" class="ppt-add" :data-test="`add-${pi}`" @click="addBullet(pi)">{{ et("+ 要点") }}</button>
           </template>
 
           <div v-if="page.suggested_figures && page.suggested_figures.length" class="ppt-figs">
             <span v-for="(f, fi) in page.suggested_figures" :key="fi" class="ppt-fig"
                   :class="f.status === 'verified' ? 'ev-ok' : 'ev-bad'"
                   :data-test="`fig-${pi}-${fi}`"
-                  :title="`论文真实图引用 ${f.para_id}（${f.status === 'verified' ? '已核实' : '未核实'}）`">
-              {{ f.label || '图' }}（论文 {{ f.para_id }}）
+                  :title="et(`论文真实图引用 ${f.para_id}（${f.status === 'verified' ? '已核实' : '未核实'}）`)">
+              {{ f.label || et('图') }}{{ et("（论文 ") }}{{ f.para_id }}）
             </span>
           </div>
 
           <textarea v-model="page.speaker_notes" class="ppt-notes" rows="2"
-                    :data-test="`notes-${pi}`" placeholder="讲稿备注（不进正文；证据来源自动生成在备注尾部）"
+                    :data-test="`notes-${pi}`" :placeholder="et(&quot;讲稿备注（不进正文；证据来源自动生成在备注尾部）&quot;)"
                     @input="touch" />
         </li>
       </ol>
 
-      <p class="ppt-foot">
-        e 徽标：<span class="ppt-ev ev-ok" /> 已核实 · <span class="ppt-ev ev-bad" /> 未核实
-        （保存后按原文重新校验） · <span class="ppt-ev ev-none" /> 无来源
-        <template v-if="ppt.buildMeta"> · 最近生成 {{ ppt.buildMeta.slides }} 页 / {{ Math.round(ppt.buildMeta.bytes / 1024) }}KB</template>
+      <p class="ppt-foot">{{ et(" e 徽标：") }}<span class="ppt-ev ev-ok" />{{ et(" 已核实 · ") }}<span class="ppt-ev ev-bad" />{{ et(" 未核实 （保存后按原文重新校验） · ") }}<span class="ppt-ev ev-none" />{{ et(" 无来源 ") }}<template v-if="ppt.buildMeta">{{ et(" · 最近生成 ") }}{{ ppt.buildMeta.slides }}{{ et(" 页 / ") }}{{ Math.round(ppt.buildMeta.bytes / 1024) }}KB</template>
       </p>
     </div>
   </section>

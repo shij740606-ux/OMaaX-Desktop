@@ -19,7 +19,7 @@ const clear=id=>timers.delete(id);
 function load(file){
  if(modules.has(file))return modules.get(file).exports;
  const module={exports:{}};modules.set(file,module);
- const source=fs.readFileSync(file,'utf8').replaceAll('import.meta.env.DEV','false');
+ const source=fs.readFileSync(file,'utf8').replace(/import\.meta\.env\??\.DEV/g,'false');
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
  const require=name=>{
   if(name==='react')return React;
@@ -287,7 +287,7 @@ test('a model plan changing workflow while the previous diagram exists never cra
  await s.mount();await choose(s,'atacseq');await s.show(false);
  inbox={host:'a',id:'singlecell-model-final',workflow:'singlecell',context:{sessionId:'test-session'},state:'planned',selection:{steps:['singlecell_upstream','singlecell_report'],configs:{singlecell_upstream:{aligner:'star'}},input:'/isolated/raw',prefix:'sc-final'}};
  await s.show(true);assert.equal(s.view.findByType('h1').children[0],catalog.workflows.find(f=>f.id==='singlecell').name);
- assert.equal(namedInput(s,'结果名称').props.value,'sc-final');assert.deepEqual(selected(s),['运行可选测序上游','运行汇总图表与分析报告']);await s.stop();
+ assert.equal(namedInput(s,'结果名称').props.value,'sc-final');assert.deepEqual(selected(s),['运行 可选测序上游','运行 汇总图表与分析报告']);await s.stop();
 });
 
 

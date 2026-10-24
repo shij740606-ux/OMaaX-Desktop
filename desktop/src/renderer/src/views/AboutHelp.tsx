@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import {useState} from 'react';
 
 const topics = [
@@ -18,18 +19,19 @@ const topics = [
 ];
 
 export default function AboutHelp(){
+ const {t,lang}=useT();
   const [query,setQuery]=useState('');
   const needle=query.trim().toLocaleLowerCase();
-  const visible=topics.filter(item=>`${item.group} ${item.title} ${item.text}`.toLocaleLowerCase().includes(needle));
+  const visible=topics.filter(item=>`${t(item.group)} ${t(item.title)} ${t(item.text)}`.toLocaleLowerCase().includes(needle));
   return <section className="mt-6" aria-labelledby="about-help-title">
-    <h3 id="about-help-title" className="t-body font-semibold">帮助与常见问题</h3>
-    <p className="t-caption mt-2">按功能查找使用方法，或搜索你遇到的问题。</p>
-    <input type="search" aria-label="搜索帮助" placeholder="搜索功能、服务器、绘图、报错…" value={query} onChange={e=>setQuery(e.target.value)} className="input w-full mt-3 mb-3"/>
-    <p className="t-caption mb-2" role="status">找到 {visible.length} 条帮助</p>
+    <h3 id="about-help-title" className="t-body font-semibold">{t("帮助与常见问题")}</h3>
+    <p className="t-caption mt-2">{t("按功能查找使用方法，或搜索你遇到的问题。")}</p>
+    <input type="search" aria-label={t("搜索帮助")} placeholder={t("搜索功能、服务器、绘图、报错…")} value={query} onChange={e=>setQuery(e.target.value)} className="input w-full mt-3 mb-3"/>
+    <p className="t-caption mb-2" role="status">{t("找到 {count} 条帮助", {count:visible.length})}</p>
     {visible.map(item=><details key={item.title} className="py-3 border-b border-black/10 dark:border-white/10">
-      <summary className="cursor-pointer t-body"><span className="t-caption mr-2">{item.group}</span>{item.title}</summary>
-      <p className="t-body mt-3 leading-relaxed whitespace-pre-wrap">{item.text}</p>
+      <summary className="cursor-pointer t-body"><span className="t-caption mr-2">{t(item.group)}</span>{t(item.title)}</summary>
+      <p className="t-body mt-3 leading-relaxed whitespace-pre-wrap">{t(item.text)}</p>
     </details>)}
-    {!visible.length&&<p className="t-caption py-4">没有找到相关内容，请换一个关键词，例如“服务器”或“结果”。</p>}
+    {!visible.length&&<p className="t-caption py-4">{t("没有找到相关内容，请换一个关键词，例如“服务器”或“结果”。")}</p>}
   </section>;
 }

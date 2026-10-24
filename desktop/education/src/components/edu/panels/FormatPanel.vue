@@ -12,6 +12,7 @@
      结果跨菜单保留（store formatReport）；期刊下拉草稿 drafts.formatJournalId；
      文件为面板本地 ref。样式 fc- 前缀。 -->
 <script setup>
+import {et, educationLocale} from '../../../i18n.js';
 import { computed, onMounted, ref } from 'vue';
 import { useEduStore } from '../../../stores/edu.js';
 
@@ -97,41 +98,38 @@ function reset() {
 <template>
   <section class="fc">
     <header class="fc-head">
-      <h1 class="fc-title">论文排版与规范</h1>
-      <span class="fc-sub">PDF / Word / LaTeX · 页数·字体·边距·行距·图表·参考文献</span>
+      <h1 class="fc-title">{{ et("论文排版与规范") }}</h1>
+      <span class="fc-sub">{{ et("PDF / Word / LaTeX · 页数·字体·边距·行距·图表·参考文献") }}</span>
     </header>
 
     <!-- ========== ① 有结果 → 结果区（最高优先级） ========== -->
     <template v-if="hasReport">
-      <p v-if="placeholderRules" class="fc-placeholder" role="note">
-        ⚠ 格式规则基于占位数据，建议核对期刊官网投稿指南
-      </p>
+      <p v-if="placeholderRules" class="fc-placeholder" role="note">{{ et(" ⚠ 格式规则基于占位数据，建议核对期刊官网投稿指南 ") }}</p>
 
       <div class="fc-meta">
         📄 {{ meta?.filename || '—' }} · {{ FILE_LABEL[meta?.file_type] || meta?.file_type }} ·
-        {{ meta?.ruleset_source === 'journal' ? meta?.journal_name : '通用规则' }} ·
-        {{ meta?.pages != null ? `共 ${meta?.pages} 页` : '页数未记录' }}
-        <span class="fc-meta-sub">
-          · 参考文献要求 {{ meta?.refs_style_expected }} / 检出 {{ meta?.refs_style_detected }}
+        {{ meta?.ruleset_source === 'journal' ? meta?.journal_name : et('通用规则') }} ·
+        {{ et(meta?.pages != null ? `共 ${meta?.pages} 页` : '页数未记录') }}
+        <span class="fc-meta-sub">{{ et(" · 参考文献要求 ") }}{{ meta?.refs_style_expected }}{{ et(" / 检出 ") }}{{ meta?.refs_style_detected }}
         </span>
       </div>
 
       <!-- 汇总条 -->
       <div class="fc-summary">
-        <span class="fc-count pass">{{ summary.pass }} 项通过</span>
-        <span class="fc-count warn">{{ summary.warn }} 项警告</span>
-        <span class="fc-count fail">{{ summary.fail }} 项不通过</span>
-        <button class="fc-again" type="button" @click="reset">重新检查</button>
+        <span class="fc-count pass">{{ summary.pass }}{{ et(" 项通过") }}</span>
+        <span class="fc-count warn">{{ summary.warn }}{{ et(" 项警告") }}</span>
+        <span class="fc-count fail">{{ summary.fail }}{{ et(" 项不通过") }}</span>
+        <button class="fc-again" type="button" @click="reset">{{ et("重新检查") }}</button>
       </div>
 
       <!-- 逐项检查卡 -->
       <article v-for="c in checks" :key="c.key" class="fc-card" :class="c.status">
-        <span class="fc-badge" :class="c.status">{{ STATUS_LABEL[c.status] || c.status }}</span>
+        <span class="fc-badge" :class="c.status">{{ et(STATUS_LABEL[c.status] || c.status) }}</span>
         <div class="fc-card-body">
-          <div class="fc-card-name">{{ c.name }}</div>
-          <p class="fc-card-detail">{{ splitDetail(c.detail).text }}</p>
+          <div class="fc-card-name">{{ et(c.name) }}</div>
+          <p class="fc-card-detail">{{ et(splitDetail(c.detail).text) }}</p>
           <pre v-if="splitDetail(c.detail).code" class="fc-code">{{ splitDetail(c.detail).code }}</pre>
-          <p v-if="c.suggestion" class="fc-card-sug">建议：{{ c.suggestion }}</p>
+          <p v-if="c.suggestion" class="fc-card-sug">{{ et("建议：") }}{{ et(c.suggestion) }}</p>
         </div>
       </article>
     </template>
@@ -140,15 +138,15 @@ function reset() {
     <div v-else-if="loading" class="fc-state" aria-busy="true">
       <div class="fc-skel"></div>
       <div class="fc-skel fc-skel-mid"></div>
-      <p class="fc-state-msg">版式检查中…（纯规则，通常 &lt;1 秒）</p>
+      <p class="fc-state-msg">{{ et("版式检查中…（纯规则，通常 <1 秒）") }}</p>
     </div>
 
     <!-- ========== ③ error ========== -->
     <div v-else-if="errored" class="fc-state" role="alert">
-      <p class="fc-state-msg fc-state-error">{{ edu.formatError }}</p>
+      <p class="fc-state-msg fc-state-error">{{ et(edu.formatError) }}</p>
       <div class="fc-err-btns">
-        <button v-if="file" class="fc-retry" type="button" @click="submit">重试</button>
-        <button class="fc-retry" type="button" @click="reset">重新选择文件</button>
+        <button v-if="file" class="fc-retry" type="button" @click="submit">{{ et("重试") }}</button>
+        <button class="fc-retry" type="button" @click="reset">{{ et("重新选择文件") }}</button>
       </div>
     </div>
 
@@ -175,29 +173,27 @@ function reset() {
         />
         <template v-if="file">
           <span class="fc-file-name">📄 {{ file.name }} · {{ fmtSize(file.size) }}</span>
-          <button class="fc-remove" type="button" title="移除文件" @click.stop="removeFile">×</button>
+          <button class="fc-remove" type="button" :title="et(&quot;移除文件&quot;)" @click.stop="removeFile">×</button>
         </template>
         <template v-else>
-          <span class="fc-drop-main">拖拽 PDF / Word(.docx) / LaTeX(.tex) 到此处，或点击选择</span>
-          <span class="fc-hint">仅支持 PDF / Word(.docx) / LaTeX(.tex) · ≤ 50MB · 纯本地规则检查</span>
+          <span class="fc-drop-main">{{ et("拖拽 PDF / Word(.docx) / LaTeX(.tex) 到此处，或点击选择") }}</span>
+          <span class="fc-hint">{{ et("仅支持 PDF / Word(.docx) / LaTeX(.tex) · ≤ 50MB · 纯本地规则检查") }}</span>
         </template>
       </div>
-      <p v-if="fileError" class="fc-file-error">{{ fileError }}</p>
+      <p v-if="fileError" class="fc-file-error">{{ et(fileError) }}</p>
 
-      <label class="fc-label" for="fc-journal">目标期刊（选填，决定规则集）</label>
+      <label class="fc-label" for="fc-journal">{{ et("目标期刊（选填，决定规则集）") }}</label>
       <select
         id="fc-journal"
         v-model="edu.drafts.formatJournalId"
         class="fc-input fc-select"
         :disabled="loading"
       >
-        <option value="">不指定（通用规则）</option>
+        <option value="">{{ et("不指定（通用规则）") }}</option>
         <option v-for="j in edu.journals" :key="j.id" :value="j.id">{{ j.name }}</option>
       </select>
 
-      <button class="fc-submit" type="button" :disabled="!file || loading" @click="submit">
-        开始版式检查
-      </button>
+      <button class="fc-submit" type="button" :disabled="!file || loading" @click="submit">{{ et(" 开始版式检查 ") }}</button>
     </div>
   </section>
 </template>

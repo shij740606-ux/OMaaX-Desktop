@@ -22,7 +22,7 @@ function harness(api){
    if(name.endsWith('.css'))return {};if(name==='./KnowledgeMarkdown')return {__esModule:true,default:({text})=>React.createElement('p',null,text)};if(name==='turndown')return realRequire(name);if(name==='react')return React;if(name==='react/jsx-runtime')return realRequire(name);
    if(name==='lucide-react')return new Proxy({},{get:(_,key)=>key==='__esModule'?false:()=>null});
    if(name.endsWith('/store'))return {useApp:()=>({currentSession:'test-dialogue',setTab:()=>{}})};
-   if(name.endsWith('/i18n'))return {useT:()=>({t:value=>value})};
+   if(name.endsWith('/i18n'))return {useT:()=>({lang:'zh',t:value=>value}),translate:(_lang,value)=>value};
    if(name.startsWith('.')){const p=path.resolve(path.dirname(file),name);return load(['','.ts','.tsx'].map(e=>p+e).find(p=>fs.existsSync(p)));}
    throw Error('Unexpected dependency '+name);
   };

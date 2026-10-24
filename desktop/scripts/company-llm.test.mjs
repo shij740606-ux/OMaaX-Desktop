@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {startBridge,modeEffort,modelLimits} from '../resources/scripts/company-llm.mjs';
+import {pathToFileURL} from 'node:url';
+import path from 'node:path';
+const {startBridge,modeEffort,modelLimits,MAX_REQUEST_BYTES}=await import(process.env.OMAAX_TEST_COMPANY_BRIDGE ? pathToFileURL(path.resolve(process.env.OMAAX_TEST_COMPANY_BRIDGE)).href : new URL('../resources/scripts/company-llm.mjs',import.meta.url).href);
 const auth={hub:'https://auth.test',token:'USER_SECRET'};
 const json=v=>new Response(JSON.stringify(v),{headers:{'content-type':'application/json'}});
 const modernModel={id:'cloud-model',modelEffort:{levels:['low','high','max'],default:'high'}};
@@ -15,7 +17,7 @@ test('model context and completion capacities are separate and validated',()=>{
 const sse=()=>new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
 test('1M context with no advertised output cap delegates chat output to the service, including old sessions',()=>fixture(async({bridge,request,calls})=>{
  const caps=await fetch(`http://127.0.0.1:${bridge.port}/v1/modes`,{headers:{Authorization:'Bearer local-secret'}}).then(r=>r.json());
- assert.equal(caps.contextWindow,1048576);assert.ok(!('maxOutputTokens' in caps));
+ assert.equal(caps.contextWindow,1048576);assert.ok(!('maxOutputTokens' in caps));assert.equal(caps.maxRequestBytes,1048576);
  for(const cap of [8192,256000]){
   assert.equal((await request({stream:true,max_tokens:cap,max_completion_tokens:cap})).status,200);
   const body=JSON.parse(calls.at(-1).body);assert.ok(!('max_tokens' in body));assert.ok(!('max_completion_tokens' in body));
@@ -69,6 +71,58 @@ test('repeated 401 stops after one retry',()=>fixture(async({request,calls})=>{a
 test('revoked model refreshes grants and token once',()=>fixture(async({request,counts})=>{assert.equal((await request()).status,200);assert.equal(counts().lists,2);},{respond:n=>n===1?new Response(JSON.stringify({error:{code:'MODEL_FORBIDDEN'}}),{status:403}):undefined}));
 test('429 does not replay billable requests or leak upstream error',()=>fixture(async({request,calls})=>{const r=await request();assert.equal(r.status,429);assert.doesNotMatch(await r.text(),/PROVIDER_SECRET/);assert.equal(calls.length,1);},{respond:()=>new Response('PROVIDER_SECRET',{status:429})}));
 test('502 never blindly retries',()=>fixture(async({request,calls})=>{assert.equal((await request()).status,502);assert.equal(calls.length,1);},{respond:()=>new Response('private',{status:502})}));
+
+test('oversized requests signal recoverable context overflow without forwarding or truncating',async t=>{
+ for(const [name,content] of [['ASCII','x'.repeat(MAX_REQUEST_BYTES)],['Chinese','原始数据'.repeat(100000)],['emoji','🧬'.repeat(300000)]]){
+  await t.test(name,()=>fixture(async({request,calls})=>{
+   const body={stream:true,messages:[{role:'user',content}]};
+   if(name!=='ASCII')assert.ok(JSON.stringify(body).length<MAX_REQUEST_BYTES);
+   assert.ok(Buffer.byteLength(JSON.stringify(body),'utf8')>MAX_REQUEST_BYTES);
+   const response=await request(body);assert.equal(response.status,400);
+   const result=await response.json();assert.equal(result.error.code,'context_length_exceeded');
+   assert.doesNotMatch(JSON.stringify(result),/USER_SECRET|PROXY_|原始数据|🧬|新建对话/);
+   assert.equal(calls.length,0);
+  },{respond:sse}));
+ }
+});
+
+test('the final UTF-8 wire body includes model, effort, tools and output limits in the budget',()=>fixture(async({request,calls})=>{
+ const body={model:'x',stream:true,messages:[{role:'user',content:''}],tools:[{type:'function',function:{name:'inspect',parameters:{type:'object'}}}]};
+ const final={...body,model:modernModel.id,effort:'high',max_tokens:131072};
+ body.messages[0].content='x'.repeat(MAX_REQUEST_BYTES-Buffer.byteLength(JSON.stringify(final),'utf8'));
+ assert.ok(Buffer.byteLength(JSON.stringify(body),'utf8')<MAX_REQUEST_BYTES);
+ const first=await request(body);assert.equal(first.status,200);await first.text();
+ assert.equal(Buffer.byteLength(calls[0].body,'utf8'),MAX_REQUEST_BYTES);
+ assert.deepEqual(JSON.parse(calls[0].body).messages,body.messages);
+ assert.deepEqual(JSON.parse(calls[0].body).tools,body.tools);
+ body.messages[0].content+='x';
+ const second=await request(body);assert.equal(second.status,400);
+ assert.equal((await second.json()).error.code,'context_length_exceeded');assert.equal(calls.length,1);
+},{models:[{...modernModel,maxOutputTokens:131072}],respond:sse}));
+
+test('upstream HTML 413 becomes recoverable context overflow without leaking or replaying',()=>fixture(async({request,calls})=>{
+ const response=await request({stream:true});assert.equal(response.status,400);
+ const result=await response.json();assert.equal(result.error.code,'context_length_exceeded');
+ assert.doesNotMatch(JSON.stringify(result),/PROVIDER_SECRET|openresty|<html>|USER_SECRET|PROXY_/);
+ assert.equal(calls.length,1);
+},{respond:()=>new Response('<html>413 Request Entity Too Large openresty PROVIDER_SECRET</html>',{status:413,headers:{'content-type':'text/html'}})}));
+
+test('known upstream context codes survive redaction but unrelated 400 errors do not trigger compaction',async()=>{
+ for(const code of ['context_length_exceeded','CONTEXT_WINDOW_EXCEEDED','INVALID_PARAMETER']){
+  await fixture(async({request,calls})=>{
+   const response=await request();assert.equal(response.status,400);
+   const result=await response.json();
+   assert.equal(result.error.code,code==='INVALID_PARAMETER'?'COMPANY_LLM_ERROR':'context_length_exceeded');
+   assert.doesNotMatch(JSON.stringify(result),/PROVIDER_SECRET/);assert.equal(calls.length,1);
+  },{respond:()=>new Response(JSON.stringify({error:{code,message:'PROVIDER_SECRET'}}),{status:400})});
+ }
+});
+
+test('the local receiver safety ceiling also preserves the context recovery protocol',()=>fixture(async({request,calls,counts})=>{
+ const response=await request({messages:[{role:'user',content:'x'.repeat(8*1024*1024)}]});
+ assert.equal(response.status,400);assert.equal((await response.json()).error.code,'context_length_exceeded');
+ assert.equal(calls.length,0);assert.equal(counts().mints,0);
+}));
 test('malformed body rejected',()=>fixture(async({request,calls})=>{assert.equal((await request({messages:null})).status,400);assert.equal(calls.length,0);}));
 test('logout prevents forwarding',()=>fixture(async({request,calls})=>{assert.equal((await request()).status,502);assert.equal(calls.length,0);},{session:()=>{throw Error('private');}}));
 test('renew expired cached credentials',()=>fixture(async({request,counts})=>{await(await request()).text();await(await request()).text();assert.equal(counts().mints,2);},{ttl:1}));
@@ -90,3 +144,62 @@ test('login change aborts an active upstream stream',()=>{let current={...auth},
 test('stream transport failure never replays a partial response',()=>fixture(async({request,calls})=>{
  const r=await request({stream:true});await assert.rejects(()=>r.text());assert.equal(calls.length,1);
 },{respond:()=>new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('data: {}\n\n'));setTimeout(()=>c.error(Error('network lost')),20);}}),{headers:{'content-type':'text/event-stream'}})}));
+
+test('initial wait uses the resolved company default effort',async t=>{
+ const schedule=globalThis.setTimeout;let lastDelay;
+ t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>{lastDelay=delay;return schedule(callback,delay,...args);});
+ for(const [effort,expected] of [['low',180000],['high',300000],['max',600000]]){
+  await fixture(async({request})=>{assert.equal((await request({model:'omaax',stream:true})).status,200);},
+   {models:[{...modernModel,modelEffort:{levels:['low','high','max'],default:effort}}],respond:(_n,init)=>{
+    assert.equal(JSON.parse(init.body).effort,effort);assert.equal(lastDelay,expected);return sse();
+   }});
+ }
+});
+
+test('stream deadlines measure idle time; helpers and stalled streams remain bounded',{timeout:10000},async t=>{
+ const schedule=globalThis.setTimeout;
+ // Compress only the bridge's production deadlines; keep real HTTP and stream timing.
+ t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>schedule(callback,[180000,300000,600000].includes(delay)?200:delay,...args));
+ await t.test('continuous output can outlast the initial deadline without replay',async()=>{
+  let interrupted=false;
+  await fixture(async({request,calls})=>{
+   const response=await request({model:'omaax',stream:true});const body=await response.text();
+   assert.match(body,/segment 24/);assert.match(body,/\[DONE\]/);assert.equal(interrupted,false);assert.equal(calls.length,1);
+  },{models:[modernModel],respond:(_n,init)=>new Response(new ReadableStream({start(controller){
+   let count=0;
+   const stop=()=>{interrupted=true;clearInterval(ticker);controller.close();};
+   const ticker=setInterval(()=>{
+    count++;controller.enqueue(new TextEncoder().encode('data: '+JSON.stringify({choices:[{delta:{content:`segment ${count}`},finish_reason:null}]})+'\n\n'));
+    if(count===24){clearInterval(ticker);init.signal.removeEventListener('abort',stop);controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'));controller.close();}
+   },25);
+   init.signal.addEventListener('abort',stop,{once:true});
+  }}),{headers:{'content-type':'text/event-stream'}})});
+ });
+ await t.test('a stream that goes silent is cancelled once',async()=>{
+  let interrupted=false;
+  await fixture(async({request,calls})=>{
+   const response=await request({stream:true});await assert.rejects(()=>response.text());
+   assert.equal(interrupted,true);assert.equal(calls.length,1);
+  },{respond:(_n,init)=>new Response(new ReadableStream({start(controller){
+   controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"started"}}]}\n\n'));
+   init.signal.addEventListener('abort',()=>{interrupted=true;controller.close();},{once:true});
+  }}),{headers:{'content-type':'text/event-stream'}})});
+ });
+ await t.test('a nonstream helper keeps its total deadline even while bytes arrive',async()=>{
+  let interrupted=false;
+  await fixture(async({request,calls})=>{
+   const response=await request({stream:false});await assert.rejects(()=>response.text());
+   assert.equal(interrupted,true);assert.equal(calls.length,1);
+  },{respond:(_n,init)=>new Response(new ReadableStream({start(controller){
+   const ticker=setInterval(()=>controller.enqueue(new TextEncoder().encode(' ')),25);
+   init.signal.addEventListener('abort',()=>{interrupted=true;clearInterval(ticker);controller.close();},{once:true});
+  }}),{headers:{'content-type':'application/json'}})});
+ });
+ await t.test('no response headers cannot wait indefinitely',async()=>{
+  let interrupted=false;
+  await fixture(async({request,calls})=>{
+   const response=await request({stream:true});assert.equal(response.status,502);
+   assert.equal(interrupted,true);assert.equal(calls.length,1);
+  },{respond:(_n,init)=>new Promise((_resolve,reject)=>init.signal.addEventListener('abort',()=>{interrupted=true;reject(new Error('fixture aborted'));},{once:true}))});
+ });
+});

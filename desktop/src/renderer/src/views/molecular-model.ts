@@ -1,4 +1,5 @@
 import {esc} from './drawing-model';
+import {translate,type Lang} from '../i18n';
 export type StructureFile={name:string;format:'pdb'|'sdf'|'mol2'|'cif'|'pdbqt';text:string};
 export type InteractionRow={ligand:string;residue:string;type:string;distance:number|null;atoms?:unknown};
 export type InteractionResult={format:'omaax-interactions';version:number;engine:string;engineVersion:string;proteinSha256:string;ligandSha256:string;note:string;poses:{index:number;name:string;rows:InteractionRow[];ligandSvg:string}[]};
@@ -27,7 +28,8 @@ export function cleanVector(raw:string){
  }
  clean(doc.documentElement);return new XMLSerializer().serializeToString(doc.documentElement);
 }
-export function interactionSvg(result:InteractionResult,pose:number,compare=-1){
+export function interactionSvg(result:InteractionResult,pose:number,compare=-1,lang:Lang='zh'){
+ const t=(value:string)=>translate(lang,value);
  const p=result.poses[pose];if(!p)throw Error('请选择有效姿势');
  const residues=[...new Set(p.rows.map(r=>r.residue))];
  const height=Math.max(440,Math.ceil(residues.length/2)*88+140),width=1040;
@@ -39,5 +41,5 @@ export function interactionSvg(result:InteractionResult,pose:number,compare=-1){
   const unique=compare>=0&&types.some(t=>!other.has(res+'|'+t));
   return `<path d="M ${i%2?770:270} ${y+30} L ${i%2?730:310} ${height/2}" stroke="${unique?'#e08b35':'#94a3b8'}" stroke-width="1.5" fill="none"/><rect x="${x}" y="${y}" width="250" height="65" rx="9" fill="${unique?'#fff3df':'#edf6f0'}"/><text x="${x+12}" y="${y+22}" font-size="16">${esc(res)}</text><text x="${x+12}" y="${y+43}" font-size="11">${esc(types.join(', '))}</text>`;
  }).join('');
- return {width,height,svg:`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="Arial,Microsoft YaHei,sans-serif"><rect width="${width}" height="${height}" fill="white"/><text x="20" y="30" font-size="22">${esc(p.name)} · 残基相互作用概览</text><text x="20" y="55" font-size="13">连线表示残基级相互作用，不表示二维原子键位${compare>=0?'；橙色表示相较参考姿势新增的类型':''}</text>${cards}${ligand}<text x="20" y="${height-22}" font-size="12">${esc(result.engine+' '+result.engineVersion)} · 基于输入结构的几何识别</text></svg>`};
+ return {width,height,svg:`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="Arial,Microsoft YaHei,sans-serif"><rect width="${width}" height="${height}" fill="white"/><text x="20" y="30" font-size="22">${esc(t(p.name))} · ${esc(t('残基相互作用概览'))}</text><text x="20" y="55" font-size="13">${esc(t('连线表示残基级相互作用，不表示二维原子键位'))}${compare>=0?esc(t('；橙色表示相较参考姿势新增的类型')):''}</text>${cards}${ligand}<text x="20" y="${height-22}" font-size="12">${esc(result.engine+' '+result.engineVersion)} · ${esc(t('基于输入结构的几何识别'))}</text></svg>`};
 }
