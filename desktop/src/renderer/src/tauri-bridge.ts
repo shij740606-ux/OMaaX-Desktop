@@ -1,16 +1,25 @@
 // Tauri 桥：把 window.biodsh 接口实现为 invoke/listen，与 Electron preload 暴露的接口保持一致。
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, Channel } from '@tauri-apps/api/core';
 import type { PlatformJobCreate, PlatformNodeControlStatus } from '@shared/types';
 import { listen } from '@tauri-apps/api/event';
 import type { AppSettings, IpcEvent, Rect } from '@shared/types';
 import {dshLayoutQueue} from './dshLayoutQueue';
 import {serverRequest,invalidateServer} from './serverRequests';
+import {installWindowDragRegions} from './window-drag-regions';
 
 export function installTauriBridge() {
   const reportDshBounds=dshLayoutQueue((rect,visible)=>invoke('dsh_bounds',{rect,visible}),error=>console.error('Chat layout failed',error));
   const api = {
+    research: (action:string,body:unknown={}) => invoke<unknown>('research',{action,body}),
+    payment: (action:string,body:unknown={}) => invoke<unknown>('payment',{action,body}),
     drawing: (action:string,body:unknown={}) => invoke<unknown>('drawing',{action,body}),
-    cloudQa: (action:string,body:unknown={}) => invoke<unknown>('cloud_qa',{action,body}),
+    cloudQa: async (action:string,body:unknown={},onEvent?:(event:{event:string;payload:unknown})=>void) => {
+      if(!onEvent)return invoke<unknown>('cloud_qa',{action,body});
+      const channel=new Channel<{event:string;payload:unknown}>();
+      channel.onmessage=onEvent;
+      try{return await invoke<unknown>('cloud_qa',{action,body,onEvent:channel});}
+      finally{channel.onmessage=()=>{};}
+    },
     educationStart: () => invoke<string>("education_start"),
     educationDelete: (path:string) => invoke("education_delete",{path}),
     hubAdmin: () => invoke<void>("hub_admin"),
@@ -121,8 +130,5 @@ export function installTauriBridge() {
   window.addEventListener('error', (e) => log(`error: ${e.message} @${e.filename}:${e.lineno}`));
   window.addEventListener('unhandledrejection', (e) => log(`unhandledrejection: ${String((e as PromiseRejectionEvent).reason)}`));
   log('bridge installed');
-  // 顶栏拖拽：Tauri 无边框窗口靠 data-tauri-drag-region 属性
-  const mark = () => document.querySelectorAll('.drag').forEach((el) => el.setAttribute('data-tauri-drag-region', ''));
-  new MutationObserver(mark).observe(document.documentElement, { childList: true, subtree: true });
-  mark();
+  installWindowDragRegions();
 }

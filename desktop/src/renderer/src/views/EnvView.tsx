@@ -22,7 +22,7 @@ export default function EnvView() {
   const idx = ORDER.indexOf(env.step);
   return (
     <div className="h-full flex flex-col omaax-page omaax-environment">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / COMPUTE</span><h1>{t("计算环境")}<HelpTip topic="env"/></h1><p>{help.summary}</p><button className="btn btn-tint" aria-label={t("刷新环境状态")} onClick={()=>refresh()}><RefreshCw size={14}/>{t("检查状态")}</button></header>
+      <header className="omaax-hero drag"><span className="omaax-eyebrow">OMaaX / COMPUTE</span><h1>{t("计算环境")}<HelpTip topic="env"/></h1><p>{help.summary}</p><button className="btn btn-tint" aria-label={t("刷新环境状态")} onClick={()=>refresh()}><RefreshCw size={14}/>{t("检查状态")}</button></header>
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="omaax-env-grid">
           <aside className="omaax-guide omaax-env-guide"><strong>{t('按运行位置准备环境')}</strong><p>{t('在本机分析：安装本页组件。在服务器分析：选择服务器后按流程准备。两边的环境不会自动共用。')}</p></aside>

@@ -4,7 +4,21 @@ import { SCIENCE_EN } from './i18n.science.en';
 import { SERVER_EN } from './i18n.servers.en';
 import { EDUCATION_EN } from './i18n.education.en';
 import { FIGURE_EN } from './i18n.figure.en';
+import { RESEARCH_EN } from './i18n.research.en';
+import { PAYMENT_EN } from './i18n.payment.en';
 export const EN: Record<string, string> = {
+  '网页操作': 'Browser actions',
+  '在主对话中让助手打开网页、点击、填写和截图。': 'Ask the assistant in the main chat to open pages, click, fill in forms and take screenshots.',
+  '使用独立浏览器窗口，沿用当前模型服务。首次访问需要登录的网站时，请在浏览器中自行登录；同一对话可以继续操作。': 'Uses a separate browser window and your current model service. Sign in yourself when a website requires it, then continue in the same conversation.',
+  '例如：打开这个网页，找到下载入口，并把结果截图保存到项目。': 'For example: open this page, find the download link, and save a screenshot to the project.',
+  '如何让助手操作网页？': 'How can I ask the assistant to use a website?',
+  '直接在主对话中说明网址和操作目标，例如查找资料、填写表单或截图。助手使用独立浏览器窗口；需要登录时请自行登录，再让助手继续。窗口不会沿用日常浏览器的登录状态。': 'Give the website address and goal in the main chat, such as finding information, filling in a form or taking a screenshot. The assistant uses a separate browser window. Sign in yourself if needed, then ask the assistant to continue. Your everyday browser sign-ins are not reused.',
+  '如何生成 Word、PPT 或 PDF？': 'How do I generate Word, PowerPoint or PDF files?',
+  '在主对话中说“把这些结果整理成 Word、PPT 或 PDF”，并说明用途、内容和保存项目。生成后可以继续对话修改，在“分析结果 → 项目文档”查看和打开文件。': 'In the main chat, ask to turn your results into Word, PowerPoint or PDF files and specify the purpose, contents and project. Continue the conversation to revise them. View and open the files under Analysis results → Project documents.',
+  '课题研究怎么使用？': 'How do I use Project research?',
+  '在“知识库问答”打开“课题研究”，关联当前项目并填写课题。展开“研究资料”可收录问答结果和添加笔记，更新后在“关系图谱”查看资料关联，在“下一步建议”查看行动步骤并交给主对话执行。建议需要结合真实数据和实验条件核实。': 'Open Project research in Knowledge Q&A, select your project and enter a topic. Expand Research sources to collect Q&A results and add notes. After updating, use Relationship map to explore the evidence and Next steps to review actions and send them to the main chat. Check suggestions against real data and experimental conditions.',
+  '付款后会自动增加模型额度吗？': 'Does payment automatically add model credits?',
+  '当前支付功能用于收款和查询订单，尚未接入套餐或额度入账。请按实际约定付款，以订单显示的状态为准；状态未确认时先查询订单，不要重复付款。': 'Payments currently support collection and order tracking. Plans and credit allocation are not connected yet. Pay according to your agreement and check the order status. If the status is uncertain, check the existing order before making another payment.',
   "对话模型": "Conversation model",
   "连接方式与访问密钥": "Connection and access key",
   "工具与服务": "Tools & services",
@@ -749,4 +763,6 @@ export const EN: Record<string, string> = {
   ...EDUCATION_EN,
   ...SHELL_EN,
   ...FIGURE_EN,
+  ...RESEARCH_EN,
+  ...PAYMENT_EN,
 };

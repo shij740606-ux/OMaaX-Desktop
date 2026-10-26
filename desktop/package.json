@@ -1,7 +1,7 @@
 {
   "name": "omaax-desktop",
   "productName": "OMaaX",
-  "version": "0.4.53",
+  "version": "0.4.57",
   "description": "OMaaX — One Model, Beyond the Max.",
   "author": "OMaaX contributors",
   "license": "MIT",
@@ -16,11 +16,12 @@
     "sync:skills": "node scripts/sync-skills.mjs",
     "dist:linux": "npm run release:linux",
     "stage:dsh": "node scripts/stage-dsh.mjs",
+    "stage:documents": "node scripts/stage-documents.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:build:app": "tauri build --no-bundle",
-    "patch:dsh": "node scripts/patch-dsh-continuation.mjs && node scripts/patch-dsh-compaction.mjs",
+    "patch:dsh": "node scripts/patch-dsh-continuation.mjs && node scripts/patch-dsh-compaction.mjs && node scripts/patch-dsh-approval.mjs && node scripts/patch-dsh-mcp-timeout.mjs && node scripts/patch-dsh-company-errors.mjs",
     "release:win": "tauri build --bundles nsis",
     "release:linux": "bash scripts/release-linux.sh",
     "setup": "node scripts/setup-dev.mjs",
@@ -36,6 +37,7 @@
     "@tauri-apps/plugin-process": "2.4.0",
     "@tauri-apps/plugin-updater": "2.13.0",
     "@types/node": "^24.0.0",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/turndown": "^5.0.6",
@@ -61,6 +63,7 @@
   },
   "dependencies": {
     "3dmol": "2.5.5",
+    "qrcode": "1.5.4",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "turndown": "^7.2.4"

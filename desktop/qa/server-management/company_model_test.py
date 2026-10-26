@@ -12,10 +12,10 @@ with sync_playwright() as p:
  page.get_by_role('button',name='设置',exact=True).click()
  expect(page.get_by_role('tab',name='对话服务')).to_have_count(0)
  expect(page.locator('#settings-pane-model')).to_have_count(0)
- expect(page.get_by_role('tab',name='账号和用量')).to_have_attribute('aria-selected','true')
+ expect(page.get_by_role('tab',name='账号与支付')).to_have_attribute('aria-selected','true')
  page.screenshot(path=str(ROOT/'validation-local/company-llm-settings.png'))
  page.evaluate("()=>{window.__balanceCalls=0;window.biodsh.deepseekBalance=async()=>{window.__balanceCalls++;throw Error('must not call');};}")
- page.get_by_role('tab',name='账号和用量').click();expect(page.get_by_text('此处为本机保存的对话用量，不代表账号累计用量或余额。')).to_be_visible()
+ page.get_by_role('tab',name='账号与支付').click();expect(page.get_by_text('此处为本机保存的对话用量，不代表账号累计用量或余额。')).to_be_visible()
  assert page.evaluate('window.__balanceCalls')==0
  page.get_by_role('tab',name='工具与服务').click();expect(page.get_by_label('服务访问密钥',exact=True)).to_be_visible()
  for width in [760,1024,1440]:

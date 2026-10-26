@@ -1,0 +1,8 @@
+# Independent document environment. Do not install into bioenv or education-service.
+python-docx==1.2.0
+python-pptx==1.0.2
+Pillow==12.0.0
+pypdf==6.1.1
+lxml==6.0.2
+typing_extensions==4.15.0
+XlsxWriter==3.2.9

@@ -9,6 +9,11 @@ checks=[];errors=[]
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path=os.environ.get('OMAAX_QA_BROWSER',r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'),headless=True)
  page=browser.new_page(viewport={'width':1280,'height':900})
+ page.add_init_script("""(()=>{
+   window.__OMAAX_STARTUP__={id:'isolated-auth-test',skipIntro:true};
+   window.__authNativeCalls=[];let api;
+   Object.defineProperty(window,'biodsh',{configurable:true,get:()=>api,set:value=>{api=new Proxy(value,{get(target,name){const member=target[name];return typeof member==='function'?function(...args){window.__authNativeCalls.push(String(name));return member.apply(target,args);}:member;}});}});
+ })()""")
  page.on('pageerror',lambda e:errors.append(str(e)))
  def scenario(name):
   page.goto('http://127.0.0.1:41740/workflow-preview.html?auth='+name)
@@ -16,12 +21,12 @@ with sync_playwright() as p:
  def account_settings():
   expect(page.get_by_role('button',name='退出 / 切换账号')).to_have_count(0)
   page.get_by_role('button',name='设置',exact=True).click()
-  page.get_by_role('tab',name='账号和用量').click()
+  page.get_by_role('tab',name='账号与支付').click()
  try:
   for name in ['locked','offline','disabled']:
    scenario(name)
-   expect(page.get_by_role('heading',name='登录 OMaaX')).to_be_visible()
-   assert page.evaluate('window.__authQa.businessCalls')==0
+   expect(page.get_by_role('form',name='登录 OMaaX')).to_be_visible()
+   assert page.evaluate("window.__authNativeCalls.filter(name=>['appInfo','getCredential','dshStatus','dshStart','sshHosts','personalCompute'].includes(name))")==[]
    expect(page.get_by_role('button',name='注册',exact=True)).to_have_count(0)
    expect(page.get_by_role('button',name='分析结果',exact=True)).to_have_count(0)
    checks.append(name+' cannot mount business UI or start agent')
@@ -30,7 +35,7 @@ with sync_playwright() as p:
   page.get_by_role('button',name='登录',exact=True).click()
   expect(page.get_by_role('alert')).to_contain_text('用户名或密码错误')
   expect(page.get_by_label('密码',exact=True)).to_have_value('')
-  assert page.evaluate('window.__authQa.businessCalls')==0
+  assert page.evaluate("window.__authNativeCalls.filter(name=>['appInfo','getCredential','dshStatus','dshStart','sshHosts','personalCompute'].includes(name))")==[]
   checks.append('failed login stays locked and clears password')
   page.get_by_label('密码',exact=True).fill('test-password');page.get_by_role('button',name='登录',exact=True).click()
   account_settings()
@@ -40,21 +45,21 @@ with sync_playwright() as p:
   assert 'test-password' not in page.evaluate('JSON.stringify(localStorage)')
   checks.append('qa account has analysis access but no admin entry or password persistence')
   page.get_by_role('button',name='退出 / 切换账号').click()
-  expect(page.get_by_role('heading',name='登录 OMaaX')).to_be_visible()
+  expect(page.get_by_role('form',name='登录 OMaaX')).to_be_visible()
   assert page.evaluate('window.__authQa.logoutCalls')==1
   checks.append('logout unmounts all business UI')
   scenario('admin');account_settings();expect(page.get_by_role('button',name='管理后台',exact=True)).to_be_visible()
   expect(page.get_by_role('button',name='分析结果',exact=True)).to_be_visible()
   expect(page.get_by_role('button',name='知识库问答',exact=True)).to_be_visible()
   page.evaluate('window.__authQa.status.authenticated=false;window.__authQa.status.error="登录已过期"')
-  expect(page.get_by_role('heading',name='登录 OMaaX')).to_be_visible(timeout=20000)
+  expect(page.get_by_role('form',name='登录 OMaaX')).to_be_visible(timeout=20000)
   checks.append('expiry removes admin and analysis views')
   scenario('bio');expect(page.get_by_role('button',name='教育科研',exact=True)).to_be_visible()
   expect(page.get_by_role('button',name='知识库问答',exact=True)).to_have_count(0)
   checks.append('ordinary account has research access; bioflow does not imply cloud QA')
   scenario('team');page.get_by_role('button',name='教育科研',exact=True).click()
   expect(page.get_by_role('note')).to_have_count(0)
-  expect(page.get_by_role('button',name='重新连接',exact=True)).to_be_visible()
+  expect(page.get_by_role('button',name='重试',exact=True)).to_be_visible()
   checks.append('logged-in account opens research without explanatory banner and retains connection retry')
   scenario('empty')
   for name in ['分析结果','教育科研','新对话']:
@@ -81,7 +86,7 @@ with sync_playwright() as p:
   page.evaluate("()=>{window.biodsh.hubStatus=()=>new Promise(resolve=>{const snapshot=JSON.parse(JSON.stringify(window.__authQa.status));window.__releaseStatus=()=>resolve(snapshot)});}")
   page.clock.fast_forward(15001);page.wait_for_function('typeof window.__releaseStatus==="function"')
   page.get_by_role('button',name='退出 / 切换账号').click();page.evaluate('window.__releaseStatus()')
-  expect(page.get_by_role('heading',name='登录 OMaaX')).to_be_visible();expect(page.get_by_role('button',name='分析结果',exact=True)).to_have_count(0)
+  expect(page.get_by_role('form',name='登录 OMaaX')).to_be_visible();expect(page.get_by_role('button',name='分析结果',exact=True)).to_have_count(0)
   checks.append('late status response cannot restore business UI after logout')
   scenario('locked')
   expect(page.get_by_label('服务地址',exact=True)).to_have_count(0)

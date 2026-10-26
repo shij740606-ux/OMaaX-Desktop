@@ -112,7 +112,7 @@ test('known upstream context codes survive redaction but unrelated 400 errors do
   await fixture(async({request,calls})=>{
    const response=await request();assert.equal(response.status,400);
    const result=await response.json();
-   assert.equal(result.error.code,code==='INVALID_PARAMETER'?'COMPANY_LLM_ERROR':'context_length_exceeded');
+   assert.equal(result.error.code,code==='INVALID_PARAMETER'?'model_request_invalid':'context_length_exceeded');
    assert.doesNotMatch(JSON.stringify(result),/PROVIDER_SECRET/);assert.equal(calls.length,1);
   },{respond:()=>new Response(JSON.stringify({error:{code,message:'PROVIDER_SECRET'}}),{status:400})});
  }
@@ -198,7 +198,8 @@ test('stream deadlines measure idle time; helpers and stalled streams remain bou
  await t.test('no response headers cannot wait indefinitely',async()=>{
   let interrupted=false;
   await fixture(async({request,calls})=>{
-   const response=await request({stream:true});assert.equal(response.status,502);
+   const response=await request({stream:true});assert.equal(response.status,504);
+   assert.equal((await response.json()).error.code,'model_timeout');
    assert.equal(interrupted,true);assert.equal(calls.length,1);
   },{respond:(_n,init)=>new Promise((_resolve,reject)=>init.signal.addEventListener('abort',()=>{interrupted=true;reject(new Error('fixture aborted'));},{once:true}))});
  });

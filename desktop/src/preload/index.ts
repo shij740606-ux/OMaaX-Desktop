@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { AppSettings, IpcEvent, Rect, RefPack, DemoInfo, PlatformJob, PlatformJobArtifact, PlatformJobCreate, PlatformJobEvent, PlatformNode, PlatformNodeControlStatus, PlatformNodeMetric, PlatformSession, KnowledgeCitation, KnowledgeCredentialStatus, KnowledgeDataset, KnowledgeDocument, KnowledgeFolder, KnowledgeSyncResult } from '../shared/types';
 
 const api = {
-  cloudQa: (_action:string,_body:unknown={}):Promise<unknown> => Promise.reject(new Error('请使用桌面版知识库问答')),
+  research: (_action:string,_body:unknown={}):Promise<unknown> => Promise.reject(new Error('请使用桌面版研究规划')),
+  payment: (_action:string,_body:unknown={}):Promise<unknown> => Promise.reject(new Error('请使用桌面版支付')),
+  cloudQa: (_action:string,_body:unknown={},_onEvent?:(event:{event:string;payload:unknown})=>void):Promise<unknown> => Promise.reject(new Error('请使用桌面版知识库问答')),
   hubAdmin: ():Promise<void> => Promise.reject(new Error("需要 Tauri 桌面版")),
   educationStart: (): Promise<string> => Promise.reject(new Error("请使用桌面版打开教育科研")),
   educationDelete: (_path:string): Promise<unknown> => Promise.reject(new Error("请使用桌面版删除")),

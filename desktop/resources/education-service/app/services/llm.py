@@ -13,6 +13,7 @@ import json
 import logging
 import os
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -120,7 +121,10 @@ async def _complete(
     if not cfg["api_key"]:
         raise LLMError("模型服务尚未连接，请重新打开教育科研页面。")
     last_exc: BaseException | None = None
-    async with httpx.AsyncClient() as client:
+    # The desktop bridge is local. Windows system proxies must not intercept it.
+    # Keep remote standalone-service proxy behavior unchanged.
+    loopback = urlsplit(cfg["base_url"]).hostname in {"127.0.0.1", "::1", "localhost"}
+    async with httpx.AsyncClient(trust_env=not loopback) as client:
         for attempt in range(MAX_ATTEMPTS):
             try:
                 return await _chat_once(

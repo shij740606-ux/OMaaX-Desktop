@@ -144,6 +144,7 @@ input, textarea, pre, code, .selectable { user-select: text; cursor: auto; }
 
 .drag { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
+.drag :is(button,a,input,select,textarea,summary,[role="button"],[role="tab"],[contenteditable]:not([contenteditable="false"])) { -webkit-app-region: no-drag; }
 .app-main > div > header { padding-right: 108px; }
 
 /* 细滚动条 */

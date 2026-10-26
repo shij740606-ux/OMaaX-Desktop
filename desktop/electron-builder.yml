@@ -19,6 +19,10 @@ extraResources:
     to: skills
   - from: resources/bioenv
     to: bioenv
+  - from: resources/documents
+    to: documents
+  - from: resources/browser
+    to: browser
 mac:
   category: public.app-category.medical
   target:

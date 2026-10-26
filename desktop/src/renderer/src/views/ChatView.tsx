@@ -42,6 +42,11 @@ export default function ChatView() {
   const overlayOpen = !settings?.onboarded || overlay > 0;
   const areaRef = useRef<HTMLDivElement>(null);
   const [workflow,setWorkflow]=useState<{name:string;version:string;serverId?:string}|null>(null);
+  const showAnalysisFiles=async()=>{
+    let serverId=workflow?.serverId;
+    try{const servers=await window.biodsh.dshRpc('server.files',{sessionId:currentSession});if(Array.isArray(servers)&&typeof servers[0]==='string')serverId=servers[0];}catch{/* Keep the selected workflow server if its history is unavailable. */}
+    if(serverId){openAnalysisFiles(currentSession,serverId);setTab('hosts');}else setTab('data');
+  };
   useEffect(()=>{try{setWorkflow(JSON.parse(localStorage.getItem('omaax.workflow-selection.'+currentSession)||'null'));}catch{setWorkflow(null);}},[currentSession]);
   useEffect(()=>{if(currentSession&&dsh.state==='running')void analysisContext(currentSession).catch(()=>{});},[currentSession,dsh.state]);
 
@@ -67,7 +72,7 @@ export default function ChatView() {
     <div className="h-full flex flex-col">
       <header className="drag h-[52px] flex items-center justify-between pl-5 pr-0 hairline-b" style={{ background: 'var(--bg)' }}>
         <div className="flex items-center gap-3">
-          <span className="t-title2">{t('对话')}</span>{<button className="btn btn-ghost no-drag" disabled={!currentSession} onClick={()=>void(async()=>{const servers=await window.biodsh.dshRpc('server.files',{sessionId:currentSession}) as string[];openAnalysisFiles(currentSession,servers[0]||workflow?.serverId);setTab('hosts');})().catch(()=>{openAnalysisFiles(currentSession,workflow?.serverId);setTab('hosts');})}>{t("本次分析文件")}</button>}
+          <span className="t-title2">{t('对话')}</span><button className="btn btn-ghost no-drag" disabled={!currentSession} onClick={()=>void showAnalysisFiles()}>{t("本次分析文件")}</button>
           {!env.ready && (
             <button className="no-drag badge" onClick={() => setTab('env')}>{t('计算环境未就绪')}</button>
           )}

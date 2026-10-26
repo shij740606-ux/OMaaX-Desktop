@@ -4,8 +4,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { appendFileSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import type { AppPaths, DshStatus } from '../shared/types';
-import { venvBinDir, venvPython, nodeBinary, uvBinary } from './paths';
+import { venvBinDir, venvPython, nodeBinary, uvBinary, resourcePath } from './paths';
 import { migrateCredentials } from './settings';
 
 const require = createRequire(import.meta.url);
@@ -101,6 +102,8 @@ export class DshManager {
       const body = ['ui-workflow-run', 'ui-deliverables', 'ui-jobs', 'ui-goal', 'ui-plan', 'ui-trajectory', 'ui-subagent', 'ui-settings-plugin-inventory', 'ui-settings-plugins', 'ui-cordis', 'ui-brand-official', 'ui-message-feedback', 'ui-reference', 'ui-agent-preset', 'ui-sidebar'].map((id) => `- id: ${id}\n  disabled: true`);
       const personaYaml = PERSONA.split('\n').map((l) => (l ? `      ${l}` : '')).join('\n');
       body.push(`- id: system-prompt\n  config:\n    persona: >-\n${personaYaml}`);
+      body.push(`- insert:\n    - id: omaax-documents\n      name: ${JSON.stringify(pathToFileURL(resourcePath('documents', 'index.mjs')).href)}`);
+      body.push(`- insert:\n    - id: omaax-browser\n      name: ${JSON.stringify(pathToFileURL(resourcePath('browser', 'index.mjs')).href)}`);
       if (presetOk) body.push('- id: agent-presets\n  config:\n    default: biodsh');
       writeFileSync(patch, `# biodsh-minimal v4 — OMaaX 精简模式 + OMaaX 人设（删除本文件并重启即可恢复 dsh 默认）\n${body.join('\n')}\n`);
     }
@@ -121,6 +124,13 @@ export class DshManager {
       ...process.env as Record<string, string>,
       DSH_HOME: this.paths.dshHome,
       BIODSH_HOME: this.paths.root,
+      OMAAX_DOCUMENT_RUNNER: resourcePath('documents', 'cli.mjs'),
+      OMAAX_DOCUMENT_NODE: nodeBinary(),
+      OMAAX_DOCUMENT_UV: uvBinary(),
+      OMAAX_DOCUMENT_HOME: path.join(this.paths.root, 'document-env'),
+      OMAAX_BROWSER_HOME: path.join(this.paths.root, 'browser'),
+      OMAAX_DSH_MODULES: path.join(path.dirname(path.dirname(dshBin())), 'node_modules'),
+      DSH_BUNDLED_SKILL_DIR: resourcePath('documents', 'skills'),
       BIODSH_PYTHON: venvPython(this.paths.bioenv),
       // 把生信环境放到 PATH 最前面：模型执行 `python run.py` 时用的就是它。
       PATH: `${binDir}${path.delimiter}${path.dirname(uvBinary())}${path.delimiter}${process.env.PATH ?? ''}`,

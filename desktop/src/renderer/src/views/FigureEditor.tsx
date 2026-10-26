@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useAuth} from '../AuthGate';
 import {useT} from '../i18n';
-import {blankFigure,parseFigure,importSvg,figureSvg,svgTextEntries,replaceSvgText,svgColors,replaceSvgColor,gridLayout,alignItems,fitFigure,addPanelLabels,moveItems,exportFigurePng,newFigureId,type FigureDocument,type FigureItem} from './figure-model';
+import {blankFigure,parseFigure,importSvg,figureSvg,svgTextEntries,replaceSvgText,svgColors,replaceSvgColor,gridLayout,alignItems,fitFigure,fitTextBox,moveItems,exportFigurePng,newFigureId,type FigureDocument,type FigureItem} from './figure-model';
 import './FigureEditor.css';
 
 type Turn={role:'user'|'assistant';content:string};
@@ -13,11 +13,14 @@ export default function FigureEditor({active}:{active:boolean}) {
   const [project,setProject]=useState(''),[projects,setProjects]=useState<{path:string;title:string}[]>([]);
   const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(''),[prompt,setPrompt]=useState(''),[history,setHistory]=useState<Turn[]>([]);
   const [loaded,setLoaded]=useState(''),[zoom,setZoom]=useState(.65),[columns,setColumns]=useState(2),[gap,setGap]=useState(24),[dpi,setDpi]=useState(300);
+  const [labelLetter,setLabelLetter]=useState('A');
   const fileInput=useRef<HTMLInputElement>(null),canvas=useRef<HTMLDivElement>(null),live=useRef(true),generation=useRef(0),request=useRef(''),busyRef=useRef(false);
   const drag=useRef<{document:FigureDocument;ids:string[];x:number;y:number;moved:boolean}|null>(null);
+  const textInput=useRef<HTMLTextAreaElement>(null),focusText=useRef(false),pointerItem=useRef<string|null>(null);
   const api=(action:string,body:Record<string,unknown>={})=>window.biodsh.drawing(action,{...body,lang});
   const current=doc.items.find(item=>item.id===selected.at(-1));
   const editableIds=selected.filter(id=>doc.items.some(item=>item.id===id&&!item.locked));
+  useEffect(()=>{if(focusText.current&&current?.kind==='text'&&!current.locked){focusText.current=false;textInput.current?.focus();textInput.current?.select();}},[current?.id]);
 
   useEffect(()=>{
     live.current=true;generation.current++;drag.current=null;busyRef.current=false;setBusy('');setError('');setNotice('');setSelected([]);setPast([]);setFuture([]);setProject('');setProjects([]);setPrompt('');setHistory([]);
@@ -35,7 +38,7 @@ export default function FigureEditor({active}:{active:boolean}) {
   useEffect(()=>{let keep=true;if(active)void window.biodsh.dshRpc('workspace.list').then((v:any)=>{if(keep)setProjects((v.items||[]).filter((p:any)=>typeof p.path==='string'));}).catch(()=>{});return()=>{keep=false;};},[active,owner]);
   const commit=(next:FigureDocument)=>{setPast(p=>[...p.slice(-39),doc]);setFuture([]);setDoc(next);setNotice('');};
   const safe=(work:()=>FigureDocument)=>{try{setError('');commit(work());}catch(e){setError(message(e));}};
-  const updateItem=(id:string,patch:Partial<FigureItem>)=>safe(()=>({...doc,items:doc.items.map(item=>item.id===id&&!item.locked?{...item,...patch}:item)}));
+  const updateItem=(id:string,patch:Partial<FigureItem>)=>safe(()=>({...doc,items:doc.items.map(item=>item.id===id&&!item.locked?(patch.text!==undefined||patch.fontSize!==undefined?fitTextBox({...item,...patch}):{...item,...patch}):item)}));
   const undo=()=>{if(!past.length)return;setFuture(f=>[doc,...f]);setDoc(past[past.length-1]);setPast(p=>p.slice(0,-1));setSelected([]);};
   const redo=()=>{if(!future.length)return;setPast(p=>[...p,doc]);setDoc(future[0]);setFuture(f=>f.slice(1));setSelected([]);};
   const fit=()=>safe(()=>{const next=fitFigure(doc,24);const area=canvas.current?.parentElement;if(area)setZoom(Math.max(.1,Math.min(2,(area.clientWidth-48)/next.width,(area.clientHeight-48)/next.height)));return next;});
@@ -45,7 +48,7 @@ export default function FigureEditor({active}:{active:boolean}) {
     try{await work(valid);}catch(e){if(valid())setError(message(e));}finally{if(valid()){busyRef.current=false;setBusy('');}}
   }
   function select(id:string,add=false){const item=doc.items.find(v=>v.id===id);if(!item)return;const ids=item.groupId?doc.items.filter(v=>v.groupId===item.groupId).map(v=>v.id):[id];setSelected(old=>add?(old.includes(id)?old.filter(v=>!ids.includes(v)):[...new Set([...old,...ids])]):ids);}
-  function add(item:FigureItem){const x=40+(doc.items.length%3)*80,y=40+Math.floor(doc.items.length/3)*45;commit({...doc,items:[...doc.items,{...item,x,y}]});setSelected([item.id]);}
+  function add(item:FigureItem){const x=40+(doc.items.length%3)*80,y=40+Math.floor(doc.items.length/3)*45;focusText.current=item.kind==='text';commit({...doc,items:[...doc.items,fitTextBox({...item,x,y})]});setSelected([item.id]);}
   async function importFiles(files:File[]){await run('正在导入…',async valid=>{
     const incoming:FigureItem[]=[];
     for(const file of files){
@@ -91,7 +94,7 @@ export default function FigureEditor({active}:{active:boolean}) {
   });}
   function stop(){const id=request.current;if(!id)return;request.current='';generation.current++;const stamp=generation.current;busyRef.current=false;setBusy('');setNotice(t('已停止，保留修改前的图。'));void api('figure_cancel',{requestId:id}).catch(e=>{if(live.current&&stamp===generation.current)setError(message(e));});}
   const mapSelected=(patch:Partial<FigureItem>)=>safe(()=>({...doc,items:doc.items.map(item=>editableIds.includes(item.id)?{...item,...patch}:item)}));
-  const deleteSelected=()=>{safe(()=>({...doc,items:doc.items.filter(item=>!editableIds.includes(item.id)&&!editableIds.includes(item.labelFor||''))}));setSelected([]);};
+  const deleteSelected=()=>{if(!editableIds.length||busy)return;safe(()=>({...doc,items:doc.items.filter(item=>item.locked||(!editableIds.includes(item.id)&&!editableIds.includes(item.labelFor||''))).map(item=>item.labelFor&&editableIds.includes(item.labelFor)?{...item,labelFor:undefined}:item)}));setSelected([]);};
   function layer(direction:number){if(!current||current.locked)return;safe(()=>{const items=[...doc.items],i=items.findIndex(v=>v.id===current.id),j=Math.max(0,Math.min(items.length-1,i+direction));[items[i],items[j]]=[items[j],items[i]];return {...doc,items};});}
   const svgPoint=(e:{clientX:number;clientY:number})=>{const matrix=canvas.current?.querySelector('svg')?.getScreenCTM();return matrix?new DOMPoint(e.clientX,e.clientY).matrixTransform(matrix.inverse()):null;};
   const textEntries=current?.kind==='svg'&&current.svg?svgTextEntries(current.svg):[];
@@ -111,7 +114,8 @@ export default function FigureEditor({active}:{active:boolean}) {
     <div className="figure-layout"><div className="figure-main"><fieldset className="figure-toolbar" disabled={!!busy}>
       <button className="btn" disabled={!past.length} onClick={undo}>{t('撤销')}</button><button className="btn" disabled={!future.length} onClick={redo}>{t('重做')}</button>
       <button className="btn" onClick={()=>add({id:newFigureId(),name:t('文字'),kind:'text',text:t('文字'),fontSize:32,color:'#222222',x:0,y:0,width:180,height:48,rotation:0,hidden:false,locked:false})}>{t('添加文字')}</button>
-      <button className="btn" onClick={()=>add({id:newFigureId(),name:t('矩形'),kind:'rect',fill:'#e5f3ee',stroke:'#64748b',x:0,y:0,width:240,height:160,rotation:0,hidden:false,locked:false})}>{t('添加矩形')}</button>
+      <label>{t('标签字母')}<select aria-label={t('标签字母')} value={labelLetter} onChange={e=>setLabelLetter(e.target.value)}>{Array.from({length:26},(_,i)=>String.fromCharCode(65+i)).map(letter=><option key={letter} value={letter}>{letter}</option>)}</select></label><button className="btn" onClick={()=>add({id:newFigureId('label'),name:`${t('标签')} ${labelLetter}`,kind:'text',text:labelLetter,fontSize:24,color:'#222222',x:0,y:0,width:50,height:32,rotation:0,hidden:false,locked:false})}>{t('添加标签')}</button>
+      <button className="btn" onClick={()=>add({id:newFigureId(),name:t('矩形'),kind:'rect',fill:'none',stroke:'#64748b',x:0,y:0,width:240,height:160,rotation:0,hidden:false,locked:false})}>{t('添加矩形')}</button>
       <button className="btn" onClick={fit}>{t('画布适应内容')}</button>
       <label>{t('缩放')}<input type="range" min=".1" max="2" step=".05" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/><span>{Math.round(zoom*100)}%</span></label>
     </fieldset>
@@ -120,8 +124,12 @@ export default function FigureEditor({active}:{active:boolean}) {
       <label>{t('间距')}<input aria-label={t('拼图间距')} type="number" min="0" max="500" value={gap} onChange={e=>setGap(Math.max(0,Math.min(500,Number(e.target.value))))}/></label>
       <button className="btn" onClick={()=>safe(()=>gridLayout(doc,editableIds,columns,gap))}>{t('网格拼图')}</button>
       <select aria-label={t('对齐与分布')} defaultValue="" onChange={e=>{if(e.target.value)safe(()=>alignItems(doc,editableIds,e.target.value as Parameters<typeof alignItems>[2]));e.target.value='';}}><option value="">{t('对齐与分布')}</option>{(['left','center','right','top','middle','bottom','horizontal','vertical'] as const).map((key,i)=><option key={key} value={key}>{t(['左对齐','水平居中','右对齐','顶部对齐','垂直居中','底部对齐','水平分布','垂直分布'][i])}</option>)}</select>
-      <button className="btn" onClick={()=>safe(()=>addPanelLabels(doc,editableIds))}>{t('添加 A/B 标签')}</button>
       <button className="btn" disabled={editableIds.length<2} onClick={()=>mapSelected({groupId:newFigureId('group')})}>{t('分组')}</button><button className="btn" onClick={()=>mapSelected({groupId:undefined})}>{t('取消分组')}</button>
+    </fieldset>
+    <fieldset className="figure-selection" disabled={!!busy}>
+      <div className="figure-selection-actions"><span>{selected.length?t('已选中 {n} 个元素',{n:selected.length}):t('选择元素可编辑或删除')}</span><button type="button" className="btn figure-delete" disabled={!editableIds.length} title={current?.locked?t('请先解锁图层再编辑或删除'):undefined} onClick={deleteSelected}>{t('删除所选元素')}</button></div>
+      {current?.kind==='text'&&<label>{t(current.labelFor||current.id.startsWith('label-')?'标签内容':'文字内容')}<textarea ref={textInput} aria-label={t(current.labelFor||current.id.startsWith('label-')?'标签内容':'文字内容')} rows={2} value={current.text||''} disabled={current.locked} maxLength={4000} onChange={e=>updateItem(current.id,{text:e.target.value})}/></label>}
+      {current?.locked&&<small>{t('请先解锁图层再编辑或删除')}</small>}
     </fieldset>
     <div className="figure-stage" tabIndex={0} aria-label={t('拼图画布')} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)void importFiles(Array.from(e.dataTransfer.files));}} onKeyDown={e=>{
       if(busy||e.target!==e.currentTarget)return;
@@ -133,11 +141,11 @@ export default function FigureEditor({active}:{active:boolean}) {
     }}>
       {!doc.items.length&&<div className="figure-empty"><strong>{t('把图表放到这里，开始拼图')}</strong><p>{t('支持 SVG、PNG、JPG、WebP、GIF；SVG 中的文字和颜色可以继续修改。')}</p></div>}
       <div className="figure-canvas" ref={canvas} style={{width:doc.width*zoom}} onPointerDown={e=>{
-        if(busy)return;e.currentTarget.parentElement?.focus();const id=(e.target as Element).closest('[data-figure-id]')?.getAttribute('data-figure-id');if(!id){setSelected([]);return;}if(e.shiftKey||!selected.includes(id))select(id,e.shiftKey);const item=doc.items.find(i=>i.id===id),point=svgPoint(e);if(!item||item.locked||!point||e.shiftKey)return;
+        if(busy)return;e.currentTarget.parentElement?.focus();const id=(e.target as Element).closest('[data-figure-id]')?.getAttribute('data-figure-id');pointerItem.current=id||null;if(!id){setSelected([]);return;}if(e.shiftKey||!selected.includes(id))select(id,e.shiftKey);const item=doc.items.find(i=>i.id===id),point=svgPoint(e);if(!item||item.locked||!point||e.shiftKey)return;
         const ids=item.groupId?doc.items.filter(i=>i.groupId===item.groupId&&!i.locked).map(i=>i.id):selected.includes(id)?editableIds:[id];drag.current={document:doc,ids,x:point.x,y:point.y,moved:false};e.currentTarget.setPointerCapture(e.pointerId);
       }} onPointerMove={e=>{const state=drag.current,p=svgPoint(e);if(!state||!p)return;if(Math.abs(p.x-state.x)+Math.abs(p.y-state.y)<1)return;state.moved=true;setDoc(moveItems(state.document,state.ids,p.x-state.x,p.y-state.y));}}
       onPointerUp={()=>{const state=drag.current;drag.current=null;if(state?.moved){setPast(p=>[...p.slice(-39),state.document]);setFuture([]);}}}
-      onPointerCancel={()=>{if(drag.current)setDoc(drag.current.document);drag.current=null;}} dangerouslySetInnerHTML={{__html:figureSvg(doc,selected)}}/>
+      onPointerCancel={()=>{if(drag.current)setDoc(drag.current.document);drag.current=null;pointerItem.current=null;}} onDoubleClick={()=>{if(busy)return;const item=doc.items.find(v=>v.id===pointerItem.current);if(item?.kind==='text'&&!item.locked){focusText.current=true;setSelected([item.id]);if(current?.id===item.id){focusText.current=false;textInput.current?.focus();textInput.current?.select();}}}} dangerouslySetInnerHTML={{__html:figureSvg(doc,selected)}}/>
     </div><p className="figure-hint">{t('Shift 多选，方向键微调。导出前可使用“画布适应内容”避免裁切。')}</p></div>
     <aside className="figure-inspector"><details open><summary>{t('画布与导出')}</summary><fieldset disabled={!!busy}>
       <label>{t('图标题')}<input value={doc.title} maxLength={150} onChange={e=>commit({...doc,title:e.target.value})}/></label>
@@ -154,8 +162,8 @@ export default function FigureEditor({active}:{active:boolean}) {
       <label>{t('名称')}<input value={current.name} maxLength={150} onChange={e=>updateItem(current.id,{name:e.target.value})}/></label><div className="figure-fields">
       {(['x','y','width','height','rotation'] as const).map((key,i)=><label key={key}>{t(['横向位置','纵向位置','宽度','高度','旋转'][i])}<input type="number" value={Math.round(current[key]*100)/100} min={key==='width'||key==='height'?1:undefined} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=100000&&(!(key==='width'||key==='height')||n>0)){if(key==='x'||key==='y')safe(()=>moveItems(doc,[current.id],key==='x'?n-current.x:0,key==='y'?n-current.y:0));else updateItem(current.id,{[key]:n});}}}/></label>)}
       </div>
-      {current.kind==='text'&&<><label>{t('文字')}<textarea aria-label={t('文字')} value={current.text||''} maxLength={4000} onChange={e=>updateItem(current.id,{text:e.target.value})}/></label><label>{t('字号')}<input type="number" min="4" max="400" value={current.fontSize||32} onChange={e=>updateItem(current.id,{fontSize:Math.max(4,Math.min(400,Number(e.target.value)))})}/></label><label>{t('文字颜色')}<input type="color" value={current.color||'#222222'} onChange={e=>updateItem(current.id,{color:e.target.value})}/></label></>}
-      {current.kind==='rect'&&<><label>{t('填充颜色')}<input type="color" value={current.fill||'#e5f3ee'} onChange={e=>updateItem(current.id,{fill:e.target.value})}/></label><label>{t('边框颜色')}<input type="color" value={current.stroke||'#64748b'} onChange={e=>updateItem(current.id,{stroke:e.target.value})}/></label></>}
+      {current.kind==='text'&&<><label>{t('字号')}<input type="number" min="4" max="400" value={current.fontSize||32} onChange={e=>updateItem(current.id,{fontSize:Math.max(4,Math.min(400,Number(e.target.value)))})}/></label><label>{t('文字颜色')}<input type="color" value={current.color||'#222222'} onChange={e=>updateItem(current.id,{color:e.target.value})}/></label></>}
+      {current.kind==='rect'&&<><label className="figure-no-fill"><input type="checkbox" checked={!current.fill||current.fill==='none'} onChange={e=>updateItem(current.id,{fill:e.target.checked?'none':'#e5f3ee'})}/>{t('无填充')}</label><label>{t('填充颜色')}<input type="color" disabled={!current.fill||current.fill==='none'} value={/^#[a-f\d]{6}$/i.test(current.fill||'')?current.fill:'#e5f3ee'} onChange={e=>updateItem(current.id,{fill:e.target.value})}/></label><label>{t('边框颜色')}<input type="color" value={current.stroke||'#64748b'} onChange={e=>updateItem(current.id,{stroke:e.target.value})}/></label></>}
       {!!textEntries.length&&<details open><summary>{t('图内文字')}</summary>{textEntries.map(entry=><label key={entry.index}>{t('文字 {n}',{n:entry.index+1})}<input value={entry.text} maxLength={4000} onChange={e=>{try{updateItem(current.id,{svg:replaceSvgText(current.svg!,entry.index,e.target.value)});}catch(err){setError(message(err));}}}/></label>)}</details>}
       {!!colors.length&&<details><summary>{t('图内颜色')}</summary>{colors.map(color=><label className="figure-color" key={color}><span>{color}</span><input aria-label={t('替换颜色 {color}',{color})} type="color" value={/^#[a-f\d]{6}$/i.test(color)?color:'#000000'} onChange={e=>{try{updateItem(current.id,{svg:replaceSvgColor(current.svg!,color,e.target.value)});}catch(err){setError(message(err));}}}/></label>)}</details>}
     </fieldset></details>}

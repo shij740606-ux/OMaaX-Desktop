@@ -64,12 +64,21 @@ pub fn base() -> PathBuf {
 }
 fn digest(s: &str) -> String { format!("{:x}", Sha256::digest(s.as_bytes())) }
 fn entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new("OMaaX.HubSession", &digest(&base().to_string_lossy())).map_err(|_|"系统安全存储不可用".into())
+    keyring::Entry::new("OMaaX.HubSession", &digest(&base().to_string_lossy())).map_err(|_|"AUTH_LOCAL_ERROR: 系统安全存储不可用，请重试或重新打开软件".into())
+}
+fn stored_read_error(error: keyring::Error) -> String {
+    match error {
+        keyring::Error::NoEntry => "UNAUTHORIZED: 请登录".into(),
+        _ => "AUTH_LOCAL_ERROR: 无法读取系统安全存储中的登录信息，请重试或重新打开软件".into(),
+    }
 }
 fn stored() -> Result<Session, String> {
     if base().join("accounts/logged-out").exists(){return Err("UNAUTHORIZED: 已退出，请重新登录".into());}
-    let text = entry()?.get_password().map_err(|_|"UNAUTHORIZED: 请登录".to_string())?;
-    serde_json::from_str(&text).map_err(|_|"UNAUTHORIZED: 登录记录无效".into())
+    let text = entry()?.get_password().map_err(stored_read_error)?;
+    parse_stored_session(&text)
+}
+fn parse_stored_session(text: &str) -> Result<Session, String> {
+    serde_json::from_str(text).map_err(|_|"AUTH_LOCAL_ERROR: 本机登录记录无法读取，请重新登录".into())
 }
 pub fn normalize(hub: &str) -> Result<String, String> {
     let url = reqwest::Url::parse(hub.trim()).map_err(|_|"服务地址无效")?;
@@ -98,27 +107,42 @@ fn request(hub: &str, route: &str, token: Option<&str>, body: Option<Value>) -> 
     let hub = normalize(hub)?;
     // Never forward credentials to a redirected origin.
     let client = reqwest::blocking::Client::builder().timeout(Duration::from_secs(12))
-        .no_proxy().redirect(reqwest::redirect::Policy::none()).build().map_err(|_|"登录服务连接失败，请重试")?;
+        .no_proxy().redirect(reqwest::redirect::Policy::none()).build().map_err(|_|"AUTH_LOCAL_ERROR: 无法初始化登录连接，请重新打开软件")?;
     let url = format!("{hub}/api/auth/{route}");
     let mut req = if body.is_some() { client.post(url) } else { client.get(url) };
     if let Some(token) = token { req = req.bearer_auth(token); }
     if let Some(body) = body { req = req.json(&body); }
-    let response = req.send().map_err(|_|"无法连接登录服务，请检查地址和网络后重试")?;
+    let response = req.send().map_err(auth_transport_error)?;
     let status = response.status();
     if status.as_u16() == 401 { return Err(if route=="login" {"UNAUTHORIZED: 用户名或密码错误"} else {"UNAUTHORIZED: 登录已过期，请重新登录"}.into()); }
     if status.as_u16() == 403 { return Err("FORBIDDEN: 当前账号无此权限".into()); }
-    if !status.is_success() { return Err(format!("登录服务暂不可用（{}），请稍后重试或联系管理员", status.as_u16())); }
-    let value: Value = response.json().map_err(|_|"登录服务返回异常，请重试或联系管理员")?;
-    if value["ok"] != true { return Err("登录未成功，请检查账号信息或联系管理员".into()); }
+    if status.as_u16() == 504 { return Err("AUTH_TIMEOUT: 登录服务响应超时，请稍后重试".into()); }
+    if !status.is_success() { return Err(format!("AUTH_SERVICE_UNAVAILABLE: 登录服务暂不可用（{}），请稍后重试或联系管理员", status.as_u16())); }
+    let value: Value = response.json().map_err(auth_response_error)?;
+    if value["ok"] != true { return Err("AUTH_INVALID_RESPONSE: 登录服务返回异常，请重试或联系管理员".into()); }
     Ok(value)
 }
+fn auth_transport_error(error: reqwest::Error) -> String {
+    if error.is_timeout() { "AUTH_TIMEOUT: 登录服务响应超时，请稍后重试".into() }
+    else if error.is_builder() { "AUTH_LOCAL_ERROR: 无法初始化登录连接，请重新打开软件".into() }
+    else { "AUTH_NETWORK_ERROR: 无法连接登录服务，请检查地址和网络后重试".into() }
+}
+fn auth_response_error(error: reqwest::Error) -> String {
+    // Reqwest can classify a body-read timeout as both decode and timeout.
+    if !error.is_timeout() && error.is_decode() { "AUTH_INVALID_RESPONSE: 登录服务返回异常，请重试或联系管理员".into() }
+    else { auth_transport_error(error) }
+}
 fn enabled(hub: &str) -> Result<(), String> {
-    if request(hub,"status",None,None)?["auth_enabled"] != true { return Err("登录服务尚未开通，请联系管理员".into()); } Ok(())
+    match request(hub,"status",None,None)?["auth_enabled"].as_bool() {
+        Some(true) => Ok(()),
+        Some(false) => Err("AUTH_SERVICE_UNAVAILABLE: 登录服务尚未开通，请联系管理员".into()),
+        None => Err("AUTH_INVALID_RESPONSE: 登录服务返回的状态异常，请稍后重试".into()),
+    }
 }
 fn parse_user(value: &Value) -> Result<User, String> {
-    let mut user: User = serde_json::from_value(value.clone()).map_err(|_|"账号信息不完整")?;
-    user.id = uuid::Uuid::parse_str(&user.id).map_err(|_|"账号标识无效")?.to_string();
-    if !matches!(user.role.as_str(),"user"|"admin"|"researcher"|"guest") || user.username.trim().is_empty() { return Err("登录信息无效，请重新登录".into()); } Ok(user)
+    let mut user: User = serde_json::from_value(value.clone()).map_err(|_|"AUTH_INVALID_RESPONSE: 登录服务返回的账号信息不完整")?;
+    user.id = uuid::Uuid::parse_str(&user.id).map_err(|_|"AUTH_INVALID_RESPONSE: 登录服务返回的账号标识无效")?.to_string();
+    if !matches!(user.role.as_str(),"user"|"admin"|"researcher"|"guest") || user.username.trim().is_empty() { return Err("AUTH_INVALID_RESPONSE: 登录服务返回的账号信息异常".into()); } Ok(user)
 }
 pub fn profile(base: &Path, hub: &str, user: &User) -> Result<PathBuf, String> {
     let hub = normalize(hub)?;
@@ -153,7 +177,21 @@ pub fn require(root: &Path, unit: &str) -> Result<User, String> {
     if !has(&user,unit) { return Err("FORBIDDEN: 当前账号没有该功能授权".into()); } Ok(user)
 }
 pub fn status(root: &Path) -> Value {
-    match require(root,"") { Ok(user)=>json!({"authenticated":true,"localAccess":local_access(),"hub":configured_hub(),"user":user}), Err(error)=>json!({"authenticated":false,"hub":configured_hub(),"error":error}) }
+    status_value(require(root,""), configured_hub(), local_access())
+}
+fn status_value(result: Result<User, String>, hub: String, local_access: bool) -> Value {
+    match result {
+        Ok(user) => json!({"authenticated":true,"state":"authenticated","localAccess":local_access,"hub":hub,"user":user}),
+        Err(error) => {
+            let failure = auth_helper_failure(&error);
+            let code = failure["error"]["code"].as_str().unwrap_or("auth_local_error");
+            // An unavailable check is not evidence of revocation. The renderer
+            // may retain an already-open view; every protected action still
+            // calls require and remains blocked until validation succeeds.
+            let state = if matches!(code, "auth_session_expired" | "auth_forbidden") { "reauth_required" } else { "unavailable" };
+            json!({"authenticated":false,"state":state,"hub":hub,"error":error,"errorCode":code})
+        }
+    }
 }
 // Tokens stay in the native process; cloud QA requires its own entitlement.
 pub fn cloud_session(root: &Path) -> Result<(String,String),String> {
@@ -163,16 +201,42 @@ pub fn cloud_session(root: &Path) -> Result<(String,String),String> {
     if profile(&base(),&s.hub,&s.user)?!=root || user.id!=s.user.id {return Err("UNAUTHORIZED: 账号已切换".into());}
     Ok((s.hub,s.token))
 }
+// Payments use the signed-in company account, independently of knowledge access.
+// This stays native-only; never expose the bearer token to renderer IPC.
+pub fn payment_session(root: &Path) -> Result<(String, String), String> {
+    if local_access() { return Err("UNAUTHORIZED: 支付需要登录公司账号".into()); }
+    let user = require(root, "")?;
+    let session = stored()?;
+    if profile(&base(), &session.hub, &session.user)? != root || user.id != session.user.id
+        || normalize(&configured_hub())? != session.hub {
+        return Err("UNAUTHORIZED: 账号已切换，请重新打开软件".into());
+    }
+    Ok((session.hub, session.token))
+}
 // Native child pipe only: never exposed as an IPC command or renderer response.
 pub fn company_session_cli() {
     let root=PathBuf::from(std::env::var_os("BIODSH_HOME").unwrap_or_default());
     let result=(||->Result<Value,String>{
         require(&root,"")?;
         let s=stored()?;
-        if profile(&base(),&s.hub,&s.user)?!=root{return Err("account changed".into());}
+        if profile(&base(),&s.hub,&s.user)?!=root{return Err("UNAUTHORIZED: 账号已切换，请重新打开软件".into());}
         Ok(json!({"hub":s.hub,"token":s.token}))
     })();
-    match result{Ok(v)=>println!("{v}"),Err(_)=>std::process::exit(1)}
+    match result{Ok(v)=>println!("{v}"),Err(error)=>{println!("{}",auth_helper_failure(&error));std::process::exit(1)}}
+}
+// Only fixed, safe descriptions cross the native child pipe. Never echo the
+// upstream body, OS error, URL, username, bearer token or stored credentials.
+fn auth_helper_failure(error: &str) -> Value {
+    let (code, message, status, retryable) = match error.split_once(':').map(|(prefix,_)|prefix) {
+        Some("UNAUTHORIZED") => ("auth_session_expired", "登录已过期或账号已切换，请重新登录。", 401, false),
+        Some("FORBIDDEN") => ("auth_forbidden", "当前账号没有使用此功能的权限，请联系管理员。", 403, false),
+        Some("AUTH_NETWORK_ERROR") => ("auth_network_error", "暂时无法连接登录服务，请检查网络后重试。", 503, true),
+        Some("AUTH_TIMEOUT") => ("auth_timeout", "登录服务响应超时，请稍后重试。", 504, true),
+        Some("AUTH_SERVICE_UNAVAILABLE") => ("auth_service_unavailable", "登录服务暂时不可用，请稍后重试。", 503, true),
+        Some("AUTH_INVALID_RESPONSE") => ("auth_invalid_response", "登录服务返回异常，请稍后重试或联系管理员。", 502, true),
+        _ => ("auth_local_error", "无法读取本机登录状态，请重试或重新打开软件。", 502, false),
+    };
+    json!({"ok":false,"error":{"code":code,"message":message,"status":status,"retryable":retryable}})
 }
 pub fn login(hub: &str, username: &str, password: &str) -> Result<(), String> {
     let hub = normalize(hub)?;
@@ -207,7 +271,8 @@ pub fn logout() -> Result<(), String> {
 // Explicit allowlist: a newly added command cannot accidentally become public.
 pub fn command_unit(command: &str) -> Result<Option<&'static str>, String> {
     match command {
-        "cloud_qa" => Ok(Some("qa")),
+        "cloud_qa"|"research" => Ok(Some("qa")),
+        "payment" => Ok(Some("")),
         "hub_status"|"hub_login"|"hub_logout"|"hub_remembered_login"|"hub_forget_login"|"window_control" => Ok(None),
         "open_path"|"open_external"|"education_start"|"education_delete"|"hub_admin"|"app_info"|"settings_get"|"settings_set"|"credential_get"|"credential_set"|"env_status"|"dsh_status"|"skills_catalog"|"skills_statuses"|"client_log"|"check_updates"|"dsh_stop"|"dsh_bounds" => Ok(Some("")),
         "dsh_start"|"dsh_restart"|"dsh_reload"|"dsh_rpc"|"dsh_open_session"|"dsh_new_session"|"dsh_set_context"|"dsh_set_reasoning"|"drawing"|"assistant_ask"|"deepseek_balance"|"session_export"|"session_delete"|"ratings_get"|"ratings_set" => Ok(Some("")),
@@ -217,12 +282,168 @@ pub fn command_unit(command: &str) -> Result<Option<&'static str>, String> {
 }
 pub fn check_model() {
     let root = PathBuf::from(std::env::var_os("BIODSH_HOME").unwrap_or_default());
-    match require(&root,"") { Ok(user)=>println!("{}",json!({"ok":true,"userId":user.id})), Err(_)=>{ println!("{}",json!({"ok":false}));std::process::exit(1); } }
+    match require(&root,"") { Ok(user)=>println!("{}",json!({"ok":true,"userId":user.id})), Err(error)=>{ println!("{}",auth_helper_failure(&error));std::process::exit(1); } }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn status_marks_only_explicit_revocation_as_reauth_required() {
+        for (error, code) in [("UNAUTHORIZED: 已过期", "auth_session_expired"), ("FORBIDDEN: 无权限", "auth_forbidden")] {
+            let value = status_value(Err(error.into()), "https://example.invalid".into(), false);
+            assert_eq!(value["authenticated"], false);
+            assert_eq!(value["state"], "reauth_required");
+            assert_eq!(value["errorCode"], code);
+            assert_eq!(value["error"], error);
+            assert!(value.get("user").is_none());
+        }
+    }
+    #[test]
+    fn status_unavailable_never_grants_authentication_or_forces_reauth() {
+        for (error, code) in [
+            ("AUTH_NETWORK_ERROR: 网络不可用", "auth_network_error"),
+            ("AUTH_TIMEOUT: 超时", "auth_timeout"),
+            ("AUTH_SERVICE_UNAVAILABLE: 暂不可用", "auth_service_unavailable"),
+            ("AUTH_INVALID_RESPONSE: 返回异常", "auth_invalid_response"),
+            ("AUTH_LOCAL_ERROR: 安全存储不可用", "auth_local_error"),
+            ("未知错误", "auth_local_error"),
+        ] {
+            let value = status_value(Err(error.into()), "https://example.invalid".into(), false);
+            assert_eq!(value["authenticated"], false);
+            assert_eq!(value["state"], "unavailable");
+            assert_eq!(value["errorCode"], code);
+            assert!(value.get("user").is_none());
+        }
+    }
+    #[test]
+    fn status_success_keeps_existing_fields_without_credentials() {
+        let value = status_value(Ok(local_user()), "https://example.invalid".into(), true);
+        assert_eq!(value["authenticated"], true);
+        assert_eq!(value["state"], "authenticated");
+        assert_eq!(value["localAccess"], true);
+        assert_eq!(value["hub"], "https://example.invalid");
+        assert_eq!(value["user"]["id"], "local");
+        assert!(value.get("token").is_none());
+        assert!(value.get("errorCode").is_none());
+    }
+    #[test]
+    fn auth_helper_error_classes_are_explicit_and_never_echo_details() {
+        for (prefix, code, status, retryable) in [
+            ("UNAUTHORIZED", "auth_session_expired", 401, false),
+            ("FORBIDDEN", "auth_forbidden", 403, false),
+            ("AUTH_NETWORK_ERROR", "auth_network_error", 503, true),
+            ("AUTH_TIMEOUT", "auth_timeout", 504, true),
+            ("AUTH_SERVICE_UNAVAILABLE", "auth_service_unavailable", 503, true),
+            ("AUTH_INVALID_RESPONSE", "auth_invalid_response", 502, true),
+            ("AUTH_LOCAL_ERROR", "auth_local_error", 502, false),
+        ] {
+            let reply = auth_helper_failure(&format!("{prefix}: synthetic-private-token https://private.invalid/details"));
+            assert_eq!(reply["ok"], false);
+            assert_eq!(reply["error"]["code"], code);
+            assert_eq!(reply["error"]["status"], status);
+            assert_eq!(reply["error"]["retryable"], retryable);
+            assert!(!reply.to_string().contains("synthetic-private-token"));
+            assert!(!reply.to_string().contains("private.invalid"));
+        }
+        for unknown in ["raw OS failure", "AUTH_TIMEOUT_OTHER: misleading", "network: UNAUTHORIZED: nested", ""] {
+            assert_eq!(auth_helper_failure(unknown)["error"]["code"], "auth_local_error");
+        }
+        assert_eq!(auth_helper_failure("UNAUTHORIZED: 账号已切换")["error"]["code"], "auth_session_expired");
+    }
+    #[test]
+    fn auth_helper_distinguishes_missing_credentials_from_os_storage_failure() {
+        assert_eq!(auth_helper_failure(&stored_read_error(keyring::Error::NoEntry))["error"]["status"], 401);
+        let denied = keyring::Error::NoStorageAccess(Box::new(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "synthetic-private-detail")));
+        let error = stored_read_error(denied);
+        assert_eq!(auth_helper_failure(&error)["error"]["code"], "auth_local_error");
+        assert!(!error.contains("synthetic-private-detail"));
+        for corrupt in ["not-json", "{}", r#"{"hub":"synthetic-private-value"}"#] {
+            let error = parse_stored_session(corrupt).err().unwrap();
+            assert_eq!(auth_helper_failure(&error)["error"]["code"], "auth_local_error");
+            assert!(!error.contains("synthetic-private-value"));
+        }
+    }
+    #[test]
+    fn auth_helper_malformed_remote_user_is_not_mistaken_for_revoked_login() {
+        for malformed in [json!(null), json!({"id":"synthetic-private-value","username":"valid","role":"user","authorizations":[]}), json!({"id":"761f059b-1111-4111-8111-123456789abc","username":"valid","role":"invalid-role","authorizations":[]})] {
+            let error = parse_user(&malformed).unwrap_err();
+            let reply = auth_helper_failure(&error);
+            assert_eq!(reply["error"]["code"], "auth_invalid_response");
+            assert_eq!(reply["error"]["status"], 502);
+            assert_eq!(reply["error"]["retryable"], true);
+            assert!(!reply.to_string().contains("synthetic-private-value"));
+        }
+    }
+    #[test]
+    fn auth_helper_invalid_local_request_is_not_a_network_or_password_error() {
+        let error = reqwest::blocking::Client::new().get("not a valid URL").build().unwrap_err();
+        assert_eq!(auth_helper_failure(&auth_transport_error(error))["error"]["code"], "auth_local_error");
+    }
+    #[test]
+    fn auth_helper_timeout_and_network_errors_are_not_revoked_sessions() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let task = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut bytes = [0u8; 2048];
+            let _ = socket.read(&mut bytes);
+            std::thread::sleep(Duration::from_millis(150));
+        });
+        let error = reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_millis(50)).build().unwrap().get(&url).send().unwrap_err();
+        assert_eq!(auth_helper_failure(&auth_transport_error(error))["error"]["code"], "auth_timeout");
+        task.join().unwrap();
+        // A truncated local response produces a transport error deterministically;
+        // a closed TCP port can instead time out on Windows firewall settings.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let task = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut bytes = [0u8; 2048];
+            let _ = socket.read(&mut bytes);
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\nshort").unwrap();
+        });
+        let error = reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_secs(2)).build().unwrap().get(&url).send().unwrap().bytes().unwrap_err();
+        assert_eq!(auth_helper_failure(&auth_transport_error(error))["error"]["code"], "auth_network_error");
+        task.join().unwrap();
+    }
+    #[test]
+    fn auth_helper_body_timeout_keeps_timeout_category_even_if_decode_is_set() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let task = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut bytes = [0u8; 2048];
+            let _ = socket.read(&mut bytes);
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n").unwrap();
+            std::thread::sleep(Duration::from_millis(150));
+        });
+        let error = reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_millis(50)).build().unwrap().get(&url).send().unwrap().json::<Value>().unwrap_err();
+        assert!(error.is_timeout());
+        assert_eq!(auth_helper_failure(&auth_response_error(error))["error"]["code"], "auth_timeout");
+        task.join().unwrap();
+    }
+    #[test]
+    fn auth_helper_actual_http_failures_keep_safe_distinct_categories() {
+        for (status, body, code, retryable) in [
+            (401, "synthetic-private-body", "auth_session_expired", false),
+            (403, "synthetic-private-body", "auth_forbidden", false),
+            (503, "synthetic-private-body", "auth_service_unavailable", true),
+            (504, "synthetic-private-body", "auth_timeout", true),
+            (200, "synthetic-private-body", "auth_invalid_response", true),
+            (200, r#"{"ok":false,"error":"synthetic-private-body"}"#, "auth_invalid_response", true),
+        ] {
+            let (url, task) = mock(status, body);
+            let error = request(&url, "me", Some("synthetic-private-token"), None).unwrap_err();
+            let reply = auth_helper_failure(&error);
+            assert_eq!(reply["error"]["code"], code);
+            assert_eq!(reply["error"]["retryable"], retryable);
+            assert!(!reply.to_string().contains("synthetic-private"));
+            task.join().unwrap();
+        }
+    }
     #[test]
     #[cfg(feature="local-access")]
     fn local_release_uses_legacy_without_login_but_rejects_other_profile_roots() {
@@ -335,6 +556,7 @@ mod tests {
         for role in ["user","researcher","guest","admin"] {let mut v=serde_json::to_value(user()).unwrap();v["role"]=json!(role);assert!(parse_user(&v).is_ok());}
         let mut v=serde_json::to_value(user()).unwrap();v["role"]=json!("superuser");assert!(parse_user(&v).is_err());
         assert_eq!(command_unit("cloud_qa").unwrap(),Some("qa"));
+        assert_eq!(command_unit("research").unwrap(),Some("qa"));
     }
     #[test]
     #[ignore = "requires an explicitly provisioned disposable cloud account"]

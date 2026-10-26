@@ -6,6 +6,7 @@ const now=()=>Date.now()/1000;
 export function installFixtures(){
  const qa:any={calls:[],delays:{},failures:{},navigation:'',steps:[],prepareState:'idle',image,context};
  let next=3;
+ const protectedPaths:any[]=[];
  let hosts:any[]=[{id:'qa-a',name:'测试服务器 A',host:'192.0.2.10',port:22,username:'qa',auth:'password',hostKey:'key-qa-a',fingerprint:'SHA256:qa-a',selected:true},{id:'qa-b',name:'测试服务器 B',host:'192.0.2.11',port:22,username:'qa',auth:'password',hostKey:'key-qa-b',fingerprint:'SHA256:qa-b',selected:false}];
  const files=new Map<string,any>(),trash:any[]=[],deletes:any[]=[],writes:any[]=[{id:'write-qa',path:'/qa/existing.txt',context,created:now(),digest:'write-digest',previous:{size:3},preview:'new content',proposedBytes:11}];
  const jobs:any[]=[{id:'job-complete',state:'succeeded',detail:'',created:now(),spec:{title:'测试已完成任务',context}},{id:'job-running',state:'running',detail:'',created:now(),spec:{title:'测试运行中任务',context}}];
@@ -64,6 +65,9 @@ export function installFixtures(){
    case 'transfers':return clone(transfers);
    case 'transfer_resume':{const row=transfers.find(t=>t.id===body.id);if(row){row.state='complete';row.error='';row.progress.bytes=row.progress.total;row.progress.completed=1;}return {path:'/qa/import'};}
    case 'transfer':{transfers.push({id:'transfer-'+next++,source:id,target:body.target,state:'complete',created:now(),bytes:12,destination:'/qa/copied'});return {path:'/qa/copied',files:1,source:'import_qa'};}
+   case 'protected_paths':return clone(protectedPaths);
+   case 'protected_path_add':{if(!protectedPaths.some(row=>row.path===body.path))protectedPaths.push({path:body.path,resolved:body.path,directory:true});return clone(protectedPaths);}
+   case 'protected_path_remove':{const i=protectedPaths.findIndex(row=>row.path===body.path);if(i>=0)protectedPaths.splice(i,1);return clone(protectedPaths);}
    case 'configure':return {saved:true};
    default:throw Error('Unimplemented QA fixture action: '+action);
   }

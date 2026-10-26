@@ -1,5 +1,7 @@
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {verifyMcpTimeoutSdk, patchMcpTimeoutSource} from './patch-dsh-mcp-timeout.mjs';
 const runtime=new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/',import.meta.url);
 assert.equal(JSON.parse(readFileSync(new URL('package.json',runtime))).version,'0.1.5-rc.1','Stable release must retain the 47 CLI');
 const agent=new URL('node_modules/@deepseek-ai/dsh-agent-loop/',runtime);
@@ -9,5 +11,15 @@ assert.ok(source.includes('OMAAX_AUTO_CONTINUE_V1'),'Automatic continuation is m
 assert.ok(!source.includes('BIODSH_STEP_GUARD'),'Forced step cap found');
 assert.ok(readFileSync(new URL('node_modules/@deepseek-ai/dsh-compaction-basic/lib/index.js',runtime),'utf8').includes('OMAAX_COMPACTION_CONTINUE_V1'),'Checkpoint continuation is missing');
 assert.ok(readFileSync(new URL('node_modules/@deepseek-ai/dsh-compaction-basic/lib/index.js',runtime),'utf8').includes('OMAAX_COMPACTION_TRANSPORT_V1'),'Oversized checkpoint recovery is missing');
+assert.ok(readFileSync(new URL('node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js',runtime),'utf8').includes('OMAAX_APPROVAL_DETAILS_V1'),'Approval command recovery is missing');
+assert.ok(readFileSync(new URL('node_modules/@deepseek-ai/dsh-client-ui-approval/lib/client.js',runtime),'utf8').includes('OMAAX_APPROVAL_REASON_V1'),'Approval description fallback is missing');
+const mcpFile = new URL('node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js', runtime);
+const mcp = readFileSync(mcpFile, 'utf8');
+assert.ok(mcp.includes('OMAAX_MCP_TOOL_TIMEOUT_V1'), 'SSH tool deadline alignment is missing');
+patchMcpTimeoutSource(mcp);
+verifyMcpTimeoutSdk(fileURLToPath(mcpFile));
+for (const [name,marker] of [['dsh-llm-deepseek/lib/index.js','OMAAX_COMPANY_ERROR_CODES_V1'],['dsh-llm-retry/lib/index.js','OMAAX_COMPANY_ERROR_RETRY_V1'],['dsh-client-ui-chat/lib/client.js','OMAAX_COMPANY_ERROR_UI_V1'],['dsh-client-ui-trajectory/lib/client.js','OMAAX_COMPANY_ERROR_TRAJECTORY_V1']]) {
+  assert.ok(readFileSync(new URL(`node_modules/@deepseek-ai/${name}`,runtime),'utf8').includes(marker),'Company error categories missing: '+name);
+}
 assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).devDependencies['@deepseek-ai/dsh'],'0.1.5-rc.1');
 console.log('Stable 47 runtime and automatic continuation verified');

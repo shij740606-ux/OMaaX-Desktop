@@ -10,6 +10,9 @@ mod company_llm;
 pub use hub_auth::company_session_cli;
 mod hub_auth;
 mod cloud_qa;
+mod research;
+mod research_handoff;
+mod payment;
 mod education;
 pub use hub_auth::check_model;
 mod files_server;
@@ -62,7 +65,7 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
   const isEnglish = () => !uiLanguage.toLowerCase().startsWith('zh');
   const css = `    [class*="_sidebarCol"] { visibility: hidden !important; overflow: hidden !important; min-width: 0 !important; }
     [class*="_handle"][data-side="left"] { display: none !important; }
-    [class*="_headline"], [class*="_heroGlow"] { display: none !important; }
+    [class*="_headline"]:has(> [class*="_fishHitbox"]), [class*="_heroGlow"] { display: none !important; }
 
     [data-biodsh-hidden="1"], [data-chat-flow-kind="context"], [data-omaax-internal-handoff] { display: none !important; }
     .omaax-handoff { margin: 12px 0 12px auto; padding: 12px 16px; max-width: 80%; border-radius: 16px; background: rgba(0,122,255,.08); }
@@ -902,6 +905,10 @@ fn dsh_url(state: &AppState) -> Result<String, String> { state.dsh.status.lock()
 #[tauri::command]
 async fn dsh_rpc(state: State<'_, AppState>, method: String, payload: serde_json::Value) -> Result<serde_json::Value, String> {
     use serde_json::{json,Value};
+    if method == "research.handoff" {
+        let paths = state.paths.clone(); let url = dsh_url(&state)?;
+        return tauri::async_runtime::spawn_blocking(move || research_handoff::run(&paths, &url, payload)).await.map_err(|_| "研究交接未完成，请重试；原有研究内容已保留")?;
+    }
     if matches!(method.as_str(),"session.reasoning"|"session.reasoningSet") {
         let root=state.paths.root.clone();
         tauri::async_runtime::spawn_blocking(move||hub_auth::require(&root,"")).await.map_err(|e|e.to_string())??;
@@ -1047,7 +1054,25 @@ async fn check_updates(app: AppHandle, state: State<'_, AppState>) -> Result<ser
     }).await.map_err(|e| e.to_string())?
 }
 
-/// 右键"问一下"：使用统一公司对话连接，非流式，回答简短。
+#[tauri::command]
+async fn payment(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+    let root=state.paths.root.clone();
+    let open_checkout=action=="open";
+    let result=tauri::async_runtime::spawn_blocking(move||payment::run(&root,&action,body)).await.map_err(|_|"支付操作未完成，请先刷新订单状态".to_string())??;
+    if open_checkout {
+        hub_auth::payment_session(&state.paths.root)?;
+        let url=result["url"].as_str().ok_or("支付链接不可用，请刷新订单状态")?;
+        app.opener().open_url(url,None::<&str>).map_err(|_|"无法打开收银台，请重试".to_string())?;
+        return Ok(serde_json::json!({"ok":true}));
+    }
+    Ok(result)
+}
+
+/// 项目课题图谱与研究建议，使用现有公司模型连接。
+#[tauri::command]
+async fn research(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+    research::run(&app,&state.paths,&action,body).await
+}
 #[tauri::command]
 async fn drawing(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
     let paths=state.paths.clone();
@@ -1212,11 +1237,11 @@ async fn education_delete(app:AppHandle,state:State<'_,AppState>,path:String)->R
 async fn hub_status(app: AppHandle, state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let root=state.paths.root.clone();
     let value=tauri::async_runtime::spawn_blocking(move || hub_auth::status(&root)).await.map_err(|e|e.to_string())?;
-    if value["authenticated"] != true { education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); } }
+    if value["state"] == "reauth_required" { company_llm::stop(); education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); } }
     Ok(value)
 }
 #[tauri::command]
-async fn cloud_qa(app:AppHandle,state:State<'_,AppState>,action:String,body:serde_json::Value)->Result<serde_json::Value,String>{
+async fn cloud_qa(app:AppHandle,webview:tauri::Webview,state:State<'_,AppState>,action:String,body:serde_json::Value,on_event:Option<tauri::ipc::JavaScriptChannelId>)->Result<serde_json::Value,String>{
     if action=="save_image" {
         let (bytes,ext)=cloud_qa::image_bytes(body["data"].as_str().unwrap_or(""))?;
         let (tx,rx)=std::sync::mpsc::channel();
@@ -1231,7 +1256,7 @@ async fn cloud_qa(app:AppHandle,state:State<'_,AppState>,action:String,body:serd
     let root=state.paths.root.clone();
     if action=="begin"{return cloud_qa::control(&action,&body);}
     if action=="cancel"{return cloud_qa::cancel(&body).await;}
-    if matches!(action.as_str(),"chat"|"search") && body.get("requestId").is_some(){return cloud_qa::generate(root,action,body).await;}
+    if matches!(action.as_str(),"chat"|"search") && body.get("requestId").is_some(){return cloud_qa::generate(root,action,body,on_event.map(|channel|channel.channel_on(webview))).await;}
     tauri::async_runtime::spawn_blocking(move||{
         cloud_qa::route(&action,&body)?;
         hub_auth::cloud_session(&root)?;
@@ -1265,6 +1290,7 @@ async fn hub_forget_login(webview:tauri::Webview)->Result<(),String>{
 }
 #[tauri::command]
 async fn hub_logout(app: AppHandle, state: State<'_, AppState>) -> Result<(),String> {
+    let _query_shutdown=cloud_qa::prepare_logout().await;
     company_llm::stop(); education::stop(); state.dsh.stop(&app); if let Some(v)=app.get_webview("dsh") { let _=v.close(); }
     tauri::async_runtime::spawn_blocking(hub_auth::logout).await.map_err(|e|e.to_string())??;
     startup::arm_account_restart();
@@ -1357,7 +1383,7 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 let check=(|| { let unit=hub_auth::command_unit(invoke.message.command())?; if let Some(unit)=unit { let st=app.state::<AppState>();let user=hub_auth::require(&st.paths.root,unit)?;if matches!(invoke.message.command(),"personal_compute"|"ssh_hosts_save"|"ssh_hosts_remove"|"session_delete"|"session_export"){hub_auth::audit(&st.paths.root,&user,invoke.message.command());} } Ok::<(),String>(()) })();
                 if let Err(error)=check { invoke.resolver.reject(error); return; }
-                let handler: Box<dyn Fn(tauri::ipc::Invoke)->bool> = Box::new(tauri::generate_handler![cloud_qa,education_start,education_delete,hub_status, hub_login, hub_remembered_login, hub_forget_login, hub_logout, hub_admin,
+                let handler: Box<dyn Fn(tauri::ipc::Invoke)->bool> = Box::new(tauri::generate_handler![cloud_qa,research,payment,education_start,education_delete,hub_status, hub_login, hub_remembered_login, hub_forget_login, hub_logout, hub_admin,
             app_info, settings_get, settings_set, credential_get, credential_set, personal_compute, platform_session, platform_login, platform_project_collaboration, platform_storage, platform_logout, platform_nodes, platform_node_metrics, platform_update_node, platform_jobs, platform_job_kinds, platform_create_job, platform_scheduling_nodes, platform_scheduling, ssh_hosts_bind, platform_cancel_job, platform_job_events, platform_job_artifacts, platform_download_job_artifact,
             knowledge_credential, knowledge_set_credential, knowledge_datasets, knowledge_create_dataset, knowledge_documents, knowledge_add_files, knowledge_folders, knowledge_add_folder, knowledge_remove_folder, knowledge_sync_folders, knowledge_search,
             ssh_hosts_list, ssh_hosts_save, ssh_hosts_remove, ssh_hosts_select, ssh_hosts_trust, ssh_hosts_test, ssh_hosts_metrics, ssh_hosts_files,

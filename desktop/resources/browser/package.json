@@ -1,0 +1,7 @@
+{
+  "name": "omaax-browser-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@playwright/mcp": "0.0.80" }
+}

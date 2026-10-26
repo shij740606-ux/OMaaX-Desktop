@@ -13,7 +13,7 @@ import type { McpServer } from '@shared/types';
 import { useT } from '../i18n';
 
 const SETTINGS_PANES = [
-  { id: 'account', label: '账号和用量', detail: '账户信息与模型使用情况', icon: CreditCard },
+  { id: 'account', label: '账号与支付', detail: '付款、订单与使用记录', icon: CreditCard },
   { id: 'tools', label: '工具与服务', detail: '分析工具使用说明', icon: Plug },
   { id: 'workspace', label: '文件与软件', detail: '保存位置与软件下载', icon: FolderOpen },
   { id: 'appearance', label: '界面偏好', detail: '主题与显示语言', icon: Palette },
@@ -36,8 +36,8 @@ export default function SettingsView({initialPane='account'}:{initialPane?:Setti
           {SETTINGS_PANES.map(({id,label,detail,icon:Icon},index)=><button type="button" role="tab" id={'settings-tab-'+id} aria-selected={pane===id} aria-controls={'settings-pane-'+id} tabIndex={pane===id?0:-1} className={pane===id?'is-active':''} key={id} onClick={()=>setPane(id)} onKeyDown={e=>{let next=index;if(e.key==='ArrowDown')next=(index+1)%SETTINGS_PANES.length;else if(e.key==='ArrowUp')next=(index-1+SETTINGS_PANES.length)%SETTINGS_PANES.length;else if(e.key==='Home')next=0;else if(e.key==='End')next=SETTINGS_PANES.length-1;else return;e.preventDefault();setPane(SETTINGS_PANES[next].id);document.getElementById('settings-tab-'+SETTINGS_PANES[next].id)?.focus();}}><span className="omaax-settings-nav-icon"><Icon size={18}/></span><span><strong>{t(label)}</strong><small>{t(detail)}</small></span><ChevronRight size={14}/></button>)}
         </nav>
         <div className="omaax-settings-panel">
-          {pane==='account'&&<div className="flex flex-col gap-4 p-5" role="tabpanel" id="settings-pane-account" aria-labelledby="settings-tab-account">{!auth.localAccess&&<Section title={t("当前账号")}><div className="flex flex-wrap items-center gap-3"><span>{auth.user?.username}</span>{auth.user?.role==='admin'&&<button className="btn btn-ghost" onClick={()=>void window.biodsh.hubAdmin().catch(e=>window.alert(String(e)))}>{t("管理后台")}</button>}<button className="btn btn-fill" onClick={()=>void auth.logout?.()}>{t("退出 / 切换账号")}</button></div></Section>}<ModelUsage/><AccountView embedded/></div>}
-          <div className="omaax-settings-content" data-pane="tools" role="tabpanel" id="settings-pane-tools" aria-labelledby="settings-tab-tools" hidden={pane!=='tools'} tabIndex={0}><ImageSection/><McpSection/></div>
+          {pane==='account'&&<div className="flex flex-col gap-4 p-5" role="tabpanel" id="settings-pane-account" aria-labelledby="settings-tab-account">{!auth.localAccess&&<Section title={t("当前账号")}><div className="flex flex-wrap items-center gap-3"><span>{auth.user?.username}</span>{auth.user?.role==='admin'&&<button className="btn btn-ghost" onClick={()=>void window.biodsh.hubAdmin().catch(e=>window.alert(String(e)))}>{t("管理后台")}</button>}<button className="btn btn-fill" onClick={()=>void auth.logout?.()}>{t("退出 / 切换账号")}</button></div></Section>}<AccountView embedded/><ModelUsage/></div>}
+          <div className="omaax-settings-content" data-pane="tools" role="tabpanel" id="settings-pane-tools" aria-labelledby="settings-tab-tools" hidden={pane!=='tools'} tabIndex={0}><Section title={t('网页操作')} desc={t('在主对话中让助手打开网页、点击、填写和截图。')} wide><p className="t-body">{t('使用独立浏览器窗口，沿用当前模型服务。首次访问需要登录的网站时，请在浏览器中自行登录；同一对话可以继续操作。')}</p><p className="t-caption mt-2">{t('例如：打开这个网页，找到下载入口，并把结果截图保存到项目。')}</p></Section><ImageSection/><McpSection/></div>
           <div className="omaax-settings-content" data-pane="workspace" role="tabpanel" id="settings-pane-workspace" aria-labelledby="settings-tab-workspace" hidden={pane!=='workspace'} tabIndex={0}>          <Section title={t('本机工作目录')} desc={t('本机项目和分析文件的默认保存位置。')} tip={t('可选择本机有权限访问的文件夹。更改位置不会移动已有文件。服务器上的分析文件请在“服务器管理”中查看。')}>
             <div className="flex items-center gap-3">
               <div className="omaax-workspace-label"><FolderOpen size={20}/><div><strong>{t('本机项目文件夹')}</strong><small>{t('默认保存本机项目和分析文件，可直接打开查看。')}</small></div></div>

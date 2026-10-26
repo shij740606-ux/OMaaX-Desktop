@@ -1,5 +1,6 @@
 """Private local backend. Credentials arrive through stdin, never command arguments."""
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -9,10 +10,29 @@ import sys
 import threading
 
 
+def configure_windows_runtime(resources):
+    """Use the already bundled CRT before importing native education packages."""
+    if os.name != 'nt' or not resources:
+        return None
+    root = Path(resources)
+    try:
+        lock = json.loads((root / 'windows-crt.lock.json').read_text(encoding='utf-8'))
+        directory = root / lock['helperDirectory']
+        for name, expected in lock['files'].items():
+            content = (directory / name).read_bytes()
+            if len(content) != expected['bytes'] or hashlib.sha256(content).hexdigest() != expected['sha256']:
+                raise ValueError('Windows runtime verification failed')
+        return os.add_dll_directory(str(directory.resolve()))
+    except (OSError, ValueError, KeyError) as error:
+        raise RuntimeError('The bundled education Windows runtime is incomplete. Repair or reinstall OMaaX.') from error
+
+
 def main():
     sys.stdin.reconfigure(encoding='utf-8')
     sys.stdout.reconfigure(encoding='utf-8')
     config = json.loads(sys.stdin.readline())
+    # Keep this handle alive while the service and its background jobs are running.
+    windows_runtime = configure_windows_runtime(config.get('windowsRuntime'))
     state = Path(config['state']).resolve()
     state.mkdir(parents=True, exist_ok=True)
     os.environ['REVIEW_DB_PATH'] = str(state / 'review.db')
@@ -53,6 +73,8 @@ def main():
             print(json.dumps({'port': sock.getsockname()[1]}), flush=True)
         await task
     asyncio.run(run())
+    if windows_runtime is not None:
+        windows_runtime.close()
 
 
 if __name__ == '__main__':

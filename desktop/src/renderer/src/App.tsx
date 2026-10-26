@@ -7,7 +7,7 @@ import Sidebar, { WindowControls } from './components/Sidebar';
 import ChatView from './views/ChatView';
 import StoreView from './views/StoreView';
 import EducationView from './views/EducationView';
-import CloudKnowledgeView from './views/CloudKnowledgeView';
+import KnowledgeHubView from './views/KnowledgeHubView';
 import DataView from './views/DataView';
 import DatabaseView from './views/DatabaseView';
 import EnvView from './views/EnvView';
@@ -44,7 +44,7 @@ function Shell() {
         <div className="absolute right-3 top-[11px] z-40 no-drag"><WindowControls compact /></div>
         {tab === 'chat' && chat && <ChatView />}{tab === 'chat' && !chat && <p className="p-12">{t('账号尚未获得对话或分析权限，请联系管理员授权。')}</p>}
         {tab === 'data' && bioflow && <DataView />}
-        {hasUnit(user,'qa') && <div className="h-full" hidden={tab !== 'knowledge'}><CloudKnowledgeView /></div>}
+        {hasUnit(user,'qa') && <div className="h-full" hidden={tab !== 'knowledge'}><KnowledgeHubView active={tab === 'knowledge'}/></div>}
         {bioflow && <WorkflowPanel active={tab === 'workflows'}/>}
         {tab === 'db' && bioflow && <DatabaseView />}
         {tab === 'hosts' && bioflow && <ServerManagementView />}

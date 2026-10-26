@@ -135,3 +135,118 @@ test('a late stop error cannot overwrite the status of a newer model request',as
   assert.equal(await page.getByRole('alert').count(),0);assert.equal(await page.getByRole('button',{name:'停止',exact:true}).count(),1);
   await resolve(0);await resolve(1);await waitUpdated();assert.equal(await page.getByRole('alert').count(),0);
 });
+
+test('new text is immediately editable and keyboard deletion inside the field does not delete the layer',async()=>{
+  await page.getByRole('button',{name:'添加文字',exact:true}).click();
+  const input=page.getByRole('textbox',{name:'文字内容',exact:true});
+  assert.equal(await input.evaluate(el=>el===document.activeElement),true);
+  await input.fill('Rice SPL family\n研究标签');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Rice SPL family\n研究标签');
+  assert.match(await page.locator('.figure-canvas').textContent(),/Rice SPL family研究标签/);
+  await input.press('Control+a');await input.press('Backspace');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='');
+  assert.equal((await saved()).items.length,seed.items.length+1);
+  await input.fill('Restored text');
+  await page.locator('.figure-stage').focus();
+  await page.locator('.figure-canvas [data-figure-id]').last().locator('text').dblclick();
+  assert.equal(await input.evaluate(el=>el===document.activeElement),true,'double-click returns focus despite canvas pointer capture');
+  await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===4);
+  await page.getByRole('button',{name:'撤销',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Restored text');
+});
+
+test('A to Z labels can be added without selecting a chart and preserve custom labels on export and save',async()=>{
+  assert.equal(await page.getByRole('button',{name:'添加 A/B 标签',exact:true}).count(),0);
+  assert.deepEqual(await page.getByLabel('标签字母',{exact:true}).locator('option').allTextContents(),Array.from({length:26},(_,i)=>String.fromCharCode(65+i)));
+  await page.getByLabel('标签字母',{exact:true}).selectOption('Z');
+  await page.getByRole('button',{name:'添加标签',exact:true}).click();
+  const input=page.getByRole('textbox',{name:'标签内容',exact:true});
+  assert.equal(await input.evaluate(el=>el===document.activeElement),true);
+  assert.equal(await input.inputValue(),'Z');
+  await input.fill('Fig. 2B');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Fig. 2B');
+  const label=(await saved()).items.at(-1);assert.equal(label.labelFor,undefined);assert.match(label.id,/^label-/);
+  await page.locator('.figure-stage').focus();await page.locator('.figure-stage').press('ArrowRight');
+  await page.waitForFunction(id=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.find(i=>i.id===id).x===121,label.id);
+  await page.getByLabel('标签字母',{exact:true}).selectOption('A');
+  await page.getByRole('button',{name:'添加标签',exact:true}).click();
+  assert.equal(await input.inputValue(),'A');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===6);
+  assert.equal((await saved()).items.find(i=>i.id===label.id).text,'Fig. 2B');
+  await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===5);
+  await page.getByRole('button',{name:'导出 SVG',exact:true}).click();
+  const exported=await page.evaluate(()=>window.__qa.calls.findLast(c=>c.action==='figure_export').body.svg);
+  assert.match(exported,/Fig\. 2B/);assert.ok(exported.includes(image));
+  await page.evaluate(()=>{window.biodsh.pickFolder=async()=> 'C:/isolated/project';});
+  await page.getByRole('button',{name:'保存到项目',exact:true}).click();
+  const project=await page.evaluate(()=>window.__qa.calls.findLast(c=>c.action==='figure_save').body);
+  assert.equal(JSON.parse(project.document).items.at(-1).text,'Fig. 2B');assert.match(project.svg,/Fig\. 2B/);
+});
+
+test('labels work on an empty canvas and preserve legacy attached labels when a saved project opens',async()=>{
+  await page.evaluate(()=>window.__qa.setOwner('empty'));
+  await page.getByText('把图表放到这里，开始拼图',{exact:true}).waitFor();
+  await page.getByLabel('标签字母',{exact:true}).selectOption('Q');
+  await page.getByRole('button',{name:'添加标签',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.empty'))?.document.items[0]?.text==='Q');
+  await page.evaluate(seed=>{
+    localStorage.setItem('omaax.figure.legacy',JSON.stringify({document:{...seed,items:[...seed.items,{id:'old-label',name:'Publication label',kind:'text',text:'Fig. 3α',labelFor:'raster',x:330,y:220,width:100,height:35,rotation:0,hidden:false,locked:false,fontSize:24,color:'#123456'}]},history:[]}));
+    window.__qa.setOwner('legacy');
+  },seed);
+  await page.getByRole('button',{name:'Publication label',exact:true}).click();
+  assert.equal(await page.getByLabel('标签内容',{exact:true}).inputValue(),'Fig. 3α');
+  await page.getByRole('button',{name:'添加标签',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.legacy')).document.items.length===6);
+  const legacy=(await saved('legacy')).items.find(i=>i.id==='old-label');
+  assert.equal(legacy.text,'Fig. 3α');assert.equal(legacy.labelFor,'raster');assert.equal(legacy.x,330);
+});
+
+test('editing long multiline text expands its box and fitting keeps every displayed glyph inside the canvas',async()=>{
+  await page.getByRole('button',{name:'添加文字',exact:true}).click();
+  await page.getByLabel('文字内容',{exact:true}).fill('A very long research annotation with a descender: gjpq\n第二行研究标签\nThird line');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).height>100);
+  const text=(await saved()).items.at(-1);assert.ok(text.width>180);assert.ok(text.height>48);
+  await page.getByRole('button',{name:'画布适应内容',exact:true}).click();
+  const bounds=await page.locator('.figure-canvas').evaluate(el=>{
+    const svg=el.querySelector('svg'),text=svg.querySelectorAll('[data-figure-id] text'),viewport=svg.getBoundingClientRect();
+    return [...text].map(node=>{const rect=node.getBoundingClientRect();return {left:rect.left-viewport.left,top:rect.top-viewport.top,right:viewport.right-rect.right,bottom:viewport.bottom-rect.bottom};});
+  });
+  assert.ok(bounds.every(box=>Object.values(box).every(value=>value>=0)),JSON.stringify(bounds));
+});
+
+test('oversized text changes are rejected before they can corrupt the saved draft',async()=>{
+  await page.getByRole('button',{name:'添加文字',exact:true}).click();
+  const input=page.getByLabel('文字内容',{exact:true});await input.fill('Keep this text');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Keep this text');
+  const before=await saved();await input.fill('W'.repeat(4000));
+  assert.match(await page.getByRole('alert').textContent(),/文字内容过长/);
+  assert.equal(await input.inputValue(),'Keep this text');assert.deepEqual(await saved(),before);
+});
+
+test('new rectangles have no fill, existing fill can be removed, and selected layers delete with undo',async()=>{
+  await page.getByRole('button',{name:'添加矩形',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===5);
+  assert.equal((await saved()).items.at(-1).fill,'none');
+  assert.equal(await page.getByLabel('无填充',{exact:true}).isChecked(),true);
+  assert.equal(await page.getByLabel('填充颜色',{exact:true}).isDisabled(),true);
+  const id=(await saved()).items.at(-1).id;
+  assert.equal(await page.locator(`[data-figure-id="${id}"] rect`).nth(1).getAttribute('fill'),'none');
+  await page.getByLabel('无填充',{exact:true}).uncheck();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).fill!=='none');
+  await page.getByLabel('无填充',{exact:true}).check();
+  await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===4);
+  await page.getByRole('button',{name:'撤销',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===5);
+  assert.equal((await saved()).items.at(-1).fill,'none');
+  await page.getByRole('button',{name:'Locked panel',exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:'删除所选元素',exact:true}).isDisabled(),true);
+  for(const name of ['Original image','Hidden panel','Editable panel']){
+    await page.getByRole('button',{name,exact:true}).click();
+    await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
+    await page.waitForFunction(name=>!JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.some(i=>i.name===name),name);
+  }
+  assert.equal((await saved()).items.find(i=>i.id==='locked').text,'Protected annotation');
+});

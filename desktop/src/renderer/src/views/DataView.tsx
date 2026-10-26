@@ -1,12 +1,10 @@
 // 数据文件面板：工作区里有什么数据一目了然，一键让智能体分析——用户不需要记文件名。
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw, FolderOpen, Sparkles, Loader2, FolderOpen as FolderBig, ClipboardList, ChevronDown } from 'lucide-react';
 import { FileTypeIcon } from '../icons';
 import { useApp } from '../store';
 import ContextMenu, { type MenuState } from '../components/ContextMenu';
 import { Copy, Sparkles as SparklesIcon } from 'lucide-react';
-import WorkflowResults from '../components/WorkflowResults';
-import PersonalComputeView from './PersonalComputeView';
 import { useT } from '../i18n';
 
 interface FileEntry { name: string; rel: string; size: number; modified: number; kind: string; preview?: string }
@@ -86,30 +84,36 @@ function OutputCard({ dir, items, mtime, onAnalyze, busy, onMenu, wsPath }: { di
 
 export default function DataView() {
   const { t,lang } = useT();
-  const { info, settings, dsh, currentSession, setTab } = useApp();
+  const { info, settings, dsh, currentSession, setCurrentSession, setTab } = useApp();
   const api = window.biodsh;
-  const [source, setSource] = useState<'workspace'|'workflows'|'server'>('workspace');
-  const [files, setFiles] = useState<FileEntry[] | null>(null);
+  const [source, setSource] = useState<'workspace'|'documents'>('workspace');
+  const [fileScan, setFileScan] = useState<{workspace:string;items:FileEntry[]}|null>(null);
+  const scanRevision=useRef(0);
   const [busyRel, setBusyRel] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [workspaces, setWorkspaces] = useState<{ workspaceId: string; path: string; title: string; sessionIds: string[] }[]>([]);
   const [wsPath, setWsPath] = useState<string>('');
   const workspace = wsPath || settings?.workspace || info?.paths.workspace || '';
+  const files=fileScan?.workspace===workspace?fileScan.items:null;
   useEffect(() => {
     if (dsh.state !== 'running') return;
+    let active=true;
     void (api.dshRpc('workspace.list') as Promise<{ items: { workspaceId: string; path: string; title: string; sessionIds: string[] }[] }>).then((r) => {
+      if(!active)return;
       setWorkspaces(r.items);
       // 默认跟随当前对话所在的项目
       const cur = currentSession ? r.items.find((w) => w.sessionIds.includes(currentSession)) : undefined;
-      if (cur && !wsPath) setWsPath(cur.path);
+      setWsPath(cur?.path||'');
     }).catch(() => undefined);
+    return()=>{active=false;};
   }, [dsh.state, currentSession]);
 
   const refresh = useCallback(async () => {
-    try { setFiles(await api.workspaceFiles(workspace) as FileEntry[]); } catch { setFiles([]); }
+    const revision=++scanRevision.current;
+    try { const items=await api.workspaceFiles(workspace) as FileEntry[];if(revision===scanRevision.current)setFileScan({workspace,items}); } catch { if(revision===scanRevision.current)setFileScan({workspace,items:[]}); }
   }, [workspace]);
-  useEffect(() => { void refresh(); const timer = setInterval(() => { void refresh(); }, 8000); return () => clearInterval(timer); }, [refresh]);
+  useEffect(() => { void refresh(); const timer = setInterval(() => { void refresh(); }, 8000); return () => {scanRevision.current++;clearInterval(timer);}; }, [refresh]);
 
   const analyzeOutput = async (dir: string, count: number) => {
     if (dsh.state !== 'running' || !currentSession) { setNotice('先在左边选一个对话（或点「新对话」），再让智能体分析'); setTimeout(() => setNotice(null), 4000); return; }
@@ -163,8 +167,26 @@ export default function DataView() {
     return [...m.entries()].map(([dir, items]) => ({ dir, items, mtime: Math.max(...items.map((x) => x.modified)) })).sort((a, b) => b.mtime - a.mtime).slice(0, 12);
   })();
   const rootFiles = (files ?? []).filter((f) => !f.rel.includes('/'));
+  const documents = (files ?? []).filter((f) => /\.(docx|pptx|pdf)$/i.test(f.rel));
   const sep = info?.platform === 'win32' ? '\\' : '/';
   const absPath = (rel: string) => workspace + sep + rel.replaceAll('/', sep);
+  const openDocument = async (rel: string, folder = false) => {
+    const directory=rel.includes('/')?rel.slice(0,rel.lastIndexOf('/')):'';
+    try{await api.openPath(folder?(directory?absPath(directory):workspace):absPath(rel));}
+    catch{setNotice('文件未能打开，请确认文件仍存在且已安装对应的查看程序。');}
+  };
+  const continueDocument=async(rel:string)=>{
+    if(busyRel||dsh.state!=='running'||!workspace)return;
+    const project=workspaces.find(w=>w.path===workspace),path=absPath(rel);
+    setBusyRel(rel);
+    try{
+      const sessionId=currentSession&&project?.sessionIds.includes(currentSession)?currentSession:await api.dshNewSession(project?.workspaceId||workspace) as string;
+      if(!sessionId)throw Error('missing session');
+      setCurrentSession(sessionId);
+      await api.dshRpc('session.prompt',{sessionId,mode:'queue',content:[{type:'text',text:t('我想继续修改这个已生成的文档：{path}。请先询问我希望修改什么，等我说明后再修改，并在同一项目中另存新版本，保留上一版。',{path})}]});
+      setTab('chat');
+    }catch{setNotice('暂时无法继续修改文档，请稍后重试。');}finally{setBusyRel(null);}
+  };
   const ask = (x: number, y: number, context: string, hint: string) => window.dispatchEvent(new CustomEvent('biodsh:ask', { detail: { x, y, context, hint } }));
   const fileMenu = (e: React.MouseEvent, f: FileEntry) => {
     e.preventDefault(); e.stopPropagation();
@@ -209,18 +231,15 @@ export default function DataView() {
         </div>
       </header>
       <nav aria-label={t("分析结果来源")} className="flex flex-wrap gap-2 px-5 py-3 hairline-b">
-        {([['workspace',t('工作区分析')],['workflows',t('长流程结果')],['server',t('服务器结果')]] as const).map(([id,label])=><button key={id} className={`btn ${source===id?'btn-primary':'btn-ghost'}`} aria-pressed={source===id} onClick={()=>setSource(id)}>{t(label)}</button>)}
+        {([['workspace',t('工作区分析')],['documents',t('项目文档')]] as const).map(([id,label])=><button key={id} className={`btn ${source===id?'btn-primary':'btn-ghost'}`} aria-pressed={source===id} onClick={()=>setSource(id)}>{t(label)}</button>)}
       </nav>
       <div className="flex-1 overflow-y-auto">
-        {source==='workflows'&&<div className="max-w-[1180px] mx-auto p-6"><WorkflowResults /></div>}
-        {source==='server'&&<PersonalComputeView section="tasks" resultsOnly/>}
-        <div hidden={source!=='workspace'}>
         <div className="max-w-[860px] mx-auto px-8 py-6 flex flex-col gap-6">
 
 
           {notice && <div className="px-3 py-2 rounded-lg t-body rise" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{t(notice)}</div>}
           {files === null && <div className="t-body" style={{ color: 'var(--text-2)' }}>{t('正在扫描…')}</div>}
-          {files !== null && files.length === 0 && (
+          {source==='workspace'&&files !== null && files.length === 0 && (
             <div className="card p-8 text-center flex flex-col items-center gap-3 rise">
               <FolderBig size={40} strokeWidth={1.4} style={{ color: 'var(--text-3)' }} />
               <div className="t-title2">{t('工作区还是空的')}</div>
@@ -228,7 +247,16 @@ export default function DataView() {
               <button className="btn btn-primary" onClick={() => window.biodsh.openPath(workspace)}><FolderOpen size={14} /> {t('打开工作区文件夹')}</button>
             </div>
           )}
-          {outputs.length > 0 && (
+          {source==='documents'&&files!==null&&documents.length===0&&<div className="card p-8 text-center"><p>{t('当前项目还没有 Word、PPT 或 PDF 文档。')}</p><p className="t-caption mt-2">{t('在主对话中说明需要整理的结果和文档格式，生成后会保存在这里。')}</p></div>}
+          {source==='documents'&&documents.length > 0 && <section aria-label={t('项目文档')}>
+            <div className="t-headline mb-2 flex items-center gap-1.5"><ClipboardList size={16} strokeWidth={1.75}/>{t('项目文档')}<span className="t-caption">{documents.length}</span></div>
+            <p className="t-caption mb-3">{t('生成的 Word、PPT 和 PDF 保存在当前项目中，可打开查看或回到对话继续修改。')}</p>
+            <div className="flex flex-col gap-2">{documents.map(f=><article key={f.rel} className="card p-4 flex flex-wrap items-center gap-3">
+              <FileTypeIcon type="report" size={20}/><div className="min-w-0 flex-1"><button className="btn btn-ghost !px-0 text-left break-all" onClick={()=>void openDocument(f.rel)}>{f.name}</button><p className="t-caption break-all">{f.rel} · {fmtSize(f.size)} · {fmtTime(f.modified,lang)}</p></div>
+              <div className="flex flex-wrap gap-1"><button className="btn btn-tint" onClick={()=>void openDocument(f.rel)}>{t('打开文件')}</button><button className="btn btn-ghost" onClick={()=>void openDocument(f.rel,true)}>{t('打开所在文件夹')}</button><button className="btn btn-ghost" disabled={dsh.state!=='running'||!workspace||!!busyRel} onClick={()=>void continueDocument(f.rel)}>{t('继续修改')}</button></div>
+            </article>)}</div>
+          </section>}
+          {source==='workspace'&&outputs.length > 0 && (
             <section>
               <div className="t-headline mb-2 flex items-center gap-1.5"><ClipboardList size={16} strokeWidth={1.75} /> {t('分析产出')} <span className="t-caption">{outputs.length}</span></div>
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))' }}>
@@ -236,7 +264,7 @@ export default function DataView() {
               </div>
             </section>
           )}
-          {groups.map(({ k, items }) => (
+          {source==='workspace'&&groups.map(({ k, items }) => (
             <section key={k}>
               <div className="t-headline mb-2 flex items-center gap-1.5"><FileTypeIcon type={k} size={16} /> {t(KIND_META[k].label)} <span className="t-caption">{items.length}</span></div>
               <div className="flex flex-col gap-2">
@@ -263,9 +291,8 @@ export default function DataView() {
               </div>
             </section>
           ))}
-          {files !== null && files.length > 0 && <p className="t-caption pb-2" style={{ color: 'var(--text-3)' }}>{t('只显示常见数据类型，最多 500 个；扫描不进隐藏目录。')}</p>}
+          {source==='workspace'&&files !== null && files.length > 0 && <p className="t-caption pb-2" style={{ color: 'var(--text-3)' }}>{t('只显示常见数据类型，最多 500 个；扫描不进隐藏目录。')}</p>}
         </div>
-      </div>
       </div>
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
     </div>

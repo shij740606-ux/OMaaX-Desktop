@@ -16,14 +16,17 @@ const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(
 function harness({ state = {}, api = {}, lang = 'zh' } = {}) {
   const modules = new Map(), events = new EventTarget(), data = new Map();
   globalThis.localStorage = { getItem: k => data.get(k) || null, setItem: (k, v) => data.set(k, v), removeItem: k => data.delete(k) };
-  globalThis.window = { biodsh: { migrateScan: async () => [], ratingsGet: async () => ({}), ...api }, addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events) };
+  globalThis.document = {visibilityState:'visible',addEventListener:events.addEventListener.bind(events),removeEventListener:events.removeEventListener.bind(events)};
+  globalThis.window = { biodsh: { payment:async()=>({orders:[],unresolved:[]}),migrateScan: async () => [], ratingsGet: async () => ({}), ...api }, setTimeout:()=>0,clearTimeout:()=>{},addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events) };
   const app = { settings: { mode: 'online', mcpServers: [], workspace: 'test-workspace' }, credential: {}, info: { version: '0.4.16', paths: { root: 'test-root' } }, refresh: async () => {}, updateSettings: async () => {}, restartDsh: () => {}, env: { ready: false, step: 'idle', log: [] }, catalog: [], statuses: {}, dsh:{state:"stopped"}, ...state };
   const load = file => {
     if (modules.has(file)) return modules.get(file).exports;
     const module = { exports: {} }; modules.set(file, module);
     const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     const require = name => {
-      if (['react', 'react/jsx-runtime'].includes(name)) return realRequire(name);
+      if (['react', 'react/jsx-runtime','qrcode'].includes(name)) return realRequire(name);
+      if(name.endsWith('.css'))return {};
+      if(/\.(png|jpe?g|svg|mp4)$/.test(name))return {__esModule:true,default:name};
       if (name === 'lucide-react') return new Proxy({}, { get: (_, k) => k === '__esModule' ? false : () => null });
       if (name.endsWith('/AuthGate')) return {useAuth:()=>({user:{role:'admin',authorizations:[]}}),hasUnit:()=>true};
       if (name.endsWith('/store')) return { useApp: () => app };
@@ -95,8 +98,13 @@ test('settings navigation shows one category and preserves unsaved connection ed
   assert.equal(!!panel('account').props.hidden,false);assert.equal(panel('tools').props.hidden,true);
   await act(async()=>tab('tools').props.onClick());
   assert.equal(view.root.findAllByProps({id:'settings-pane-account'}).length,0);assert.equal(panel('tools').props.hidden,false);
+  const imageModel=()=>panel('tools').findAllByType('input').find(node=>node.props.placeholder==='填写图像模型名称');
+  await act(async()=>imageModel().props.onChange({target:{value:'unsaved-test-model'}}));
   await act(async()=>tab('account').props.onClick());
-  assert.equal(panel('account').findAllByType('input').length,0);
+  assert.equal(panel('account').findAllByProps({id:'payment-amount'}).length,1);
+  assert.equal(panel('account').findAllByType('input').filter(node=>node.props.type==='password').length,0);
+  await act(async()=>tab('tools').props.onClick());
+  assert.equal(imageModel().props.value,'unsaved-test-model');
   await act(async()=>tab('workspace').props.onClick());await act(async()=>tab('account').props.onClick());
   assert.equal(view.root.findAllByProps({id:'settings-tab-model'}).length,0);
   assert.equal(view.root.findAllByProps({role:'tabpanel'}).filter(n=>!n.props.hidden).length,1);

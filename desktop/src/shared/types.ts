@@ -269,6 +269,7 @@ export interface CredentialStatus { hasKey: boolean; masked?: string }
 export interface Rect { x: number; y: number; width: number; height: number }
 
 export type IpcEvent =
+  | { type: 'research-progress'; requestId: string; phase: 'connecting' | 'generating' | 'validating'; receivedChars: number }
   | { type: 'reasoning-request'; sessionId: string; effort: string }
   | { type: 'env'; status: EnvStatus }
   | { type: 'dsh'; status: DshStatus }

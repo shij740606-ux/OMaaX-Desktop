@@ -4,13 +4,15 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'validation-local/qa-runtime/python'))
 from playwright.sync_api import sync_playwright,expect
+BASE=os.environ.get('OMAAX_QA_URL','http://127.0.0.1:41740').rstrip('/')
 out=ROOT/'validation-local/cloud-browser';out.mkdir(exist_ok=True)
-checks=[];errors=[]
+checks=[];errors=[];external=[]
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path=r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',headless=True)
  page=browser.new_page(viewport={'width':1280,'height':900});page.on('pageerror',lambda e:errors.append(str(e)))
+ page.route('**/*',lambda route:route.continue_() if route.request.url.startswith((BASE+'/',BASE.replace('http:','ws:')+'/', 'data:','blob:')) else (external.append(route.request.url),route.abort()))
  try:
-  page.goto('http://127.0.0.1:41740/workflow-preview.html?auth=qa&cloud=1');page.wait_for_load_state('networkidle')
+  page.goto(BASE+'/workflow-preview.html?auth=qa&cloud=1');page.wait_for_load_state('networkidle')
   page.get_by_role('button',name='知识库问答',exact=True).click()
   expect(page.get_by_role('heading',name='文献知识库问答')).to_be_visible()
   expect(page.get_by_role('button',name='分析结果',exact=True)).to_be_visible()
@@ -129,10 +131,11 @@ with sync_playwright() as p:
    page.set_viewport_size({'width':width,'height':900});expect(page.get_by_label('科研问题',exact=True)).to_be_visible()
    assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')
   page.screenshot(path=str(out/'knowledge.png'),full_page=True)
-  page.get_by_role('button',name='设置',exact=True).click();page.get_by_role('tab',name='账号和用量').click()
-  page.get_by_role('button',name='退出 / 切换账号').click();expect(page.get_by_role('heading',name='登录 OMaaX')).to_be_visible();expect(page.get_by_text('研究证据摘要')).to_have_count(0)
+  page.get_by_role('button',name='设置',exact=True).click();page.get_by_role('tab',name='账号与支付').click()
+  page.get_by_role('button',name='退出 / 切换账号').click();expect(page.get_by_role('form',name='登录 OMaaX')).to_be_visible();expect(page.get_by_text('研究证据摘要')).to_have_count(0)
   checks.append('logout removes account knowledge content')
   assert not errors,errors
+  assert not external,external
  finally:
-  (out/'result.json').write_text(json.dumps({'checks':checks,'errors':errors},ensure_ascii=False,indent=2),encoding='utf-8');browser.close()
+  (out/'result.json').write_text(json.dumps({'checks':checks,'errors':errors,'externalRequests':external},ensure_ascii=False,indent=2),encoding='utf-8');browser.close()
 print(json.dumps({'passed':len(checks),'errors':errors},ensure_ascii=False))

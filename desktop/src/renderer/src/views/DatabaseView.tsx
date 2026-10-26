@@ -89,7 +89,7 @@ export default function DatabaseView() {
 
   return (
     <div className="h-full flex flex-col omaax-page omaax-resources">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / RESOURCES</span><h1>{t("数据资源")}</h1><p>{t("查找研究所需的数据，让智能体帮你检索和整理。")}</p><span className="omaax-badge">{cats.reduce((n,c)=>n+c.databases.length,0)}{t("个资源 ·")}{cats.length}{t("个分类")}</span></header>
+      <header className="omaax-hero drag"><span className="omaax-eyebrow">OMaaX / RESOURCES</span><h1>{t("数据资源")}</h1><p>{t("查找研究所需的数据，让智能体帮你检索和整理。")}</p><span className="omaax-badge">{cats.reduce((n,c)=>n+c.databases.length,0)}{t("个资源 ·")}{cats.length}{t("个分类")}</span></header>
       <div className="db-search">
         <Search size={14} style={{ color: 'var(--text-3)' }} />
         <input className="db-search-input" value={q} placeholder={t('搜索名称或研究方向，例如单细胞、蛋白结构')}

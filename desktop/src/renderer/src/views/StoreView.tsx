@@ -64,7 +64,7 @@ export default function StoreView() {
 
   return (
     <div className="h-full flex flex-col omaax-page omaax-tools">
-      <header className="omaax-hero"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>{t("工具中心")}<HelpTip topic="tools"/></h1><p>{help.summary}</p><div className="omaax-tool-search"><Search size={18}/><input aria-label={t("搜索工具")} value={q} onChange={e=>setQ(e.target.value)} placeholder={t('搜索 {n} 个工具',{n:tier==='installed'?pool.length:availableCatalog.length})}/></div></header>
+      <header className="omaax-hero drag"><span className="omaax-eyebrow">OMaaX / TOOLS</span><h1>{t("工具中心")}<HelpTip topic="tools"/></h1><p>{help.summary}</p><div className="omaax-tool-search"><Search size={18}/><input aria-label={t("搜索工具")} value={q} onChange={e=>setQ(e.target.value)} placeholder={t('搜索 {n} 个工具',{n:tier==='installed'?pool.length:availableCatalog.length})}/></div></header>
       <nav className="omaax-filter" aria-label={t("工具来源")}><button className={tier==='official'?'selected':''} onClick={()=>setTier('official')}>{t("精选工具")}</button><button className={tier==='community'?'selected':''} onClick={()=>setTier('community')}>{t("扩展工具 ·")} {communityCount}</button><button className={tier==='installed'?'selected':''} onClick={()=>setTier('installed')}>{t("已添加")}</button></nav>
       <div className="flex-1 min-h-0 flex">
         {/* 左侧分类栏 */}

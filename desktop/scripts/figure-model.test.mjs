@@ -111,6 +111,36 @@ test('fit includes rotated content and labels without clipping', async () => {
   });
   assert.ok(result.width >= 140); assert.ok(result.height >= 240); assert.ok(result.items.find(n => n.labelFor).y >= 20);
 });
+
+test('fit measures old undersized multiline text and preserves its rotated glyph bounds', async () => {
+  const results=await run(()=>{
+    const f=window.figure;
+    return [0,37,90].map(rotation=>{
+      const item={id:'old-text',name:'Old text',kind:'text',text:'Very long annotation: gjpq\n第二行研究标签\nThird line',fontSize:32,color:'#222222',x:-70,y:-40,width:30,height:20,rotation,hidden:false,locked:false};
+      const expanded=f.fitTextBox(item),doc=f.fitFigure({...f.blankFigure(),items:[item]},20);
+      const container=document.createElement('div');container.innerHTML=f.figureSvg(doc);document.body.appendChild(container);
+      const svg=container.querySelector('svg'),box=svg.getBoundingClientRect(),glyph=svg.querySelector('text').getBoundingClientRect();
+      const result={expanded,doc,inside:glyph.left>=box.left&&glyph.top>=box.top&&glyph.right<=box.right&&glyph.bottom<=box.bottom};container.remove();return result;
+    });
+  });
+  for(const result of results){assert.ok(result.expanded.width>300);assert.ok(result.expanded.height>100);assert.equal(result.inside,true,JSON.stringify(result));assert.equal(result.doc.items[0].width,30,'fitting old projects does not rewrite their stored layer geometry');}
+});
+
+test('adding panel labels again preserves custom content, geometry and locked labels', async () => {
+  const result = await run(() => {
+    const f=window.figure, panel=f.importSvg('<svg viewBox="0 0 200 100"/>');
+    const first=f.addPanelLabels({...f.blankFigure(),items:[{...panel,id:'first'},{...panel,id:'second',x:300}]},['first']);
+    const custom={...first.items.at(-1),name:'Publication label',text:'Fig. 3α',x:47,y:13,width:110,height:44,rotation:8,fontSize:31,color:'#987654',locked:true};
+    const before={...first,items:[...first.items.slice(0,-1),custom]};
+    const added=f.addPanelLabels(before,['first','second']),again=f.addPanelLabels(added,['first','second']);
+    return {before,added,again,unchanged:again===added,svg:f.figureSvg(again)};
+  });
+  assert.deepEqual(result.added.items.slice(0,result.before.items.length),result.before.items);
+  assert.equal(result.added.items.length,result.before.items.length+1);
+  assert.equal(result.added.items.at(-1).labelFor,'second');assert.equal(result.added.items.at(-1).text,'B');
+  assert.equal(result.unchanged,true);assert.deepEqual(result.again,result.added);
+  assert.match(result.svg,/Fig\. 3α/);
+});
 test('hidden panels and selection outlines never appear in normal export', async () => {
   const result = await run(() => {
     const f = window.figure, a = f.importSvg('<svg viewBox="0 0 30 20"><text>visible</text></svg>'), b = { ...a, id: 'hidden', hidden: true, svg: '<svg viewBox="0 0 30 20"><text>secret</text></svg>' }, doc = { ...f.blankFigure(), items: [a, b] };

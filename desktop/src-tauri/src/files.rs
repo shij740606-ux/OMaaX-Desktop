@@ -25,7 +25,7 @@ fn kind_of(name: &str) -> &'static str {
         "png" | "jpg" | "jpeg" | "svg" | "pdf" => "figure",
         "fastq" | "fq" | "fasta" | "fa" | "bam" | "sam" | "vcf" | "bed" | "gtf" | "gff" => "seq",
         "json" | "yaml" | "yml" => "meta",
-        "md" | "html" => "report",
+        "md" | "html" | "docx" | "pptx" => "report",
         _ => if n.ends_with(".fastq.gz") || n.ends_with(".fq.gz") || n.ends_with(".vcf.gz") { "seq" } else { "other" },
     }
 }
@@ -46,6 +46,10 @@ pub fn list(workspace: &str) -> Vec<FileEntry> {
     let mut out = Vec::new();
     let root = Path::new(workspace);
     let mut stack = vec![(root.to_path_buf(), 0usize)];
+    // Keep generated documents discoverable even when data files fill the listing limit.
+    let documents=root.join("documents");
+    let prioritize_documents=documents.is_dir()&&documents.canonicalize().ok().zip(root.canonicalize().ok()).is_some_and(|(dir,base)|dir.starts_with(base));
+    if prioritize_documents {stack.push((documents.clone(),1));}
     while let Some((dir, depth)) = stack.pop() {
         let Ok(rd) = fs::read_dir(&dir) else { continue };
         for e in rd.flatten() {
@@ -56,6 +60,7 @@ pub fn list(workspace: &str) -> Vec<FileEntry> {
             if !root.canonicalize().is_ok_and(|r|canonical.starts_with(r)){continue;}
             let Ok(meta) = e.metadata() else { continue };
             if meta.is_dir() {
+                if prioritize_documents&&path==documents {continue;}
                 if depth < 2 { stack.push((path, depth + 1)); }
                 continue;
             }
@@ -113,6 +118,32 @@ pub fn validate_local_path(value: &str) -> Result<(),String> {
 #[cfg(test)]
 mod local_path_tests {
     use super::*;
+    #[test]
+    fn generated_project_documents_are_listed_and_pdf_keeps_its_figure_kind() {
+        let root=std::env::temp_dir().join(format!("omaax-documents-{}",uuid::Uuid::new_v4()));
+        fs::create_dir_all(root.join("documents")).unwrap();
+        for name in ["report.docx","slides.PPTX","report.pdf"] {fs::write(root.join("documents").join(name),b"fixture").unwrap();}
+        let files=list(&root.to_string_lossy());
+        assert_eq!(files.len(),3);
+        assert_eq!(files.iter().find(|f|f.name=="report.docx").unwrap().kind,"report");
+        assert_eq!(files.iter().find(|f|f.name=="slides.PPTX").unwrap().kind,"report");
+        assert_eq!(files.iter().find(|f|f.name=="report.pdf").unwrap().kind,"figure");
+        assert!(files.iter().all(|f|f.rel.starts_with("documents/")));
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn generated_documents_survive_the_large_project_listing_limit_without_duplicates() {
+        let root=std::env::temp_dir().join(format!("omaax-documents-limit-{}",uuid::Uuid::new_v4()));
+        fs::create_dir_all(root.join("documents")).unwrap();
+        fs::write(root.join("documents/report.docx"),b"fixture").unwrap();
+        for n in 0..520 {fs::write(root.join(format!("result-{n}.csv")),b"gene,value\nSPL,1").unwrap();}
+        let files=list(&root.to_string_lossy());
+        assert_eq!(files.len(),500);
+        assert_eq!(files.iter().filter(|f|f.rel=="documents/report.docx").count(),1);
+        let unique:std::collections::HashSet<_>=files.iter().map(|f|&f.rel).collect();
+        assert_eq!(unique.len(),500);
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn user_selected_data_outside_profile_is_available_but_missing_and_relative_paths_are_not() {
         let root=std::env::temp_dir().join(format!("omaax-paths-{}",uuid::Uuid::new_v4()));

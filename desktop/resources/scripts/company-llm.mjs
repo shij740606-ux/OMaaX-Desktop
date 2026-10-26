@@ -7,11 +7,72 @@ import {once} from 'node:events';
 import {pathToFileURL} from 'node:url';
 const exec = promisify(execFile);
 export const MAX_REQUEST_BYTES = 1024 * 1024;
-const failure = (status, message) => Object.assign(new Error(message), {status});
+class BridgeFailure extends Error {
+  constructor(status,message,code='COMPANY_LLM_ERROR',retryable=false){super(message);Object.assign(this,{status,code,retryable});}
+}
+const failure = (status, message) => new BridgeFailure(status,message);
+// Only these local messages cross the bridge; provider bodies and helper stderr never do.
+const errors = {
+  auth_session_expired:[401,'登录已失效，请重新登录。',false],
+  auth_session_changed:[401,'登录账号已切换，请在当前账号下重新发送。',false],
+  auth_forbidden:[403,'当前账号没有访问权限，请联系管理员。',false],
+  auth_network_error:[503,'暂时无法连接登录验证服务，请检查网络后重试。',true],
+  auth_timeout:[504,'登录验证超时，请稍后重试。',true],
+  auth_service_unavailable:[503,'登录验证服务暂不可用，请稍后重试。',true],
+  auth_invalid_response:[502,'登录验证服务返回异常，请稍后重试。',true],
+  auth_local_error:[502,'无法读取本机登录状态，请重启软件后重试。',false],
+  auth_helper_timeout:[504,'本机登录校验超时，请稍后重试。',true],
+  auth_helper_start_failed:[502,'无法启动本机登录校验，请重启软件后重试。',false],
+  auth_helper_invalid_response:[502,'本机登录校验返回异常，请重启软件后重试。',false],
+  local_bridge_auth_error:[401,'本机模型连接状态失效，请重启智能体后重试。',false],
+  credential_network_error:[503,'暂时无法连接模型授权服务，请检查网络后重试。',true],
+  credential_timeout:[504,'获取模型授权超时，请稍后重试。',true],
+  credential_service_unavailable:[503,'模型授权服务暂不可用，请稍后重试。',true],
+  credential_invalid_response:[502,'模型授权服务返回异常，请稍后重试。',true],
+  credential_rate_limited:[429,'模型授权请求较多，请稍后重试。',true],
+  model_access_denied:[403,'当前账号未获准使用此模型，请联系管理员。',false],
+  model_credential_rejected:[401,'模型服务未接受临时授权，请稍后重试或联系管理员。',false],
+  model_rate_limited:[429,'模型服务请求较多，请稍后重试。',true],
+  model_service_unavailable:[503,'模型服务暂不可用，请稍后重试。',true],
+  model_request_invalid:[400,'模型服务未接受本次请求，请稍后重试或联系管理员。',false],
+  model_network_error:[502,'模型连接中断，请检查网络后重试。',true],
+  model_timeout:[504,'等待模型响应超时，请稍后重试。',true],
+  model_cancelled:[408,'请求已取消。',false],
+  model_invalid_response:[502,'模型服务返回异常，请稍后重试。',true],
+};
+const classified=(code,status)=>{const [fallback,message,retryable]=errors[code];return new BridgeFailure(status||fallback,message,code,retryable);};
+const timedOut=error=>error?.name==='TimeoutError'||['ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT'].includes(error?.code)||['ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT'].includes(error?.cause?.code);
+function nativeSession(stdout){
+  let value;try{value=JSON.parse(stdout);}catch{throw classified('auth_helper_invalid_response');}
+  if(value?.ok===false){
+    const code=value.error?.code;
+    if(['auth_session_expired','auth_forbidden','auth_network_error','auth_timeout','auth_service_unavailable','auth_invalid_response','auth_local_error'].includes(code)){
+      throw classified(code,code==='auth_service_unavailable'&&value.error.status===502?502:undefined);
+    }
+    throw classified('auth_helper_invalid_response');
+  }
+  if(typeof value?.hub!=='string'||!value.hub||typeof value.token!=='string'||!value.token)throw classified('auth_helper_invalid_response');
+  return value;
+}
+export function createNativeSessionReader({executable,root,accountHome,runner=exec}){
+  return async()=>{
+    let result;
+    try{result=await runner(executable,['--company-llm-session'],{env:{...process.env,BIODSH_HOME:root,OMAAX_ACCOUNT_HOME:accountHome},windowsHide:true,timeout:30000,maxBuffer:16384});}
+    catch(error){
+      if(error?.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER')throw classified('auth_helper_invalid_response');
+      if(error?.killed||timedOut(error))throw classified('auth_helper_timeout');
+      if(typeof error?.code==='number'&&error.code!==0){
+        // A failed helper may report a typed error, but cannot authenticate a session.
+        try{nativeSession(error.stdout);}catch(parsed){throw parsed;}
+        throw classified('auth_helper_invalid_response');
+      }
+      throw classified('auth_helper_start_failed');
+    }
+    return nativeSession(result.stdout);
+  };
+}
 // The SDK recognizes context overflow on HTTP 400; HTTP 413 is otherwise terminal.
 const contextOverflow = () => Object.assign(failure(400,'对话内容较长，正在整理上下文后继续。'), {code:'context_length_exceeded'});
-const messages = {401:'登录已失效，请重新登录。',403:'当前账号暂不能使用对话服务，请联系管理员。',429:'请求较多，请稍后重试。'};
-const safeError = status => messages[status] || '对话服务暂不可用，请稍后重试。';
 
 export function authorizedModels(list) {
   return Array.isArray(list.models) ? list.models.filter(m => m && m.enabled !== false && typeof m.id==='string' && m.id.trim()) : [];
@@ -47,47 +108,56 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
   const controllers=new Set();
   async function credentials(s, rejectedToken) {
     const identity=createHash('sha256').update(s.hub+'\n'+s.token).digest('hex');
+    // A cached token may already be rejected by another request that is refreshing it.
+    if(refreshing){await refreshing;return credentials(s,rejectedToken);}
     if(cached?.identity===identity && cached.until>Date.now() && (!rejectedToken || cached.token!==rejectedToken))return cached;
-    if(refreshing){await refreshing;return credentials(s);}
     refreshing=(async()=>{
       const call=async(path,post=false)=>{
         let r;
         try {r=await fetcher(s.hub+path,{method:post?'POST':'GET',headers:{Authorization:`Bearer ${s.token}`,...(post?{'Content-Type':'application/json'}:{})},...(post?{body:'{}'}:{}),redirect:'error',signal:AbortSignal.timeout(15000)});}
-        catch {throw failure(502,safeError(502));}
-        if(!r.ok)throw failure(r.status,safeError(r.status));
-        const v=await r.json();if(v.ok!==true)throw failure(502,safeError(502));return v;
+        catch(error){throw classified(timedOut(error)?'credential_timeout':'credential_network_error');}
+        if(!r.ok){
+          if(r.status===401)throw classified('auth_session_expired');
+          if(r.status===403)throw classified('model_access_denied');
+          if(r.status===429)throw classified('credential_rate_limited');
+          if(r.status===408||r.status===504)throw classified('credential_timeout');
+          throw classified(r.status>=500?'credential_service_unavailable':'credential_invalid_response',r.status>=500?r.status:502);
+        }
+        let v;try{v=await r.json();}catch{throw classified('credential_invalid_response');}
+        if(v?.ok!==true)throw classified('credential_invalid_response');return v;
       };
       const list=await call('/api/llm/models');
       const models=authorizedModels(list);
       const model=models[0];
-      if(!model)throw failure(403,'当前账号尚未开通对话服务，请联系管理员。');
+      if(!model)throw classified('model_access_denied');
       const v=await call('/api/llm/token',true);
-      if(typeof v.token!=='string'||!v.token||!Number.isFinite(v.expires_in)||v.expires_in<=0)throw failure(502,safeError(502));
+      if(typeof v.token!=='string'||!v.token||!Number.isFinite(v.expires_in)||v.expires_in<=0)throw classified('credential_invalid_response');
       cached={identity,model:model.id,models,token:v.token,until:Date.now()+Math.max(0,v.expires_in-30)*1000};
       return cached;
     })();
     try{return await refreshing;}finally{refreshing=null;}
   }
-  function reply(res,status,message,code='COMPANY_LLM_ERROR'){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({error:{code,message}}));}
+  function reply(res,status,message,code='COMPANY_LLM_ERROR',retryable=false){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({error:{code,message,retryable}}));}
+  const replyFailure=(res,error)=>{const e=error instanceof BridgeFailure?error:classified('model_network_error');reply(res,e.status,e.message,e.code,e.retryable);};
   const server=http.createServer(async(req,res)=>{
     const supplied=Buffer.from(req.headers.authorization||'');const expected=Buffer.from(`Bearer ${key}`);
-    if(req.headers.origin || supplied.length!==expected.length || !timingSafeEqual(supplied,expected)){reply(res,401,'Unauthorized');return;}
+    if(req.headers.origin || supplied.length!==expected.length || !timingSafeEqual(supplied,expected)){replyFailure(res,classified('local_bridge_auth_error'));return;}
     if(req.method==='GET'&&req.url==='/v1/modes'){
       try {
-        const s=await session();if(!s?.token||!s?.hub)throw failure(401,safeError(401));
+        const s=await session();if(!s?.token||!s?.hub)throw classified('auth_helper_invalid_response');
         const c=await credentials(s),m=c.models[0];
         const levels=m.modelEffort?.levels||[];
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         res.end(JSON.stringify({levels:['low','high','max'].filter(v=>levels.includes(v)),default:m.modelEffort?.default||null,...modelLimits(m),maxRequestBytes:MAX_REQUEST_BYTES}));
-      }catch(e){reply(res,e.status||502,safeError(e.status));}
+      }catch(e){replyFailure(res,e);}
       return;
     }
     if(req.method!=='POST'||req.url!=='/v1/chat/completions'){reply(res,404,'Not found');return;}
-    if(active>=5){reply(res,429,safeError(429));return;}
+    if(active>=5){replyFailure(res,classified('model_rate_limited'));return;}
     active++;const controller=new AbortController();controllers.add(controller);
-    const abort=()=>controller.abort();res.on('close',abort);
+    const abort=(error)=>controller.abort(error instanceof BridgeFailure?error:classified('model_cancelled'));res.on('close',()=>abort());
     let timeout,timeoutMs=180000,watch;
-    const resetTimeout=()=>{clearTimeout(timeout);timeout=setTimeout(abort,timeoutMs);};
+    const resetTimeout=()=>{clearTimeout(timeout);timeout=setTimeout(()=>abort(classified('model_timeout')),timeoutMs);};
     resetTimeout();
     try {
       let size=0;const chunks=[];
@@ -95,18 +165,18 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
       let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw failure(400,'请求格式无效。');}
       if(!Array.isArray(body.messages)||!body.messages.length)throw failure(400,'对话内容不能为空。');
       const initial=await session();
-      if(!initial?.token||!initial?.hub)throw failure(401,safeError(401));
+      if(!initial?.token||!initial?.hub)throw classified('auth_helper_invalid_response');
       // Stop an active stream if the native login changes. Never send a new user's token for an old request.
       let checking=false;
-      watch=setInterval(async()=>{if(checking)return;checking=true;try{const next=await session();if(next.token!==initial.token||next.hub!==initial.hub)abort();}catch{abort();}finally{checking=false;}},5000);
+      watch=setInterval(async()=>{if(checking)return;checking=true;try{const next=await session();if(next.token!==initial.token||next.hub!==initial.hub)abort(classified('auth_session_changed'));}catch(error){abort(error instanceof BridgeFailure?error:classified('auth_local_error'));}finally{checking=false;}},5000);
       // The SDK uses a public local alias, never a provider ID. Each request carries
       // its own mode so simultaneous sessions cannot change each other's requests.
       const alias=/^omaax-(low|high|max)$/.exec(body.model||'');
       const requested=alias?.[1] ?? body.effort;
       let c=await credentials(initial),response;
       for(let attempt=0;attempt<2;attempt++){
-        if(controller.signal.aborted)throw failure(408,'请求已取消或超时。');
-        const current=await session();if(current.token!==initial.token||current.hub!==initial.hub)throw failure(401,safeError(401));
+        if(controller.signal.aborted)throw controller.signal.reason;
+        const current=await session();if(current.token!==initial.token||current.hub!==initial.hub)throw classified('auth_session_changed');
         // Legacy sessions may carry a provider model ID. The company list remains authoritative.
         body.model=c.model;
         const effort=modeEffort(c.models[0],requested);
@@ -119,7 +189,8 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
         applyOutputLimit(body,c.models[0]);
         const payload=JSON.stringify(body);
         if(Buffer.byteLength(payload,'utf8')>MAX_REQUEST_BYTES)throw contextOverflow();
-        response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${c.token}`},body:payload,redirect:'error',signal:controller.signal});
+        try{response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${c.token}`},body:payload,redirect:'error',signal:controller.signal});}
+        catch(error){throw controller.signal.aborted?controller.signal.reason:classified(timedOut(error)?'model_timeout':'model_network_error');}
         if([400,401,403].includes(response.status)){
           let code;try{code=(await response.json()).error?.code;}catch{}
           if(response.status===400&&['context_length_exceeded','context_window_exceeded'].includes(String(code).toLowerCase()))throw contextOverflow();
@@ -128,10 +199,16 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
         break;
       }
       if(response.status===413)throw contextOverflow();
-      if(!response.ok)throw failure(response.status,safeError(response.status));
+      if(!response.ok){
+        if(response.status===401)throw classified('model_credential_rejected');
+        if(response.status===403)throw classified('model_access_denied');
+        if(response.status===429)throw classified('model_rate_limited');
+        if(response.status===408||response.status===504)throw classified('model_timeout');
+        throw classified(response.status>=500?'model_service_unavailable':'model_request_invalid',response.status);
+      }
       const contentType=response.headers.get('content-type')||'';
-      if(body.stream===true&&!contentType.includes('text/event-stream'))throw failure(502,safeError(502));
-      if(body.stream!==true&&!contentType.includes('application/json'))throw failure(502,safeError(502));
+      if(body.stream===true&&!contentType.includes('text/event-stream'))throw classified('model_invalid_response');
+      if(body.stream!==true&&!contentType.includes('application/json'))throw classified('model_invalid_response');
       res.writeHead(200,{'Content-Type':body.stream===true?'text/event-stream; charset=utf-8':'application/json','Cache-Control':'no-store'});
       if(body.stream===true)resetTimeout();
       // Preserve tool-call fragments, reasoning and usage frames; never retry a started stream.
@@ -139,7 +216,7 @@ export async function startBridge({key, session, endpoint='https://llm.haiguji.c
       // Nonstream helpers retain their bounded total request time.
       for await(const chunk of response.body){if(controller.signal.aborted)break;if(body.stream===true&&chunk.length>0)resetTimeout();if(!res.write(chunk))await once(res,'drain',{signal:controller.signal});}
       if(controller.signal.aborted)res.destroy();else res.end();
-    } catch(e){if(!res.headersSent&&!res.destroyed)reply(res,e.status||502,e.status?e.message:safeError(502),e.code==='context_length_exceeded'?e.code:undefined);else res.destroy();}
+    } catch(e){if(!res.headersSent&&!res.destroyed)replyFailure(res,controller.signal.aborted?controller.signal.reason:e);else res.destroy();}
     finally{clearTimeout(timeout);clearInterval(watch);controllers.delete(controller);active--;}
   });
   server.requestTimeout=20000;server.headersTimeout=10000;
@@ -155,10 +232,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     try{
       const {key,executable,root,accountHome}=JSON.parse(buffer.split('\n')[0]);buffer='';
       if(!key||!executable||!root||!accountHome)throw Error();
-      const session=async()=>{
-        try {const {stdout}=await exec(executable,['--company-llm-session'],{env:{...process.env,BIODSH_HOME:root,OMAAX_ACCOUNT_HOME:accountHome},windowsHide:true,timeout:30000,maxBuffer:16384});return JSON.parse(stdout);}
-        catch{throw failure(401,safeError(401));}
-      };
+      const session=createNativeSessionReader({executable,root,accountHome});
       bridge=await startBridge({key,session});process.stdout.write(JSON.stringify({port:bridge.port})+'\n');
     }catch{process.stderr.write('Company model connection could not start\n');process.exit(1);}
   });

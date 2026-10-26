@@ -168,8 +168,34 @@ export function replaceSvgColor(svg: string, from: string, to: string) {
   }
   return new XMLSerializer().serializeToString(root);
 }
-function bounds(items: FigureItem[]) {
-  const boxes = items.map(n => { const a = n.rotation * Math.PI / 180, w = Math.abs(n.width * Math.cos(a)) + Math.abs(n.height * Math.sin(a)), h = Math.abs(n.width * Math.sin(a)) + Math.abs(n.height * Math.cos(a)); return { left: n.x + (n.width - w) / 2, top: n.y + (n.height - h) / 2, right: n.x + (n.width + w) / 2, bottom: n.y + (n.height + h) / 2 }; });
+let textContext: CanvasRenderingContext2D | null | undefined;
+function textBounds(item: FigureItem) {
+  const box={left:0,top:0,right:item.width,bottom:item.height};
+  if(item.kind!=='text')return box;
+  const context=textContext??=document.createElement('canvas').getContext('2d'),size=item.fontSize||24;
+  if(context)context.font=`${size}px Arial,Helvetica,sans-serif`;
+  (item.text||'').split('\n').forEach((line,index)=>{
+    const metrics=context?.measureText(line),baseline=size*(1+index*1.2);
+    box.left=Math.min(box.left,-(metrics?.actualBoundingBoxLeft||0));
+    box.top=Math.min(box.top,baseline-(metrics?.actualBoundingBoxAscent||size));
+    box.right=Math.max(box.right,(metrics?Math.max(metrics.width,metrics.actualBoundingBoxRight||0):line.length*size)+2);
+    box.bottom=Math.max(box.bottom,baseline+(metrics?.actualBoundingBoxDescent||size*.25)+2);
+  });
+  return box;
+}
+// Match the font used by figureSvg; old projects may have a text box smaller than its glyphs.
+export function fitTextBox(item:FigureItem):FigureItem {
+  if(item.kind!=='text')return item;
+  const box=textBounds(item),width=Math.ceil(box.right),height=Math.ceil(box.bottom);
+  if(width>100_000||height>100_000)throw Error('文字内容过长，请缩短文字或减小字号。');
+  return width===item.width&&height===item.height?item:{...item,width,height};
+}
+function bounds(items: FigureItem[], measureText=false) {
+  const boxes = items.map(n => {
+    const box=measureText?textBounds(n):{left:0,top:0,right:n.width,bottom:n.height},a=n.rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),cx=n.width/2,cy=n.height/2;
+    const corners=[[box.left,box.top],[box.right,box.top],[box.right,box.bottom],[box.left,box.bottom]].map(([x,y])=>({x:n.x+cx+(x-cx)*c-(y-cy)*s,y:n.y+cy+(x-cx)*s+(y-cy)*c}));
+    return {left:Math.min(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),right:Math.max(...corners.map(p=>p.x)),bottom:Math.max(...corners.map(p=>p.y))};
+  });
   const left = Math.min(...boxes.map(b => b.left)), top = Math.min(...boxes.map(b => b.top)), right = Math.max(...boxes.map(b => b.right)), bottom = Math.max(...boxes.map(b => b.bottom));
   return { left, top, right, bottom, width: right - left, height: bottom - top };
 }
@@ -194,7 +220,7 @@ export function moveItems(doc: FigureDocument, ids: string[], dx: number, dy: nu
 export function gridLayout(doc: FigureDocument, ids: string[], columns = 2, gap = 24) {
   const parts = units(doc, ids); if (!parts.length) return doc;
   columns = Math.max(1, Math.min(parts.length, Math.round(number(columns, 2, 1, 2000)))); gap = number(gap, 24, 0, 10000);
-  const boxes = parts.map(bounds), left = Math.min(...boxes.map(b => b.left)), top = Math.min(...boxes.map(b => b.top)), w = Math.max(...boxes.map(b => b.width)), h = Math.max(...boxes.map(b => b.height));
+  const boxes = parts.map(members => bounds(members)), left = Math.min(...boxes.map(b => b.left)), top = Math.min(...boxes.map(b => b.top)), w = Math.max(...boxes.map(b => b.width)), h = Math.max(...boxes.map(b => b.height));
   const positions = new Map<string, { x: number; y: number }>();
   parts.forEach((members, i) => { const dx = left + (i % columns) * (w + gap) - boxes[i].left, dy = top + Math.floor(i / columns) * (h + gap) - boxes[i].top; members.forEach(n => positions.set(n.id, { x: n.x + dx, y: n.y + dy })); });
   return moved(doc, positions);
@@ -217,14 +243,14 @@ export function alignItems(doc: FigureDocument, ids: string[], mode: FigureAlign
 }
 export function fitFigure(doc: FigureDocument, padding = 28): FigureDocument {
   const visible = doc.items.filter(n => !n.hidden); if (!visible.length) return doc;
-  padding = number(padding, 28, 0, 10000); const b = bounds(visible), dx = padding - b.left, dy = padding - b.top;
+  padding = number(padding, 28, 0, 10000); const b = bounds(visible,true), dx = padding - b.left, dy = padding - b.top;
   return { ...doc, width: number(b.width + 2 * padding, 1, 1), height: number(b.height + 2 * padding, 1, 1), items: doc.items.map(n => ({ ...n, x: n.x + dx, y: n.y + dy })) };
 }
 export function addPanelLabels(doc: FigureDocument, ids: string[]) {
-  const panels = doc.items.filter(n => ids.includes(n.id) && !n.labelFor && !n.hidden && !n.locked), selected = new Set(panels.map(n => n.id));
+  const panels = doc.items.filter(n => ids.includes(n.id) && !n.labelFor && !n.hidden && !n.locked), labelled = new Set(doc.items.filter(n => n.labelFor).map(n => n.labelFor));
   function letter(index: number): string { return index >= 26 ? letter(Math.floor(index / 26) - 1) + String.fromCharCode(65 + index % 26) : String.fromCharCode(65 + index); }
-  const labels: FigureItem[] = panels.map((n, i) => ({ id: newFigureId('label'), name: `Panel ${letter(i)}`, kind: 'text', labelFor: n.id, x: n.x, y: n.y - 32, width: 50, height: 28, rotation: 0, hidden: false, locked: false, text: letter(i), fontSize: 24, color: '#17202a' }));
-  return { ...doc, items: [...doc.items.filter(n => !n.labelFor || !selected.has(n.labelFor)), ...labels] };
+  const labels: FigureItem[] = panels.flatMap((n, i) => labelled.has(n.id) ? [] : [{ id: newFigureId('label'), name: `Panel ${letter(i)}`, kind: 'text', labelFor: n.id, x: n.x, y: n.y - 32, width: 50, height: 28, rotation: 0, hidden: false, locked: false, text: letter(i), fontSize: 24, color: '#17202a' }]);
+  return labels.length ? { ...doc, items: [...doc.items, ...labels] } : doc;
 }
 function pngDpi(dataUrl: string, dpi: number) {
   const raw = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0)), chunk = new Uint8Array(21), view = new DataView(chunk.buffer);

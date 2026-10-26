@@ -122,7 +122,7 @@ mod company_model_config_tests {
         let root=home.parent().unwrap().to_path_buf();
         let paths=crate::paths::AppPaths {root:root.clone(),dsh_home:home.clone(),bioenv:root.join("bioenv"),workspace:root.join("workspace"),skills:home.join("skills"),logs:root.join("logs")};
         let desktop=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        super::DshManager::ensure_home(&paths,paths.workspace.to_str().unwrap(),&desktop.join("resources/skills"),&desktop.join("dsh-runtime/node_modules/@biodsh/skill-router/index.js"),&[]);
+        super::DshManager::ensure_home(&paths,paths.workspace.to_str().unwrap(),&desktop.join("resources/documents/index.mjs"),&desktop.join("dsh-runtime/node_modules/@biodsh/skill-router/index.js"),&[]);
         let file=home.join("cordis.patch.yml");
         let mut text=std::fs::read_to_string(&file).unwrap();
         text.push_str(&company_model_patch("http://127.0.0.1:1/v1",&json!({"contextWindow":1048576})));
@@ -144,6 +144,84 @@ mod company_model_config_tests {
             assert!(!patch.contains("defaultContextWindow:"));
             assert!(!patch.contains("maxTokens:"));
         }
+    }
+}
+
+#[cfg(test)]
+mod document_skill_config_tests {
+    use super::*;
+
+    #[test]
+    fn document_integration_preserves_existing_settings_history_and_guards() {
+        let desktop = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        for existing in [false, true] {
+            let root = std::env::temp_dir().join(format!("omaax-document-profile-{}", uuid::Uuid::new_v4()));
+            let home = root.join("dsh-home");
+            let paths = AppPaths {root:root.clone(), dsh_home:home.clone(), skills:home.join("skills"), bioenv:root.join("bioenv"), workspace:root.join("workspace"), logs:root.join("logs")};
+            fs::create_dir_all(&paths.skills).unwrap();
+            fs::create_dir_all(&paths.workspace).unwrap();
+            let settings = "locale:\n  preference: en\nuser-setting: preserved\n";
+            let history = b"existing conversation fixture\n";
+            if existing {
+                fs::write(home.join("settings.yaml"), settings).unwrap();
+                fs::write(home.join("history.fixture"), history).unwrap();
+                fs::write(paths.skills.join("user-skill.md"), "existing user skill").unwrap();
+            }
+            let document_plugin = desktop.join("resources/documents/index.mjs");
+            DshManager::ensure_home(&paths, paths.workspace.to_str().unwrap(), &document_plugin, &desktop.join("dsh-runtime/node_modules/@biodsh/skill-router/index.js"), &[]);
+            let patch = fs::read_to_string(home.join("cordis.patch.yml")).unwrap();
+            assert!(patch.contains(&format!("customSkillDirs: [{}]", yaml_str(&paths.skills.to_string_lossy()))));
+            assert!(patch.contains("id: omaax-auth-guard"));
+            assert!(patch.contains("id: omaax-workflow-guard"));
+            assert!(patch.contains("id: omaax-documents"));
+            assert!(patch.contains("Never modify or delete registered protected original-data paths"));
+            assert!(!patch.contains("resources/skills'"));
+            assert!(!paths.skills.join("omaax-documents").exists());
+            if existing {
+                assert_eq!(fs::read_to_string(home.join("settings.yaml")).unwrap(), settings);
+                assert_eq!(fs::read(home.join("history.fixture")).unwrap(), history);
+                assert_eq!(fs::read_to_string(paths.skills.join("user-skill.md")).unwrap(), "existing user skill");
+            } else {
+                assert!(home.join("settings.yaml").exists());
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+}
+
+#[cfg(test)]
+mod mcp_timeout_config_tests {
+    use super::*;
+
+    #[test]
+    fn generated_mcp_config_extends_only_builtin_calls_and_preserves_existing_profile() {
+        let desktop = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let root = std::env::temp_dir().join(format!("omaax-mcp-timeout-{}", uuid::Uuid::new_v4()));
+        let home = root.join("dsh-home");
+        let paths = AppPaths { root: root.clone(), dsh_home: home.clone(), skills: home.join("skills"), bioenv: root.join("bioenv"), workspace: root.join("workspace"), logs: root.join("logs") };
+        fs::create_dir_all(&home).unwrap();
+        fs::write(home.join("settings.yaml"), "locale:\n  preference: en\ncustom-setting: retained\n").unwrap();
+        fs::write(home.join("old-conversation.fixture"), "retained").unwrap();
+        let services = [
+            crate::settings::McpServer { name: "biodsh_ssh".into(), command: "fake-ssh-test-service".into(), transport: "stdio".into(), ..Default::default() },
+            crate::settings::McpServer { name: "external_fixture".into(), command: "fake-external-test-service".into(), transport: "stdio".into(), ..Default::default() },
+        ];
+        DshManager::ensure_home(&paths, paths.workspace.to_str().unwrap(), &desktop.join("resources/documents/index.mjs"), &desktop.join("dsh-runtime/node_modules/@biodsh/skill-router/index.js"), &services);
+        let patch = fs::read_to_string(home.join("cordis.patch.yml")).unwrap();
+        assert!(patch.contains("serverName: biodsh_ssh\n        toolCallTimeoutMs: 1800000\n"));
+        assert!(patch.contains("serverName: external_fixture\n        transport: stdio\n"));
+        assert_eq!(patch.matches("toolCallTimeoutMs:").count(), 1);
+        assert!(fs::read_to_string(home.join("settings.yaml")).unwrap().contains("custom-setting: retained"));
+        assert_eq!(fs::read_to_string(home.join("old-conversation.fixture")).unwrap(), "retained");
+        // Optional local fixture for the real MCP SDK integration test. No
+        // credentials, real executable, account settings or network addresses.
+        if let Ok(target) = std::env::var("OMAAX_MCP_TIMEOUT_FIXTURE") {
+            let file = PathBuf::from(target);
+            assert!(file.is_absolute() && file.to_string_lossy().contains("validation-local"));
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, &patch).unwrap();
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 }
 
@@ -201,7 +279,7 @@ impl DshManager {
     }
 
     /// 精简模式：关掉一问一答用不到的界面插件；写默认设置；预置工作区。
-    fn ensure_home(paths: &AppPaths, workspace: &str, _official_skills: &Path, skill_router_plugin: &Path, mcp: &[crate::settings::McpServer]) {
+    fn ensure_home(paths: &AppPaths, workspace: &str, document_plugin: &Path, skill_router_plugin: &Path, mcp: &[crate::settings::McpServer]) {
         let home = &paths.dsh_home;
         // 正交化(0.3.0):不再手搓 dsh 的 agent-preset —— 它随 dsh 版本改 schema(0.1.5 把 persona 的 text 改成
         // 必填 prefix),standard 模板还被 0.1.5 删了,是唯一让 session/create 挂掉的耦合点。人设改为只走全局
@@ -237,11 +315,18 @@ impl DshManager {
             if let Some(p)=workflow_guard.filter(|p|p.exists()) {
                 inserts.push(format!("    - id: omaax-workflow-guard\n      name: {}",yaml_str(&file_url(&p))));
             }
+            inserts.push(format!("    - id: omaax-documents\n      name: {}", yaml_str(&file_url(document_plugin))));
+            let browser_plugin = document_plugin.parent().and_then(Path::parent).unwrap().join("browser/index.mjs");
+            inserts.push(format!("    - id: omaax-browser\n      name: {}", yaml_str(&file_url(&browser_plugin))));
             // 每个 MCP 服务一个 dsh-mcp-client 实例(工具名 mcp__<name>__<tool>);字段按 insert 的两层缩进(6/8 空格)。
             for m in mcp.iter().filter(|m| m.enabled != Some(false)) {
                 let name: String = m.name.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').take(32).collect();
                 if name.is_empty() { continue; }
                 let mut y = format!("    - id: mcp-{name}\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: {name}\n");
+                // Command calls use their timeoutSeconds in the runtime bridge.
+                // Other built-in calls may prepare an environment (900 s) and
+                // then retry the operation; do not cut these off after 60 s.
+                if name == "biodsh_ssh" { y.push_str("        toolCallTimeoutMs: 1800000\n"); }
                 if m.transport == "streamable-http" {
                     if m.url.trim().is_empty() { continue; }
                     y.push_str(&format!("        transport: streamable-http\n        url: {}\n", yaml_str(m.url.trim())));
@@ -287,7 +372,7 @@ impl DshManager {
                 ]), ..Default::default()
             });
         }
-        Self::ensure_home(paths, workspace, &crate::paths::resource(app, "skills"), &crate::paths::resource(app, "dsh/node_modules").join("@biodsh").join("skill-router").join("index.js"), &mcp);
+        Self::ensure_home(paths, workspace, &crate::paths::resource(app, "documents").join("index.mjs"), &crate::paths::resource(app, "dsh/node_modules").join("@biodsh").join("skill-router").join("index.js"), &mcp);
         // The SDK reads boot config before its settings service; set both, so first calls cannot use old credentials.
         if let Some((_,base))=extra_env.iter().find(|(k,_)|k=="OMAAX_COMPANY_LLM_URL") {
             let patch=paths.dsh_home.join("cordis.patch.yml");
@@ -334,13 +419,19 @@ impl DshManager {
             .env("BIODSH_HOME", &paths.root)
             .env("OMAAX_EXTERNAL_MCP", serde_json::to_string(&external_names).unwrap())
             .env("OMAAX_IMAGE_WORKSPACE", workspace)
+            .env("OMAAX_DOCUMENT_RUNNER", crate::paths::resource(app, "documents").join("cli.mjs"))
+            .env("OMAAX_DOCUMENT_NODE", &node)
+            .env("OMAAX_DOCUMENT_UV", uv_binary(app))
+            .env("OMAAX_DOCUMENT_HOME", paths.root.join("document-env"))
+            .env("OMAAX_BROWSER_HOME", paths.root.join("browser"))
+            .env("OMAAX_DSH_MODULES", crate::paths::resource(app, "dsh/node_modules").join("@deepseek-ai/dsh/node_modules"))
             .env("BIODSH_PYTHON", venv_python(&paths.bioenv))
             .env("UV_PROJECT_ENVIRONMENT", paths.bioenv.join(".venv"))
             .env("VIRTUAL_ENV", paths.bioenv.join(".venv"))
             .env("PATH", path_env)
             .env("DSH_TELEMETRY_DISABLED", "1")
-            // Only user-installed skills are discoverable; do not load the packaged community tree.
-            .env("DSH_BUNDLED_SKILL_DIR", paths.root.join("bundled-skills-disabled"))
+            // User-installed skills and the explicit document skill only; do not load the community tree.
+            .env("DSH_BUNDLED_SKILL_DIR", crate::paths::resource(app, "documents/skills"))
             .env("BIODSH_SKILL_CATALOG_MAX", "40")
             // 本地 embedding 语义路由：离线加载模型 + 预计算技能向量，给「用户这句话」算向量做余弦排序（skill-router.mjs）。
             .env("BIODSH_EMBED_ROUTER", crate::paths::resource(app, "embed").join("skill-router.mjs"))

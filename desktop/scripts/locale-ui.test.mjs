@@ -23,11 +23,11 @@ test('translation templates preserve values, punctuation and dollar signs withou
 test('settings, all menu details and help become English, switch back live, and preserve unsaved inputs',async()=>{
  const h=fixture(),View=h.get('views/SettingsView.tsx').default;let view;
  await act(async()=>{view=create(h.wrap(View));await settle();});assertEnglish(view);
- assert.match(text(view.toJSON()),/Account & usage/);assert.match(text(view.toJSON()),/Help, version and licenses/);
+ assert.match(text(view.toJSON()),/Account & payments/);assert.match(text(view.toJSON()),/Help, version and licenses/);
  await act(async()=>view.root.findByProps({id:'settings-tab-tools'}).props.onClick());
  const endpoint=view.root.findAllByType('input').find(n=>n.props.placeholder==='https://…');
  await act(async()=>endpoint.props.onChange({target:{value:'https://example.invalid/模型路径'}}));
- await act(async()=>view.update(h.wrap(View,'zh')));assert.match(text(view.toJSON()),/账号和用量/);
+ await act(async()=>view.update(h.wrap(View,'zh')));assert.match(text(view.toJSON()),/账号与支付/);
  assert.equal(view.root.findAllByType('input').find(n=>n.props.placeholder==='https://…').props.value,'https://example.invalid/模型路径');
  await act(async()=>view.update(h.wrap(View,'en')));assertEnglish(view);
  await act(async()=>view.unmount());

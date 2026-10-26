@@ -1,0 +1,949 @@
+{
+  "title": "水稻 SPL 基因家族：密集文献与候选验证关系图",
+  "summary": "覆盖跨层联系、同层联系、反向联系、自关联和重复起终点，检验实际图谱布局。",
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "question",
+      "label": "水稻 SPL 基因家族在发育与逆境响应中的调控网络",
+      "summary": "水稻 SPL 基因家族在发育与逆境响应中的调控网络；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n1",
+      "kind": "question",
+      "label": "miR156–SPL 模块怎样协调营养生长与生殖转变？",
+      "summary": "miR156–SPL 模块怎样协调营养生长与生殖转变？；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "question",
+      "label": "哪些 SPL 成员有直接实验支持，哪些仍需验证？",
+      "summary": "哪些 SPL 成员有直接实验支持，哪些仍需验证？；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n3",
+      "kind": "paper",
+      "label": "OsSPL14 与水稻株型：分蘖数和穗分枝的遗传证据",
+      "summary": "OsSPL14 与水稻株型：分蘖数和穗分枝的遗传证据；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n4",
+      "kind": "paper",
+      "label": "miR156 靶向 SPL 家族成员的时空表达研究",
+      "summary": "miR156 靶向 SPL 家族成员的时空表达研究；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n5",
+      "kind": "paper",
+      "label": "Genome-wide identification and expression analysis of rice SPL genes under abiotic stress",
+      "summary": "Genome-wide identification and expression analysis of rice SPL genes under abiotic stress；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n6",
+      "kind": "paper",
+      "label": "OsSPL16 调控籽粒大小及细胞增殖的功能研究",
+      "summary": "OsSPL16 调控籽粒大小及细胞增殖的功能研究；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n7",
+      "kind": "paper",
+      "label": "OsSPL13 与籽粒形态的候选基因验证",
+      "summary": "OsSPL13 与籽粒形态的候选基因验证；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n8",
+      "kind": "paper",
+      "label": "OsSPL7 与 OsSPL14 在分蘖及穗形成中的不同作用",
+      "summary": "OsSPL7 与 OsSPL14 在分蘖及穗形成中的不同作用；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n9",
+      "kind": "paper",
+      "label": "SPL 转录因子与赤霉素信号的关联资料",
+      "summary": "SPL 转录因子与赤霉素信号的关联资料；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n10",
+      "kind": "paper",
+      "label": "水稻 SPL 启动子顺式元件与组织表达图谱",
+      "summary": "水稻 SPL 启动子顺式元件与组织表达图谱；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n11",
+      "kind": "paper",
+      "label": "SPL 家族进化、共线性与重复基因分化",
+      "summary": "SPL 家族进化、共线性与重复基因分化；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n12",
+      "kind": "method",
+      "label": "检查基因名、参考基因组版本与成员对应关系",
+      "summary": "检查基因名、参考基因组版本与成员对应关系；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n13",
+      "kind": "method",
+      "label": "比较系统发育和保守结构域，核实家族成员",
+      "summary": "比较系统发育和保守结构域，核实家族成员；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n14",
+      "kind": "method",
+      "label": "按组织和处理条件整理具有生物学重复的表达数据",
+      "summary": "按组织和处理条件整理具有生物学重复的表达数据；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n15",
+      "kind": "method",
+      "label": "使用已有分析流程进行差异表达和富集分析",
+      "summary": "使用已有分析流程进行差异表达和富集分析；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n16",
+      "kind": "method",
+      "label": "设计候选 SPL 过表达与基因敲除验证",
+      "summary": "设计候选 SPL 过表达与基因敲除验证；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n17",
+      "kind": "method",
+      "label": "验证 miR156 靶位点及其表达调节关系",
+      "summary": "验证 miR156 靶位点及其表达调节关系；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n18",
+      "kind": "method",
+      "label": "比较发育阶段与胁迫条件下的表型",
+      "summary": "比较发育阶段与胁迫条件下的表型；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n19",
+      "kind": "method",
+      "label": "通过独立材料验证候选基因与目标性状的关系",
+      "summary": "通过独立材料验证候选基因与目标性状的关系；保留来源核对和条件差异。",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n20",
+      "kind": "finding",
+      "label": "株型与分蘖调控：多成员可能具有不同作用",
+      "summary": "株型与分蘖调控：多成员可能具有不同作用；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n21",
+      "kind": "finding",
+      "label": "穗分枝与籽粒性状之间可能存在取舍",
+      "summary": "穗分枝与籽粒性状之间可能存在取舍；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n22",
+      "kind": "finding",
+      "label": "发育时期转换与 miR156–SPL 模块相关",
+      "summary": "发育时期转换与 miR156–SPL 模块相关；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n23",
+      "kind": "finding",
+      "label": "逆境表达变化不能单独证明耐受性功能",
+      "summary": "逆境表达变化不能单独证明耐受性功能；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n24",
+      "kind": "finding",
+      "label": "同源成员之间可能存在功能冗余",
+      "summary": "同源成员之间可能存在功能冗余；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n25",
+      "kind": "finding",
+      "label": "候选基因优先级仍需结合独立证据",
+      "summary": "候选基因优先级仍需结合独立证据；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n26",
+      "kind": "finding",
+      "label": "跨物种文献不能直接替代水稻功能证据",
+      "summary": "跨物种文献不能直接替代水稻功能证据；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "n27",
+      "kind": "finding",
+      "label": "启动子元件预测需要实验支持",
+      "summary": "启动子元件预测需要实验支持；保留来源核对和条件差异。",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "source": "n3",
+      "target": "n0",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 1）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e1",
+      "source": "n3",
+      "target": "n23",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 2）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e2",
+      "source": "n3",
+      "target": "n15",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 3）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e3",
+      "source": "n4",
+      "target": "n1",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 4）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e4",
+      "source": "n4",
+      "target": "n24",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 5）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e5",
+      "source": "n4",
+      "target": "n16",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 6）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e6",
+      "source": "n5",
+      "target": "n2",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 7）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e7",
+      "source": "n5",
+      "target": "n25",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 8）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e8",
+      "source": "n5",
+      "target": "n17",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 9）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e9",
+      "source": "n6",
+      "target": "n0",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 10）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e10",
+      "source": "n6",
+      "target": "n26",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 11）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e11",
+      "source": "n6",
+      "target": "n18",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 12）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e12",
+      "source": "n7",
+      "target": "n1",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 13）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e13",
+      "source": "n7",
+      "target": "n27",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 14）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e14",
+      "source": "n7",
+      "target": "n19",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 15）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e15",
+      "source": "n8",
+      "target": "n2",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 16）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e16",
+      "source": "n8",
+      "target": "n20",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 17）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e17",
+      "source": "n8",
+      "target": "n12",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 18）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e18",
+      "source": "n9",
+      "target": "n0",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 19）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e19",
+      "source": "n9",
+      "target": "n21",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 20）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e20",
+      "source": "n9",
+      "target": "n13",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 21）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e21",
+      "source": "n10",
+      "target": "n1",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 22）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e22",
+      "source": "n10",
+      "target": "n22",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 23）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e23",
+      "source": "n10",
+      "target": "n14",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 24）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e24",
+      "source": "n11",
+      "target": "n2",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 25）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e25",
+      "source": "n11",
+      "target": "n23",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 26）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e26",
+      "source": "n11",
+      "target": "n15",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 27）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e27",
+      "source": "n12",
+      "target": "n24",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 28）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e28",
+      "source": "n12",
+      "target": "n26",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 29）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e29",
+      "source": "n13",
+      "target": "n25",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 30）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e30",
+      "source": "n13",
+      "target": "n27",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 31）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e31",
+      "source": "n14",
+      "target": "n26",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 32）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e32",
+      "source": "n14",
+      "target": "n20",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 33）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e33",
+      "source": "n15",
+      "target": "n27",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 34）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e34",
+      "source": "n15",
+      "target": "n21",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 35）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e35",
+      "source": "n16",
+      "target": "n20",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 36）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e36",
+      "source": "n16",
+      "target": "n22",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 37）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e37",
+      "source": "n17",
+      "target": "n21",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 38）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e38",
+      "source": "n17",
+      "target": "n23",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 39）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e39",
+      "source": "n18",
+      "target": "n22",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 40）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e40",
+      "source": "n18",
+      "target": "n24",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 41）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e41",
+      "source": "n19",
+      "target": "n23",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 42）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e42",
+      "source": "n19",
+      "target": "n25",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 43）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e43",
+      "source": "n20",
+      "target": "n2",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 44）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e44",
+      "source": "n20",
+      "target": "n19",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 45）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e45",
+      "source": "n21",
+      "target": "n0",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 46）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e46",
+      "source": "n21",
+      "target": "n12",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 47）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e47",
+      "source": "n22",
+      "target": "n1",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 48）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e48",
+      "source": "n22",
+      "target": "n13",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 49）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e49",
+      "source": "n23",
+      "target": "n2",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 50）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e50",
+      "source": "n23",
+      "target": "n14",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 51）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e51",
+      "source": "n24",
+      "target": "n0",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 52）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e52",
+      "source": "n24",
+      "target": "n15",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 53）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e53",
+      "source": "n25",
+      "target": "n1",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 54）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e54",
+      "source": "n25",
+      "target": "n16",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 55）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e55",
+      "source": "n26",
+      "target": "n2",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 56）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e56",
+      "source": "n26",
+      "target": "n17",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 57）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e57",
+      "source": "n27",
+      "target": "n0",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 58）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e58",
+      "source": "n27",
+      "target": "n18",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 59）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e59",
+      "source": "n0",
+      "target": "n12",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 60）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e60",
+      "source": "n1",
+      "target": "n17",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 61）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e61",
+      "source": "n2",
+      "target": "n19",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 62）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e62",
+      "source": "n20",
+      "target": "n3",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 63）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e63",
+      "source": "n3",
+      "target": "n20",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 64）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e64",
+      "source": "n12",
+      "target": "n12",
+      "label": "提出可进一步验证的关联，尚不能作为因果结论（关系 65）",
+      "basis": "hypothesis",
+      "evidenceIds": [
+        "paper1"
+      ]
+    },
+    {
+      "id": "e65",
+      "source": "n20",
+      "target": "n3",
+      "label": "有文献依据，仍需核对实验材料与适用条件（关系 66）",
+      "basis": "source",
+      "evidenceIds": [
+        "paper1"
+      ]
+    }
+  ],
+  "suggestions": []
+}

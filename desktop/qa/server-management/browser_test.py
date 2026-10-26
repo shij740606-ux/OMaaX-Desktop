@@ -112,7 +112,13 @@ with sync_playwright() as p:
     row=page.locator('article').filter(has=page.get_by_role('button',name='QA renamed',exact=True));row.get_by_role('button',name='移入回收站',exact=True).click();click('确认移入');expect(page.get_by_text('尚未删除：请在上方“删除提醒”核对范围后确认。',exact=True)).to_be_visible()
     expect(page.get_by_role('button',name='已知悉范围，确认移入回收站',exact=True)).to_be_visible(timeout=12000);click('已知悉范围，确认移入回收站');click('回收站');expect(page.get_by_role('button',name='恢复',exact=True)).to_be_visible();click('恢复');expect(page.get_by_text('已恢复到原来的位置。',exact=True)).to_be_visible()
     click('明确授权覆盖此文件');expect(page.get_by_text('已写入，覆盖前的原文件备份已保留在本次对话的工作文件夹。',exact=True)).to_be_visible()
-    page.get_by_text('管理保护设置',exact=True).click();click('保存保护范围');expect(page.get_by_role('status').filter(has_text='只读输入和镜像范围已保存')).to_be_visible();assert calls('configure');page.screenshot(path=str(OUT/'protection.png'),full_page=True)
+    expect(page.get_by_text('尚未登记保护路径。',exact=True)).to_be_visible()
+    page.get_by_label('原始数据路径',exact=True).fill('/home/qa/data/raw');click('添加保护')
+    expect(page.get_by_text('已保护路径（1）',exact=True)).to_be_visible();expect(page.get_by_label('原始数据路径',exact=True)).to_have_value('')
+    assert calls('protected_path_add')[-1]['body']['path']=='/home/qa/data/raw';assert not calls('configure')
+    page.screenshot(path=str(OUT/'protection.png'),full_page=True)
+    click('解除保护');expect(page.get_by_text('尚未登记保护路径。',exact=True)).to_be_visible()
+    assert calls('protected_path_remove')[-1]['body']['path']=='/home/qa/data/raw'
    run('目录新建、重命名、移动、搜索、递归提醒、回收恢复、覆盖及审计',workspace)
    def stability():
     names=['服务器文件','资源监控','环境管理','任务与调度','跨服务器数据','数据保护与审计','连接服务器']

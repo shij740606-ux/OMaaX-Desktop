@@ -10,7 +10,7 @@ test('login permits local analysis and server tools together, but not forged rem
  const guard=createGuard(()=>({ok:true}));
  for(const name of ['pwsh','bash','write','edit','job_output','job_list','job_kill','todo_write','present','omaax_local_delete','mcp__biodsh_ssh__workspace_analysis']){
   assert.equal(guard({name,arguments:{command:'python analysis.py'}}),undefined);
-  assert.match(createGuard(()=>({ok:false}))({name}),/未登录/);
+  assert.match(createGuard(()=>({ok:false,error:{code:'auth_session_expired'}}))({name}),/未登录/);
  }
  assert.match(guard({name:'mcp__biodsh_ssh__server_delete_confirm'}),/保护/);
  for(const command of ['rm -rf inputs','Remove-Item data -Recurse','python -c "import os; os.remove(x)"'])assert.equal(localExecutionGuard({name:'pwsh',arguments:{command}}),undefined);

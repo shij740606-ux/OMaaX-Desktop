@@ -4,7 +4,8 @@ import {act,create,fixture,assertEnglish} from './locale-test-utils.mjs';
 test('help is searchable, has empty-state feedback and restores all entries',()=>{
  const f=fixture(),Help=f.get('views/AboutHelp.tsx').default;
  let view;act(()=>{view=create(f.wrap(Help,'zh'));});
- const total=view.root.findAllByType('details').length;assert.equal(total,14);
+ const total=view.root.findAllByType('details').length;assert.ok(total>=18);
+ assert.match(JSON.stringify(view.toJSON()),/课题研究怎么使用/);
  const input=view.root.findByType('input');
  act(()=>input.props.onChange({target:{value:'服务器'}}));
  assert.ok(view.root.findAllByType('details').length>0);assert.ok(view.root.findAllByType('details').length<total);
