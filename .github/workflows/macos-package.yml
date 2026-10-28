@@ -32,7 +32,8 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: cargo-cache
         with:
           path: |
             ~/.cargo/registry
@@ -53,11 +54,33 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run setup
-      - name: Check and build
-        run: |
-          npm run typecheck
-          node --test scripts/dsh-startup.test.mjs scripts/dsh-auth-error.test.mjs scripts/dsh-cookies.test.mjs scripts/figure-pdf-runtime.test.mjs
-          npx tauri build --bundles app,dmg
+      - name: Type check
+        timeout-minutes: 5
+        run: npm run typecheck
+      - name: Runtime regression tests
+        timeout-minutes: 5
+        run: node --test --test-timeout=60000 scripts/dsh-startup.test.mjs scripts/dsh-auth-error.test.mjs scripts/dsh-cookies.test.mjs scripts/figure-pdf-runtime.test.mjs
+      - name: Build application
+        timeout-minutes: 60
+        run: npx tauri build --bundles app
+      - uses: actions/cache/save@v4
+        if: steps.cargo-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target/release/deps
+            desktop/src-tauri/target/release/build
+            desktop/src-tauri/target/release/.fingerprint
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+      - name: Preserve application bundle
+        run: ditto -c -k --sequesterRsrc --keepParent src-tauri/target/release/bundle/macos/OMaaX.app OMaaX-macOS-${{ inputs.arch }}.app.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OMaaX-macOS-${{ inputs.arch }}-application
+          path: desktop/OMaaX-macOS-*.app.zip
+          if-no-files-found: error
+          retention-days: 14
       - name: Inspect native runtime and application
         run: |
           case "$TARGET_ARCH" in
@@ -80,8 +103,28 @@ jobs:
           cmp resources/scripts/download-skill.mjs "$app/Contents/Resources/scripts/download-skill.mjs"
           cmp resources/skills/catalog.json "$app/Contents/Resources/skills/catalog.json"
           node scripts/verify-macos-package.mjs "$app"
+      - name: Create installation disk image
+        timeout-minutes: 15
+        run: |
+          # Build the install volume without Finder/AppleScript automation on the CI host.
+          stage="$(mktemp -d "$RUNNER_TEMP/omaax-dmg.XXXXXX")"
+          ditto src-tauri/target/release/bundle/macos/OMaaX.app "$stage/OMaaX.app"
+          ln -s /Applications "$stage/Applications"
+          version="$(node -p 'JSON.parse(require("fs").readFileSync("package.json")).version')"
+          mkdir -p src-tauri/target/release/bundle/dmg
+          hdiutil create -verbose -fs HFS+ -srcfolder "$stage" -volname OMaaX -format UDZO "src-tauri/target/release/bundle/dmg/OMaaX_${version}_${TARGET_ARCH}.dmg" 2>&1 | tee dmg-build.log
           hdiutil verify src-tauri/target/release/bundle/dmg/*.dmg >> macos-verification.txt
           shasum -a 256 src-tauri/target/release/bundle/dmg/*.dmg > installer-sha256.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OMaaX-macOS-${{ inputs.arch }}-diagnostics
+          path: |
+            desktop/dmg-build.log
+            desktop/macos-verification.txt
+            desktop/macos-feature-verification.json
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: OMaaX-macOS-${{ inputs.arch || 'arm64' }}
