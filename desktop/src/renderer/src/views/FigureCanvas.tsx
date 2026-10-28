@@ -50,11 +50,11 @@ export default forwardRef<FigureCanvasHandle,Props>(function FigureCanvas(p,ref)
   for(const e of list){let dx=mode==='left'?all.x-e.box.x:mode==='center'?all.x+all.width/2-e.box.x-e.box.width/2:mode==='right'?all.x+all.width-e.box.x-e.box.width:0,dy=mode==='top'?all.y-e.box.y:mode==='middle'?all.y+all.height/2-e.box.y-e.box.height/2:mode==='bottom'?all.y+all.height-e.box.y-e.box.height:0;if(mode==='horizontal')dx=cursor-e.box.x;if(mode==='vertical')dy=cursor-e.box.y;if(Math.abs(dx)+Math.abs(dy)>1e-8)next=vectorTransform(next,p.inside,bases(r,p.inside,[e.id]),new DOMMatrix().translate(dx,dy));cursor+=(horizontal?e.box.width:e.box.height)+gap;}if(next!==p.doc)p.onCommit(next);}catch(error){p.onError(error);}
  }}));
  function begin(e:React.PointerEvent,kind:'scale'|'rotate',handle?:string){
-  if(!showHandles||!box||e.button!==0)return;e.stopPropagation();e.preventDefault();stage.current?.focus();const start=point(e),r=root();if(!start||!r)return;const ids=editableIds;
+  if(!showHandles||!box||e.button!==0)return;e.stopPropagation();e.preventDefault();stage.current?.focus({preventScroll:true});const start=point(e),r=root();if(!start||!r)return;const ids=editableIds;
   gesture.current={kind,start,doc:p.doc,ids,basis:p.inside?bases(r,p.inside,ids):[],box,handle,shift:e.shiftKey,moved:false};stage.current?.setPointerCapture(e.pointerId);
  }
  function down(e:React.PointerEvent<HTMLDivElement>){
-  if(p.busy||e.button!==0)return;const r=root(),start=point(e);if(!r||!start)return;stage.current?.focus();e.preventDefault();
+  if(p.busy||e.button!==0)return;const r=root(),start=point(e);if(!r||!start)return;stage.current?.focus({preventScroll:true});e.preventDefault();
   if(p.tool==='pan'||e.ctrlKey&&e.altKey){gesture.current={kind:'pan',start,doc:p.doc,ids:[],basis:[],box:null,shift:false,moved:false,scroll:{x:stage.current!.scrollLeft,y:stage.current!.scrollTop},screen:{x:e.clientX,y:e.clientY}};e.currentTarget.setPointerCapture(e.pointerId);return;}
   let target=e.target as Element;
   if(e.altKey){const hit=document.elementsFromPoint(e.clientX,e.clientY).filter(el=>art.current?.contains(el)).map(el=>el.closest(p.inside?'[data-vector-id]':'[data-figure-id]')).filter((v,i,a):v is Element=>!!v&&a.indexOf(v)===i&&(!p.inside||v.closest('[data-figure-id]')?.getAttribute('data-figure-id')===p.inside));const selected=p.inside?nodeIds:p.selected;const index=hit.findIndex(el=>selected.includes(el.getAttribute(p.inside?'data-vector-id':'data-figure-id')||''));target=hit[(index+1)%hit.length]||target;}

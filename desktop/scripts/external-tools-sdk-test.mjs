@@ -3,11 +3,13 @@ import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,existsSync} from 'node:
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const desktop=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const base=path.resolve(desktop,'../deploy/local/fixed-workflows-20261013/sdk-tests');mkdirSync(base,{recursive:true});
 const home=mkdtempSync(path.join(base,'home-'));const bindings=path.join(home,'workflow-bindings');mkdirSync(bindings);
 const sdk=path.join(desktop,'dsh-runtime/node_modules/@deepseek-ai/dsh');
+const runtimeRequire=createRequire(path.join(sdk,'package.json'));
 const fixture=path.join(home,'probe.mjs');
 const mcpScript=path.join(home,'mcp-fixture.cjs');
 writeFileSync(mcpScript,`const readline=require('node:readline');const fs=require('node:fs');let calls=0;
@@ -17,7 +19,7 @@ else if(r.method==='tools/list')result={tools:[{name:'write',description:'Isolat
 else if(r.method==='tools/call'){fs.writeFileSync(${JSON.stringify(path.join(home,'mcp-calls.json'))},JSON.stringify(++calls));result={content:[{type:'text',text:'external success'}]};}
 else result={};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:r.id,result})+'\\n');});`);
 writeFileSync(fixture,`
-import {defineContentToolFixture} from ${JSON.stringify(pathToFileURL(path.join(sdk,'node_modules/@deepseek-ai/dsh-tools/lib/index.js')).href)};
+import {defineContentToolFixture} from ${JSON.stringify(pathToFileURL(runtimeRequire.resolve('@deepseek-ai/dsh-tools')).href)};
 import {createGuard,externalPolicy} from ${JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/auth-guard/index.js')).href)};
 import {createImageTool} from ${JSON.stringify(pathToFileURL(path.join(desktop,'dsh-plugins/auth-guard/image.js')).href)};
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
@@ -27,6 +29,7 @@ export function apply(ctx){
  let outcome='rejected',logged=true,bodies=0,busy=false,bypass=false;
  const policy=externalPolicy(['probe'],{request:async()=>outcome});
  ctx.on('tools/pre-execute',async(exec,next)=>bypass?{kind:'allow'}:policy.before(exec,next));
+ ctx.on('tools/pre-execute',async()=>outcome==='rejected'?{kind:'deny',reason:'Fixture policy declined'}:{kind:'allow'});
  ctx.tools.guard(createGuard(()=>({ok:logged}),policy.allowed));
 
  const dir=${JSON.stringify(home)};
@@ -38,7 +41,7 @@ export function apply(ctx){
    const run=(name,args={})=>ctx.tools.execute({agent,name,arguments:args,callId:Math.random().toString(36),signal:new AbortController().signal});
    const rejected=await run('mcp__probe__write');outcome='allowed-once';
    const allowed=await run('mcp__probe__write');logged=false;const expired=await run('mcp__probe__write');logged=true;
-   bypass=true;const bypassed=await run('mcp__probe__write');bypass=false;
+   bypass=true;logged=false;const bypassed=await run('mcp__probe__write');bypass=false;logged=true;
    const image=await run('omaax_generate_image',{prompt:'cell'});
    writeFileSync(path.join(dir,'result.json'),JSON.stringify({rejected,allowed,expired,bypassed,image,bodies:JSON.parse(readFileSync(path.join(dir,'mcp-calls.json'),'utf8')),approvalAvailable:typeof ctx.approval.request==='function'}));
   }catch(e){writeFileSync(path.join(dir,'result.json'),JSON.stringify({error:String(e)}));}

@@ -80,4 +80,12 @@ for (const p of ['skill-router', 'step-guard', 'workflow-guard', 'auth-guard']) 
     console.log(`[stage-dsh] 已装 OMaaX 插件 @biodsh/${p}`);
   }
 }
+// Retain historical preset identity without rewriting saved conversations.
+const standardPreset = path.join(dir, 'node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml');
+if (version.startsWith('0.2.') && existsSync(standardPreset)) {
+  const standard = readFileSync(standardPreset, 'utf8').split('- insert:\n')[1].split('\n').map(line => line.startsWith('    ') ? line.slice(4) : line).join('\n');
+  writeFileSync(path.join(dir, 'node_modules/@biodsh/standard-preset.patch.yml'), standard);
+  const legacy = readFileSync(standardPreset, 'utf8').replace('id: preset-standard', 'id: preset-omaax-legacy').replace('id: standard', 'id: biodsh').replace('prefix: You are a coding agent powered by the {{model}} model.', 'prefix: You are OMaaX.');
+  writeFileSync(path.join(dir, 'node_modules/@biodsh/legacy-preset.patch.yml'), legacy);
+}
 console.log('ok');

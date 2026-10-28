@@ -1,10 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {patchAuthErrorSource, authErrorText} from './patch-dsh-auth-error.mjs';
 
-const original = readFileSync(new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js', import.meta.url), 'utf8');
+const paths = ['../dsh-runtime/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js', '../dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js'].map(file => new URL(file, import.meta.url));
+const original = readFileSync(paths.find(existsSync), 'utf8');
 const patched = patchAuthErrorSource(original);
 const method = source => source.match(/\twriteUnauthorized\(req, res\) \{[\s\S]*?\n\t\}/)?.[0];
 const run = (source, httpMethod) => {

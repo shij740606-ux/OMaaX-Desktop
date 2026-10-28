@@ -13,6 +13,11 @@ test('external tools proceed without extra approval but cancellation and login r
  assert.equal(createGuard(()=>({ok:true}))(exec),undefined);
  assert.match(createGuard(()=>({ok:false}))(exec),/账号/);
  assert.equal((await policy.before(exec,async()=>({kind:'deny'}))).kind,'deny');
+ for(const kind of ['ask','cancel']) {
+  const decision={kind,reason:'Existing downstream decision'},pending={name:'mcp__papers__search'};
+  assert.equal(await policy.before(pending,async()=>decision),decision);
+  assert.equal(policy.allowed(pending),false);
+ }
  const abort=new AbortController();abort.abort();
  assert.equal((await policy.before({...exec,signal:abort.signal},async()=>({kind:'allow'}))).kind,'deny');
 });

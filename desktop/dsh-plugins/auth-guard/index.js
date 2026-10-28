@@ -44,8 +44,8 @@ export function externalPolicy(servers, approval) {
       if(!prefixes.some(prefix=>exec.name.startsWith(prefix)))return next();
       if(exec.signal?.aborted)return {kind:'deny',reason:'操作已取消'};
       const decision=await next();
-      if(decision.kind==='deny')return decision;
-      approved.add(exec);return {kind:'allow'};
+      if(decision.kind!=='allow')return decision;
+      approved.add(exec);return decision;
     }
   };
 }

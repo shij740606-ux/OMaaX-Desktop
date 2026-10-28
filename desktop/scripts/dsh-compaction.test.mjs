@@ -16,7 +16,7 @@ test('transport compaction partitions oversized history without losing source da
  const require=createRequire(path.join(runtime,'node_modules/@deepseek-ai/dsh/lib/bin.js'));
  const {BasicCompactionEngine}=await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-compaction-basic')).href);
  const {createUserMessage}=await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href);
- const agent={session:{id:'fixture',requestHeader:()=>({config:{provider:'fixture',model:'fixture'}})},options:{}};
+ const agent={session:{id:'fixture',toolHistory:()=>[],requestHeader:()=>({config:{provider:'fixture',model:'fixture'}})},options:{}};
  const config={summarizationProvider:'',summarizationModel:'',maxTokens:8192,modelPolicies:[]};
  const text='Task ID running-175; original data stays protected. '+('水稻🧬\\\"\n'.repeat(70000))+' End: do not resubmit completed job.';
  const input={messages:[createUserMessage({content:[{type:'text',text}],source:{kind:'user'}})]};
@@ -70,7 +70,7 @@ test('real compaction summarizer handles limits without losing context',async t=
   const {BasicCompactionEngine}=await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-compaction-basic')).href);
   const {createUserMessage}=await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href);
   const input={messages:[createUserMessage({content:[{type:'text',text:'Original task and evidence'}],source:{kind:'user'}})]};
-  const agent={session:{id:'fixture',requestHeader:()=>({config:{provider:'fixture',model:'fixture'}})},options:{}};
+  const agent={session:{id:'fixture',toolHistory:()=>[],requestHeader:()=>({config:{provider:'fixture',model:'fixture'}})},options:{}};
   async function summarize(responses,controller=new AbortController()){
     const calls=[];
     const ctx={llm:{async *stream(options){calls.push(structuredClone({...options,signal:undefined}));yield* responses(calls.length,controller);}}};

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
@@ -9,11 +9,14 @@ import { patchMcpTimeoutSource, assertMcpTimeoutSdkContract, verifyMcpTimeoutSdk
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(path.join(desktop, 'package.json'));
 const sdkRoot = path.resolve(path.dirname(require.resolve('@modelcontextprotocol/sdk/client/index.js')), '../../esm');
-const { Client } = await import(pathToFileURL(path.join(sdkRoot, 'client/index.js')));
+const runtime=process.env.OMAAX_TEST_DSH_RUNTIME || path.join(desktop,'dsh-runtime');
+const runtimeRequire=createRequire(path.join(runtime,'node_modules/@deepseek-ai/dsh/lib/bin.js'));
+const modernSdkRoot=path.dirname(runtimeRequire.resolve('@modelcontextprotocol/client'));
+const { Client, SdkErrorCode } = await import(pathToFileURL(path.join(modernSdkRoot,'index.mjs')));
 const { Server } = await import(pathToFileURL(path.join(sdkRoot, 'server/index.js')));
 const { InMemoryTransport } = await import(pathToFileURL(path.join(sdkRoot, 'inMemory.js')));
-const { CallToolRequestSchema, CallToolResultSchema } = await import(pathToFileURL(path.join(sdkRoot, 'types.js')));
-const protocol = readFileSync(path.join(sdkRoot, 'shared/protocol.js'), 'utf8');
+const { CallToolRequestSchema } = await import(pathToFileURL(path.join(sdkRoot, 'types.js')));
+const protocol = readdirSync(modernSdkRoot).filter(name=>name.endsWith('.mjs')).map(name=>readFileSync(path.join(modernSdkRoot,name),'utf8')).find(source=>source.includes('_setupTimeout(messageId,'));
 const maxDelay = 2147483647;
 const compile = (timers = { setTimeout, performance }) => new Function('Client', 'MAX_TIMER_DELAY_MS', 'setTimeout', 'performance', `${timeoutRuntime}\nreturn { OmaaxSshMcpClient, omaaxToolCallTimeout };`)(Client, maxDelay, timers.setTimeout, timers.performance);
 const { OmaaxSshMcpClient, omaaxToolCallTimeout } = compile();
@@ -48,6 +51,10 @@ test('patch is idempotent and rejects partial or changed bridge source', () => {
   assert.equal(patchMcpTimeoutSource(patched), patched);
   assert.throws(() => patchMcpTimeoutSource(sourceFixture.replace('opts.toolCallTimeoutMs', 'opts.other')), /anchor changed/);
   assert.throws(() => patchMcpTimeoutSource(patched.replace('seconds * 1000', 'seconds * 2000')), /incomplete or changed/);
+  const current=readFileSync(runtimeRequire.resolve('@deepseek-ai/dsh-mcp-client'),'utf8');
+  assert.equal(patchMcpTimeoutSource(current),current);
+  assert.match(current,/timeout: omaaxToolCallTimeout\(tool.name, args, opts\)/);
+  verifyMcpTimeoutSdk(runtimeRequire.resolve('@deepseek-ai/dsh-mcp-client'));
 });
 
 test('relative runtime paths resolve before loading SDK contract', () => {
@@ -73,22 +80,24 @@ test('relative runtime paths resolve before loading SDK contract', () => {
 
 async function connected(ClientType = OmaaxSshMcpClient, handler) {
   const calls = [];
-  const client = new ClientType({ name: 'timeout-test', version: '1' }, { capabilities: {} });
+  const {promise:started,resolve:markStarted}=Promise.withResolvers();
+  const client = new ClientType({ name: 'timeout-test', version: '1' }, { capabilities: {}, versionNegotiation:{mode:'auto'} });
   const server = new Server({ name: 'timeout-fixture', version: '1' }, { capabilities: { tools: {} } });
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     calls.push(request.params);
+    markStarted();
     return handler ? handler(request, extra) : new Promise(() => {});
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   await client.connect(clientTransport);
-  return { client, server, calls, call: (timeout, signal) => client.request({ method: 'tools/call', params: { name: 'execute', arguments: {} } }, CallToolResultSchema, { timeout, signal }) };
+  return { client, server, calls, started, call: (timeout, signal) => client.callTool({ name: 'execute', arguments: {} }, { timeout, signal, toolDefinition:{name:'execute',inputSchema:{type:'object'}} }) };
 }
 
 test('normal finite requests retain the real SDK timeout and submit once', async () => {
   const fixture = await connected();
   try {
-    await assert.rejects(fixture.call(15), error => error.code === -32001);
+    await assert.rejects(fixture.call(15), error => error.code === SdkErrorCode.RequestTimeout);
     assert.equal(fixture.calls.length, 1);
     assert.equal(fixture.client._timeoutInfo.size, 0);
     assert.equal(fixture.client._responseHandlers.size, 0);
@@ -102,6 +111,7 @@ test('zero permits completion and retains no timer', async () => {
   });
   try {
     const pending = fixture.call(0);
+    await fixture.started;
     assert.equal(fixture.client._timeoutInfo.size, 0);
     assert.equal((await pending).content[0].text, 'completed');
     assert.equal(fixture.calls.length, 1);
@@ -115,6 +125,7 @@ for (const timeout of [0, maxDelay + 5000]) {
     try {
       const controller = new AbortController();
       const pending = fixture.call(timeout, controller.signal);
+      await fixture.started;
       const handle = [...fixture.client._timeoutInfo.values()][0]?.timeoutId;
       controller.abort(new Error('user cancelled'));
       await assert.rejects(pending, /user cancelled/);
@@ -127,7 +138,8 @@ for (const timeout of [0, maxDelay + 5000]) {
   test(`timeout ${timeout} is cleaned on transport disconnect`, async () => {
     const fixture = await connected();
     const pending = fixture.call(timeout);
-    const rejected = assert.rejects(pending, error => error.code === -32000);
+    const rejected = assert.rejects(pending, error => error.code === SdkErrorCode.ConnectionClosed);
+    await fixture.started;
     const handle = [...fixture.client._timeoutInfo.values()][0]?.timeoutId;
     await fixture.client.close();
     await rejected;
@@ -149,7 +161,8 @@ test('long deadlines use bounded timer chunks, then the SDK timeout path and cle
   const fixture = await connected(adapted.OmaaxSshMcpClient);
   try {
     const pending = fixture.call(maxDelay + 1000);
-    const rejected = assert.rejects(pending, error => error.code === -32001);
+    const rejected = assert.rejects(pending, error => error.code === SdkErrorCode.RequestTimeout);
+    await fixture.started;
     assert.equal(chunks.length, 1);
     assert.equal(chunks[0].delay, maxDelay);
     clearTimeout(chunks[0].handle);
@@ -174,6 +187,7 @@ test('successful long request clears its pending chunk', async () => {
   });
   try {
     const pending = fixture.call(maxDelay + 1000);
+    await fixture.started;
     const handle = [...fixture.client._timeoutInfo.values()][0].timeoutId;
     await pending;
     assert.equal(handle._destroyed, true);

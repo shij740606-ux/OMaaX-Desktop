@@ -2,29 +2,38 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {companyErrors,internalErrorCode,patchCompanyAdapterSource,patchCompanyRetrySource,patchCompanyChatSource,patchCompanyTrajectorySource} from './patch-dsh-company-errors.mjs';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import {companyErrors,companyCodeFromPiError,internalErrorCode,patchCompanyPiAdapterSource,patchCompanyRetrySource,patchCompanyChatSource,patchCompanyTrajectorySource} from './patch-dsh-company-errors.mjs';
 
-const runtime = new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/',import.meta.url);
-const read = name => readFileSync(new URL(name,runtime),'utf8');
-const adapter = patchCompanyAdapterSource(read('dsh-llm-deepseek/lib/index.js'));
+const runtime = process.env.OMAAX_TEST_DSH_RUNTIME || fileURLToPath(new URL('../dsh-runtime',import.meta.url));
+const runtimeRequire = createRequire(path.join(runtime,'node_modules/@deepseek-ai/dsh/lib/bin.js'));
+const read = name => readFileSync(runtimeRequire.resolve('@deepseek-ai/'+name.split('/')[0]) .replace(/lib[\\/]index\.js$/,name.endsWith('client.js')?'lib/client.js':'lib/index.js'),'utf8');
+const adapter = patchCompanyPiAdapterSource(read('dsh-llm-pi-ai/lib/index.js'));
 const retry = patchCompanyRetrySource(read('dsh-llm-retry/lib/index.js'));
 const chat = patchCompanyChatSource(read('dsh-client-ui-chat/lib/client.js'));
 const trajectory = patchCompanyTrajectorySource(read('dsh-client-ui-trajectory/lib/client.js'));
-const httpCode = vm.runInNewContext(adapter.slice(adapter.indexOf('function httpErrorCode('),adapter.indexOf('\n/**',adapter.indexOf('function httpErrorCode(')))+'\nhttpErrorCode',{
+const piCode = vm.runInNewContext(adapter.slice(adapter.indexOf('function classifyPiAiError('),adapter.indexOf('\n/**',adapter.indexOf('function classifyPiAiError(')))+'\nclassifyPiAiError',{
   isQuotaExceededError:s=>s==='insufficient_quota', QUOTA_EXCEEDED_CODE:'QUOTA_EXCEEDED',
   isContextWindowExceededError:s=>s==='context_length_exceeded', CONTEXT_WINDOW_EXCEEDED_CODE:'CONTEXT_WINDOW_EXCEEDED',
 });
 const failureMessage = vm.runInNewContext(chat.slice(chat.indexOf('\t\tfunction failureMessage('),chat.indexOf('\t\tfunction ModelRetryItem('))+'\nfailureMessage');
 const retryExpression = retry.match(/else if \((\/\*OMAAX_COMPANY_ERROR_RETRY_V1\*\/[^\n]+)\) return next\(\);/)[1];
 
-test('company classes survive HTTP normalization; provider and context errors stay compatible',()=>{
-  for (const code of Object.keys(companyErrors)) assert.equal(httpCode(503,{code}),code);
-  assert.equal(httpCode(401,{code:'untrusted_secret'}),'AUTH');
-  assert.equal(httpCode(403,{}),'AUTH');
-  assert.equal(httpCode(429,{}),'RATE_LIMIT');
-  assert.equal(httpCode(503,{}),'SERVER');
-  assert.equal(httpCode(400,{code:'context_length_exceeded'}),'CONTEXT_WINDOW_EXCEEDED');
-  assert.equal(httpCode(429,{code:'insufficient_quota'}),'QUOTA_EXCEEDED');
+test('company classes survive pi-ai JSON normalization; unknown provider errors retain classification',()=>{
+  for (const code of Object.keys(companyErrors)) {
+    assert.equal(piCode('503: '+JSON.stringify({code,message:'private diagnostic'})),code);
+    assert.equal(piCode('401: '+JSON.stringify({error:{code,message:'private diagnostic'}})),code);
+  }
+  assert.equal(piCode('401: '+JSON.stringify({code:'untrusted_secret'})),'AUTH');
+  assert.equal(piCode('403 denied'),'AUTH');
+  assert.equal(piCode('429 too many requests'),'RATE_LIMIT');
+  assert.equal(piCode('503 server failure'),'SERVER');
+  assert.equal(piCode('400 invalid request'),'INVALID_REQUEST');
+  assert.equal(companyCodeFromPiError('model_timeout mentioned in ordinary error text'),null);
+  assert.equal(companyCodeFromPiError('503: {"code":"model_timeout" broken'),null);
+  assert.equal(companyCodeFromPiError('503: {"message":"model_timeout"}'),null);
 });
 
 test('each class shows localized safe wording instead of raw provider messages',()=>{
@@ -66,12 +75,12 @@ test('expanded execution details use the same localized categories, including le
 });
 
 test('patches are repeatable, reject drift, and participate in staging and release verification',()=>{
-  for (const [patch,source] of [[patchCompanyAdapterSource,adapter],[patchCompanyRetrySource,retry],[patchCompanyChatSource,chat],[patchCompanyTrajectorySource,trajectory]]) {
+  for (const [patch,source] of [[patchCompanyPiAdapterSource,adapter],[patchCompanyRetrySource,retry],[patchCompanyChatSource,chat],[patchCompanyTrajectorySource,trajectory]]) {
     assert.equal(patch(source),source);
     assert.throws(()=>patch('unexpected upstream layout'),/anchor changed/);
   }
   assert.match(readFileSync(new URL('./stage-dsh.mjs',import.meta.url),'utf8'),/patchCompanyErrors\(dir\)/);
-  assert.match(readFileSync(new URL('./verify-stable-runtime.mjs',import.meta.url),'utf8'),/OMAAX_COMPANY_ERROR_UI_V1/);
+  assert.match(readFileSync(new URL('./verify-dsh-runtime.mjs',import.meta.url),'utf8'),/\['dsh-client-ui-chat',patchCompanyChatSource\]/);
 });
 
 test('sign-in screen strips only known diagnostic prefixes and preserves safe text',()=>{

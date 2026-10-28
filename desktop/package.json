@@ -1,7 +1,7 @@
 {
   "name": "omaax-desktop",
   "productName": "OMaaX",
-  "version": "0.4.59",
+  "version": "0.4.60",
   "description": "OMaaX — One Model, Beyond the Max.",
   "author": "OMaaX contributors",
   "license": "MIT",
@@ -28,7 +28,7 @@
     "workflow:pack": "python scripts/pack-workflow-kernel.py"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh": "0.1.5-rc.1",
+    "@deepseek-ai/dsh": "0.2.1-rc.2",
     "@tailwindcss/vite": "^4.0.0",
     "@tauri-apps/api": "2.12.0",
     "@tauri-apps/cli": "^2.11.4",

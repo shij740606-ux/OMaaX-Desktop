@@ -9,7 +9,7 @@ import ModelUsage from '../components/ModelUsage';
 import { ExternalLink, FolderOpen, CreditCard } from 'lucide-react';
 import {useAuth} from '../AuthGate';
 import { useApp } from '../store';
-import type { McpServer } from '@shared/types';
+import type { AppSettings, McpServer } from '@shared/types';
 import { useT } from '../i18n';
 
 const SETTINGS_PANES = [
@@ -26,6 +26,16 @@ export default function SettingsView({initialPane='account'}:{initialPane?:Setti
   const { t } = useT();
   const auth=useAuth();
   const [pane, setPane] = useState<SettingsPane>(initialPane);
+  const [appearanceBusy, setAppearanceBusy] = useState(false);
+  const [appearanceError, setAppearanceError] = useState('');
+  const appearancePending = useRef(false);
+  const changeAppearance = async (patch: Partial<Pick<AppSettings, 'theme' | 'language'>>) => {
+    if (appearancePending.current) return;
+    appearancePending.current = true; setAppearanceBusy(true); setAppearanceError('');
+    try { await updateSettings(patch); }
+    catch { setAppearanceError('界面设置未完全同步，请重试；若仍未生效，请重启智能体。'); }
+    finally { appearancePending.current = false; setAppearanceBusy(false); }
+  };
   const dshVersion = (info as { dshVersion?: string } | null)?.dshVersion ?? '?';
   if (!settings) return null;
   return (
@@ -53,16 +63,18 @@ export default function SettingsView({initialPane='account'}:{initialPane?:Setti
 </div>
           <div className="omaax-settings-content" data-pane="appearance" role="tabpanel" id="settings-pane-appearance" aria-labelledby="settings-tab-appearance" hidden={pane!=='appearance'} tabIndex={0}>          <Section title={t('外观')}>
             <div className="seg">
-              {(['system', 'light', 'dark'] as const).map((k) => <button key={k} className={settings.theme === k ? 'active' : ''} onClick={() => updateSettings({ theme: k })}>{t({ system: '跟随系统', light: '浅色', dark: '深色' }[k])}</button>)}
+              {(['system', 'light', 'dark'] as const).map((k) => <button key={k} disabled={appearanceBusy} className={settings.theme === k ? 'active' : ''} onClick={() => void changeAppearance({ theme: k })}>{t({ system: '跟随系统', light: '浅色', dark: '深色' }[k])}</button>)}
             </div>
           </Section>
 
           <Section title={t('语言 / Language')} desc={t('界面与智能体界面一起切换；智能体回答会跟随你提问的语言。')}>
             <div className="seg">
-              {(['system', 'zh', 'en'] as const).map((k) => <button key={k} className={(settings.language ?? 'system') === k ? 'active' : ''} onClick={() => updateSettings({ language: k })}>{{ system: t('跟随系统'), zh: t('中文'), en: 'English' }[k]}</button>)}
+              {(['system', 'zh', 'en'] as const).map((k) => <button key={k} disabled={appearanceBusy} className={(settings.language ?? 'system') === k ? 'active' : ''} onClick={() => void changeAppearance({ language: k })}>{{ system: t('跟随系统'), zh: t('中文'), en: 'English' }[k]}</button>)}
             </div>
           </Section>
 
+          {appearanceBusy && <p role="status" className="t-caption">{t('正在应用界面设置…')}</p>}
+          {appearanceError && <p role="alert" className="t-caption">{t(appearanceError)}</p>}
 </div>
           <div className="omaax-settings-content" data-pane="about" role="tabpanel" id="settings-pane-about" aria-labelledby="settings-tab-about" hidden={pane!=='about'} tabIndex={0}>          <Section title={t("关于 OMaaX")} wide><OmaaxWordmark className="omaax-wordmark--about" /><p className="t-body mt-2">One Model, Beyond the Max.</p><p className="t-caption mt-2">{t("连接数据、工具与计算资源的智能分析工作台。")}</p><div className="flex gap-3 mt-4"><button className="btn btn-tint" onClick={()=>info&&window.biodsh.openPath(info.paths.root)}><FolderOpen size={14}/>{t("打开数据目录")}</button><button className="btn btn-ghost" onClick={()=>updateSettings({onboarded:false})}>{t("使用引导")}</button></div><details className="mt-4 t-caption"><summary>{t("版本与许可说明")}</summary><p className="mt-2">OMaaX {info?.version} · {t("助手组件")} {dshVersion}</p><p>{t("基于开源组件构建。原始版权和 MIT 许可证随软件保留。")}</p><p>{t("应用文件由 OMaaX 管理，可通过“打开数据目录”查看。")}</p></details><AboutHelp/></Section></div>
 

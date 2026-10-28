@@ -1,25 +1,27 @@
-// Real stable DSH conversations and real Edge; a loopback model supplies deterministic tools.
+// Real bundled DSH conversations and real Edge; a loopback model supplies deterministic tools.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 const entry = process.env.OMAAX_BROWSER_TEST_ENTRY || path.join(desktop, 'resources/browser/index.mjs');
-const modules = process.env.OMAAX_BROWSER_TEST_DSH_MODULES || path.join(desktop, 'dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules');
-const dsh = path.dirname(modules);
+const dsh = path.join(desktop, 'dsh-runtime/node_modules/@deepseek-ai/dsh');
+const runtimeRequire = createRequire(path.join(dsh, 'package.json'));
+const modules = process.env.OMAAX_BROWSER_TEST_DSH_MODULES || path.resolve(path.dirname(runtimeRequire.resolve('@deepseek-ai/dsh-tools')), '../../..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 test('main conversation discovers browser tools, operates a page and continues across turns', { timeout: 180000 }, async () => {
-  assert.equal(JSON.parse(readFileSync(path.join(dsh, 'package.json'))).version, '0.1.5-rc.1');
+  assert.equal(JSON.parse(readFileSync(path.join(dsh, 'package.json'))).version, '0.2.1-rc.2');
   const run = path.resolve(desktop, `../validation-local/browser-conversation-${Date.now()}`);
   const home = path.join(run, 'dsh-home'), workspace = path.join(run, '中文 项目');
   mkdirSync(home, { recursive: true }); mkdirSync(workspace, { recursive: true });
-  const env = { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', OMAAX_TEST_KEY: 'fixture-only',
+  const env = { ...process.env, DSH_HOME: home, DSH_AGENTS_HOME: path.join(run, 'agents-home'), DSH_TELEMETRY_DISABLED: '1', OMAAX_TEST_KEY: 'fixture-only',
     DEEPSEEK_API_KEY: '', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', NODE_OPTIONS: '',
     OMAAX_DSH_MODULES: modules, OMAAX_BROWSER_HOME: path.join(run, 'browser-audit') };
   const counters = { first: 0, second: 0 }, requests = [];
@@ -60,7 +62,7 @@ test('main conversation discovers browser tools, operates a page and continues a
   site = `http://127.0.0.1:${server.address().port}/site`;
   const eventsFile = path.join(run, 'events.jsonl'), observer = path.join(run, 'observer.mjs');
   writeFileSync(observer, `import {appendFileSync} from 'node:fs'; export function apply(ctx){ctx.on('session/event',(session,event)=>appendFileSync(${JSON.stringify(eventsFile)},JSON.stringify({sessionId:session.id,event})+String.fromCharCode(10)),{global:true});}`);
-  writeFileSync(path.join(home, 'cordis.patch.yml'), `- id: llm-deepseek\n  config:\n    baseURL: http://127.0.0.1:${server.address().port}/v1\n    apiKeyEnv: OMAAX_TEST_KEY\n- insert:\n    - id: omaax-browser\n      name: ${JSON.stringify(pathToFileURL(entry).href)}\n      config:\n        headless: true\n    - id: browser-observer\n      name: ${JSON.stringify(pathToFileURL(observer).href)}\n`);
+  writeFileSync(path.join(home, 'cordis.patch.yml'), `- id: llm-deepseek\n  disabled: true\n- id: llm-pi-ai\n  config:\n    providers:\n      deepseek-official:\n        api: openai-completions\n        baseURL: http://127.0.0.1:${server.address().port}/v1\n        apiKeyEnv: OMAAX_TEST_KEY\n        models:\n          - id: deepseek-flash\n            name: Local fixture\n- insert:\n    - id: omaax-browser\n      name: ${JSON.stringify(pathToFileURL(entry).href)}\n      config:\n        headless: true\n    - id: browser-observer\n      name: ${JSON.stringify(pathToFileURL(observer).href)}\n`);
   const child = spawn(process.execPath, ['--expose-internals', path.join(dsh, 'lib/bin.js'), 'web', '--port', '0', '--no-open'], { cwd: workspace, env, windowsHide: true });
   let logs = '';
   child.stdout.on('data', data => logs += data); child.stderr.on('data', data => logs += data);
@@ -86,7 +88,7 @@ test('main conversation discovers browser tools, operates a page and continues a
       const events = history(), turnEnds = events.filter(event => event.type === 'turn/end');
       assert.equal(turnEnds.length, index + 1, 'Browser conversation did not finish');
       assert.equal(turnEnds.at(-1).data.reason.kind, 'completed');
-      const failures = events.filter(event => event.type === 'tool/result').flatMap(event => event.data.message.content).filter(result => result.isError);
+      const failures = events.filter(event => event.type === 'tool/result').map(event => event.data.message).filter(message => message.isError || message.content.some(result => result.isError));
       assert.deepEqual(failures, [], 'A browser call failed');
     }
     assert.ok(requests[0].tools.some(tool => tool.function.name === 'omaax_browser'));
@@ -95,7 +97,7 @@ test('main conversation discovers browser tools, operates a page and continues a
     assert.ok(requests.some(body => JSON.stringify(body.messages).includes('Rice genomics')));
     const screenshots = readdirSync(path.join(workspace, 'browser-results'), { recursive: true }).filter(name => name.endsWith('.png'));
     assert.equal(screenshots.length, 1);
-    writeFileSync(path.join(run, 'result.json'), JSON.stringify({ passed: true, stableRuntime: '0.1.5-rc.1', turns: 2, modelToolCalls: 7, liveCloudCalls: 0, browser: 'system Edge', protected: entry.includes('protected'), screenshot: path.join(workspace, 'browser-results', screenshots[0]) }, null, 2));
+    writeFileSync(path.join(run, 'result.json'), JSON.stringify({ passed: true, runtime: '0.2.1-rc.2', turns: 2, modelToolCalls: 7, liveCloudCalls: 0, browser: 'system Edge', protected: entry.includes('protected'), screenshot: path.join(workspace, 'browser-results', screenshots[0]) }, null, 2));
     console.log('Browser conversation evidence:', run);
   } catch (error) { console.error(error); throw error; } finally {
     writeFileSync(path.join(run, 'runtime.log'), logs.replaceAll(/\?token=[A-Za-z0-9._-]+/g, '?token=[local-test]'));

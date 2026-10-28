@@ -1,6 +1,7 @@
-// Stable-DSH adapter for the same pinned Playwright MCP used by the official browser provider.
+// DSH adapter for the same pinned Playwright MCP used by the official browser provider.
 import { appendFile, lstat, mkdir, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { browserExecutable } from './launcher.mjs';
@@ -42,8 +43,9 @@ export async function validateOutput(entry, filename) {
 
 export async function apply(ctx, config = {}) {
   const modules = process.env.OMAAX_DSH_MODULES;
-  if (!modules || !path.isAbsolute(modules)) throw Error('Stable browser runtime is not configured. Restart OMaaX.');
-  const load = name => import(pathToFileURL(path.join(modules, '@deepseek-ai', name, 'lib/index.js')).href);
+  if (!modules || !path.isAbsolute(modules)) throw Error('浏览器运行环境尚未就绪，请重启 OMaaX。');
+  const runtimeRequire = createRequire(path.join(modules, 'omaax-browser-runtime.cjs'));
+  const load = name => import(pathToFileURL(runtimeRequire.resolve('@deepseek-ai/' + name)).href);
   const [{ createScope }, McpClient] = await Promise.all([load('dsh-scope'), load('dsh-mcp-client')]);
   const clients = new Map();
   const closing = new Map();

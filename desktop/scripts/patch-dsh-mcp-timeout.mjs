@@ -1,6 +1,6 @@
 // Align the built-in SSH bridge with its existing command deadlines. External
 // MCP services and SDK initialization/listing keep their original deadlines.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -47,19 +47,25 @@ const anchors = [
   ['\t\ttimeout: opts.toolCallTimeoutMs\n', '\t\ttimeout: omaaxToolCallTimeout(rawName, args, opts)\n'],
   ['\t\tconst generation = new Client({', '\t\tconst generation = new (config.serverName === "biodsh_ssh" ? OmaaxSshMcpClient : Client)({'],
 ];
+const modernAnchors = [
+  ['async function syncTools(client, ctx, opts, previous) {', `${timeoutRuntime}\nasync function syncTools(client, ctx, opts, previous) {`],
+  ['\t\t\t\ttimeout: opts.toolCallTimeoutMs,', '\t\t\t\ttimeout: omaaxToolCallTimeout(tool.name, args, opts),'],
+  anchors[2],
+];
 
 export function patchMcpTimeoutSource(input) {
   const source = input.replace(/\r\n/g, '\n');
+  const selectedAnchors = source.includes('from "@modelcontextprotocol/client"') ? modernAnchors : anchors;
   if (source.includes(marker)) {
-    if (!source.includes(timeoutRuntime) || !anchors.every(([, after]) => source.includes(after))) {
+    if (!source.includes(timeoutRuntime) || !selectedAnchors.every(([, after]) => source.includes(after))) {
       throw new Error('DSH MCP timeout patch is incomplete or changed');
     }
     return input;
   }
-  for (const [before] of anchors) {
+  for (const [before] of selectedAnchors) {
     if (source.split(before).length !== 2) throw new Error(`DSH MCP timeout patch anchor changed: ${before}`);
   }
-  return anchors.reduce((text, [before, after]) => text.replace(before, after), source);
+  return selectedAnchors.reduce((text, [before, after]) => text.replace(before, after), source);
 }
 
 export function assertMcpTimeoutSdkContract(input) {
@@ -68,16 +74,30 @@ export function assertMcpTimeoutSdkContract(input) {
     '_setupTimeout(messageId, timeout, maxTotalTimeout, onTimeout, resetTimeoutOnProgress = false)',
     'this._timeoutInfo.set(messageId, {\n            timeoutId: setTimeout(onTimeout, timeout),',
     '_cleanupTimeout(messageId) {\n        const info = this._timeoutInfo.get(messageId);\n        if (info) {\n            clearTimeout(info.timeoutId);\n            this._timeoutInfo.delete(messageId);',
-    'for (const info of this._timeoutInfo.values()) {\n            clearTimeout(info.timeoutId);\n        }\n        this._timeoutInfo.clear();',
+    source.includes('cleanupMessageId') ? 'for (const info of this._timeoutInfo.values()) clearTimeout(info.timeoutId); this._timeoutInfo.clear();' : 'for (const info of this._timeoutInfo.values()) {\n            clearTimeout(info.timeoutId);\n        }\n        this._timeoutInfo.clear();',
     'this._setupTimeout(messageId, timeout, options?.maxTotalTimeout, timeoutHandler, options?.resetTimeoutOnProgress ?? false);',
-    'const cancel = (reason) => {\n                this._responseHandlers.delete(messageId);\n                this._progressHandlers.delete(messageId);\n                this._cleanupTimeout(messageId);',
     'this._responseHandlers.delete(messageId);\n        this._cleanupTimeout(messageId);',
   ];
-  if (contracts.some(value => !source.includes(value))) throw new Error('MCP SDK timeout/cleanup contract changed; review the local SSH timeout adapter before staging');
+  contracts.push(source.includes('cleanupMessageId')
+    ? '}).finally(() => { if (onAbort) options?.signal?.removeEventListener("abort", onAbort); if (cleanupMessageId !== void 0) { this._responseHandlers.delete(cleanupMessageId); this._cleanupTimeout(cleanupMessageId); } });'
+    : 'const cancel = (reason) => { this._responseHandlers.delete(messageId); this._progressHandlers.delete(messageId); this._cleanupTimeout(messageId);');
+  const compact = text => text.replace(/\s+/g, '');
+  const missing = contracts.find(value => !compact(source).includes(compact(value)));
+  if (missing) throw new Error('MCP SDK timeout/cleanup contract changed: ' + missing);
 }
 
 export function verifyMcpTimeoutSdk(file) {
   const require = createRequire(path.resolve(file));
+  if (readFileSync(file, 'utf8').includes('from "@modelcontextprotocol/client"')) {
+    const distribution = path.dirname(require.resolve('@modelcontextprotocol/client'));
+    for (const extension of ['.mjs', '.cjs']) {
+      const protocols = readdirSync(distribution).filter(name => name.endsWith(extension))
+        .map(name => readFileSync(path.join(distribution, name), 'utf8')).filter(source => source.includes('_setupTimeout(messageId,'));
+      if (protocols.length !== 1) throw new Error('MCP client SDK protocol layout changed');
+      assertMcpTimeoutSdkContract(protocols[0]);
+    }
+    return;
+  }
   const client = require.resolve('@modelcontextprotocol/sdk/client/index.js');
   const distribution = path.resolve(path.dirname(client), '../..');
   // require.resolve selects CJS, while the patched DSH plugin imports ESM.

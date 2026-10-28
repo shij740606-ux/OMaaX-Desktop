@@ -93,6 +93,28 @@ export function patchCompanyAdapterSource(source) {
     `function httpErrorCode(status, error) {\n\t${marker}\n\tif (${JSON.stringify(Object.keys(companyErrors))}.includes(error?.code)) return error.code;`);
 }
 
+// pi-ai preserves the HTTP JSON body inside its terminal error message.
+export function companyCodeFromPiError(message) {
+  if (typeof message !== 'string') return null;
+  const start = message.indexOf('{');
+  if (start < 0) return null;
+  try {
+    const body = JSON.parse(message.slice(start));
+    const code = body?.error?.code ?? body?.code;
+    return Object.hasOwn(companyErrors, code) ? code : null;
+  } catch { return null; }
+}
+
+export function patchCompanyPiAdapterSource(source) {
+  const marker = '/*OMAAX_COMPANY_PI_ERROR_CODES_V1*/';
+  const generated = `\t${marker}\n\tconst companyErrors = ${JSON.stringify(Object.fromEntries(Object.keys(companyErrors).map(code => [code, true])))};\n\tconst companyCode = (${companyCodeFromPiError.toString()})(message);\n\tif (companyCode) return companyCode;`;
+  if (source.includes(marker)) {
+    if (!source.includes(generated)) throw new Error('Company pi-ai adapter generated region changed');
+    return source;
+  }
+  return once(source, 'function classifyPiAiError(message) {', `function classifyPiAiError(message) {\n${generated}`);
+}
+
 export function patchCompanyRetrySource(source) {
   const marker = '/*OMAAX_COMPANY_ERROR_RETRY_V1*/';
   if (source.includes(marker)) return source;
@@ -150,11 +172,14 @@ export function patchCompanyTrajectorySource(source) {
 
 export function patchCompanyErrors(runtimeDir = path.join(root,'dsh-runtime')) {
   const bases = ['node_modules/@deepseek-ai','node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai']
-    .map(p => path.join(runtimeDir,p)).filter(p => existsSync(path.join(p,'dsh-llm-deepseek/lib/index.js')));
+    .map(p => path.join(runtimeDir,p)).filter(p => existsSync(path.join(p,'dsh-llm-retry/lib/index.js')));
   if (!bases.length) throw new Error('Company error runtime missing');
   const files = [];
   for (const base of bases) {
-    for (const [name,patch] of [['dsh-llm-deepseek/lib/index.js',patchCompanyAdapterSource],['dsh-llm-retry/lib/index.js',patchCompanyRetrySource],['dsh-client-ui-chat/lib/client.js',patchCompanyChatSource],['dsh-client-ui-trajectory/lib/client.js',patchCompanyTrajectorySource]]) {
+    const modern = existsSync(path.join(base,'dsh-llm-pi-ai/lib/index.js'));
+    const adapters = modern ? [['dsh-llm-pi-ai/lib/index.js',patchCompanyPiAdapterSource]] : [['dsh-llm-deepseek/lib/index.js',patchCompanyAdapterSource]];
+    if (!adapters.length) throw new Error('Company model adapter missing');
+    for (const [name,patch] of [...adapters,['dsh-llm-retry/lib/index.js',patchCompanyRetrySource],['dsh-client-ui-chat/lib/client.js',patchCompanyChatSource],['dsh-client-ui-trajectory/lib/client.js',patchCompanyTrajectorySource]]) {
       const file = path.join(base,name);
       writeFileSync(file,patch(readFileSync(file,'utf8')));
       files.push(file);

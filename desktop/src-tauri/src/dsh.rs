@@ -99,13 +99,20 @@ pub fn set_llm_override(paths: &AppPaths, offline: Option<(&str, &str)>) -> Resu
 fn yaml_str(v: &str) -> String { format!("'{}'", v.replace('\'', "''")) }
 
 fn company_model_patch(base: &str, capabilities: &serde_json::Value) -> String {
-    let mut text=format!("\n- id: llm-deepseek\n  config:\n    baseURL: {}\n    apiKeyEnv: OMAAX_COMPANY_LLM_KEY\n",yaml_str(base));
-    for (key,field) in [("contextWindow","defaultContextWindow"),("maxOutputTokens","maxTokens")] {
-        if let Some(value)=capabilities[key].as_u64().filter(|v|*v>0 && *v<=9_007_199_254_740_991) {
-            text.push_str(&format!("    {field}: {value}\n"));
+    // Preserve the provider/model identity stored in pre-upgrade conversations.
+    // DSH 0.2's native DeepSeek adapter uses Messages; our bridge speaks Chat Completions.
+    let mut text=format!("\n- id: llm-deepseek\n  disabled: true\n- id: llm-pi-ai\n  config:\n    providers:\n      deepseek-official:\n        api: openai-completions\n        baseURL: {}\n        apiKeyEnv: OMAAX_COMPANY_LLM_KEY\n",yaml_str(base));
+    if let Some(value)=capabilities["contextWindow"].as_u64().filter(|v|*v>0 && *v<=9_007_199_254_740_991) {
+        text.push_str(&format!("        defaultContextWindow: {value}\n"));
+    }
+    text.push_str("        models:\n");
+    for (id,name) in [("omaax","OMaaX"),("omaax-low","低"),("omaax-high","中"),("omaax-max","高"),("deepseek-flash","OMaaX"),("deepseek-pro","OMaaX"),("deepseek-chat","OMaaX"),("deepseek-reasoner","OMaaX")] {
+        text.push_str(&format!("          - id: {id}\n            name: {name}\n            reasoningEfforts: {{off: null, minimal: minimal, low: low, medium: medium, high: high, xhigh: xhigh, max: max}}\n"));
+        if let Some(value)=capabilities["maxOutputTokens"].as_u64().filter(|v|*v>0 && *v<=9_007_199_254_740_991) {
+            text.push_str(&format!("            maxTokens: {value}\n"));
         }
     }
-    text.push_str("    models:\n      - id: omaax\n        name: OMaaX\n      - id: omaax-low\n        name: 低\n      - id: omaax-high\n        name: 中\n      - id: omaax-max\n        name: 高\n");
+    text.push_str("- id: agent-default-model\n  config:\n    provider: deepseek-official\n    model: omaax\n");
     text
 }
 
@@ -145,6 +152,17 @@ mod company_model_config_tests {
             assert!(!patch.contains("maxTokens:"));
         }
     }
+    #[test]
+    fn upgraded_provider_keeps_legacy_conversation_model_identities() {
+        let patch = company_model_patch("http://127.0.0.1:1234/v1", &json!({"contextWindow":1048576}));
+        assert!(patch.contains("- id: llm-deepseek\n  disabled: true"));
+        assert!(patch.contains("- id: llm-pi-ai\n  config:\n    providers:\n      deepseek-official:"));
+        assert!(patch.contains("api: openai-completions"));
+        for id in ["omaax", "omaax-low", "omaax-high", "omaax-max", "deepseek-flash", "deepseek-pro", "deepseek-chat", "deepseek-reasoner"] {
+            assert!(patch.contains(&format!("          - id: {id}\n")));
+        }
+        assert!(patch.contains("provider: deepseek-official\n    model: omaax"));
+    }
 }
 
 #[cfg(test)]
@@ -175,6 +193,10 @@ mod document_skill_config_tests {
             assert!(patch.contains("id: omaax-workflow-guard"));
             assert!(patch.contains("id: omaax-documents"));
             assert!(patch.contains("Never modify or delete registered protected original-data paths"));
+            assert!(patch.contains("id: preset-standard"));
+            assert!(patch.contains("id: preset-omaax-legacy"));
+            assert!(patch.contains("id: biodsh"));
+            assert!(!patch.contains("You are a coding agent powered by"));
             assert!(!patch.contains("resources/skills'"));
             assert!(!paths.skills.join("omaax-documents").exists());
             if existing {
@@ -339,8 +361,18 @@ impl DshManager {
                 y.push_str("        failOnStartupError: false");
                 inserts.push(y.trim_end().to_string());
             }
+            if let Some(base)=skill_router_plugin.parent().and_then(Path::parent) {
+                let prompt=persona_yaml.lines().map(|line|format!("                {}",line.trim_start())).collect::<Vec<_>>().join("\n");
+                if let Ok(standard)=fs::read_to_string(base.join("standard-preset.patch.yml")) {
+                    let prompt=persona_yaml.lines().map(|line|format!("            {}",line.trim_start())).collect::<Vec<_>>().join("\n");
+                    body.push(standard.replace("prefix: You are a coding agent powered by the {{model}} model.",&format!("prefix: >-\n{prompt}")));
+                }
+                if let Ok(legacy)=fs::read_to_string(base.join("legacy-preset.patch.yml")) {
+                    body.push(legacy.replace("prefix: You are OMaaX.",&format!("prefix: >-\n{prompt}")));
+                }
+            }
             body.push(format!("- insert:\n{}", inserts.join("\n")));
-            let _ = fs::write(&patch, format!("# biodsh-minimal v9 — OMaaX 精简模式 + OMaaX 人设(全局 persona) + 技能路由插件 + 旧对话兼容 + 技能全量可用 + MCP 接入（删除本文件并重启即可恢复 dsh 默认）\n{}\n", body.join("\n")));
+            let _ = fs::write(&patch, format!("# biodsh-minimal v10 — OMaaX 精简模式 + OMaaX 人设(全局 persona) + 技能路由插件 + 旧对话兼容 + 技能全量可用 + MCP 接入（删除本文件并重启即可恢复 dsh 默认）\n{}\n", body.join("\n")));
         }
         let settings = home.join("settings.yaml");
         if !settings.exists() {

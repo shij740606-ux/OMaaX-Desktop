@@ -1,4 +1,4 @@
-// Real stable DSH + real document engines; a local scripted model avoids cloud
+// Real bundled DSH + real document engines; a local scripted model avoids cloud
 // credentials and makes the two-turn file creation/editing contract repeatable.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const desktop = fileURLToPath(new URL('..', import.meta.url));
+const dsh = path.join(process.env.OMAAX_TEST_DSH_RUNTIME || path.join(desktop, 'dsh-runtime'), 'node_modules/@deepseek-ai/dsh');
 const evidence = path.resolve(desktop, '../validation-local/documents');
 const documentResources = path.resolve(process.env.OMAAX_DOCUMENT_TEST_RESOURCES || path.join(desktop, 'resources/documents'));
 const cli = path.join(documentResources, 'cli.mjs');
@@ -17,17 +18,17 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const quote = value => "'" + value.replaceAll("'", "''") + "'";
 const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 
-test('stable 53 conversation creates and revises project Word/PPT/PDF files', { timeout: 300000 }, async () => {
-  assert.equal(JSON.parse(readFileSync(path.join(desktop, 'dsh-runtime/node_modules/@deepseek-ai/dsh/package.json'))).version, '0.1.5-rc.1');
+test('bundled runtime conversation creates and revises project Word/PPT/PDF files', { timeout: 300000 }, async () => {
+  assert.equal(JSON.parse(readFileSync(path.join(dsh, 'package.json'))).version, '0.2.1-rc.2');
   const run = path.join(evidence, `conversation-${Date.now()}`);
   const home = path.join(run, 'dsh-home');
   const workspace = path.join(run, '中文 项目');
   mkdirSync(home, { recursive: true });
   mkdirSync(workspace, { recursive: true });
-  const env = { ...process.env, OMAAX_DOCUMENT_HOME: path.join(evidence, 'runtime'),
-    OMAAX_DOCUMENT_UV: path.join(desktop, 'resources/bin/win32-x64/uv.exe'),
+  const env = { ...process.env, OMAAX_DOCUMENT_HOME: process.env.OMAAX_DOCUMENT_TEST_HOME || path.join(evidence, 'runtime'),
+    OMAAX_DOCUMENT_UV: process.env.OMAAX_DOCUMENT_TEST_UV || path.join(desktop, 'resources/bin/win32-x64/uv.exe'),
     OMAAX_DOCUMENT_NODE: process.execPath, OMAAX_DOCUMENT_RUNNER: cli,
-    DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', OMAAX_TEST_KEY: 'fixture-only',
+    DSH_HOME: home, DSH_AGENTS_HOME: path.join(run, 'agents-home'), DSH_TELEMETRY_DISABLED: '1', OMAAX_TEST_KEY: 'fixture-only',
     DEEPSEEK_API_KEY: '', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', NODE_OPTIONS: '',
     DSH_BUNDLED_SKILL_DIR: path.join(documentResources, 'skills') };
   const pythonScript = path.join(workspace, 'generate_documents.py');
@@ -72,8 +73,8 @@ test('stable 53 conversation creates and revises project Word/PPT/PDF files', { 
   const eventsFile = path.join(run, 'events.jsonl');
   const observer = path.join(run, 'observer.mjs');
   writeFileSync(observer, `import {appendFileSync} from 'node:fs'; export function apply(ctx){ctx.on('session/event',(session,event)=>appendFileSync(${JSON.stringify(eventsFile)},JSON.stringify({sessionId:session.id,event})+'\\n'),{global:true});}`);
-  writeFileSync(path.join(home, 'cordis.patch.yml'), `- id: llm-deepseek\n  config:\n    baseURL: http://127.0.0.1:${server.address().port}/v1\n    apiKeyEnv: OMAAX_TEST_KEY\n- insert:\n    - id: omaax-documents\n      name: ${JSON.stringify(pathToFileURL(path.join(documentResources, 'index.mjs')).href)}\n    - id: documents-observer\n      name: ${JSON.stringify(pathToFileURL(observer).href)}\n`);
-  const child = spawn(process.execPath, ['--expose-internals', path.join(desktop, 'dsh-runtime/node_modules/@deepseek-ai/dsh/lib/bin.js'), 'web', '--port', '0', '--no-open'], { cwd: workspace, env, windowsHide: true });
+  writeFileSync(path.join(home, 'cordis.patch.yml'), `- id: llm-deepseek\n  disabled: true\n- id: llm-pi-ai\n  config:\n    providers:\n      deepseek-official:\n        api: openai-completions\n        baseURL: http://127.0.0.1:${server.address().port}/v1\n        apiKeyEnv: OMAAX_TEST_KEY\n        models:\n          - id: deepseek-flash\n            name: Local fixture\n- insert:\n    - id: omaax-documents\n      name: ${JSON.stringify(pathToFileURL(path.join(documentResources, 'index.mjs')).href)}\n    - id: documents-observer\n      name: ${JSON.stringify(pathToFileURL(observer).href)}\n`);
+  const child = spawn(process.execPath, ['--expose-internals', path.join(dsh, 'lib/bin.js'), 'web', '--port', '0', '--no-open'], { cwd: workspace, env, windowsHide: true });
   let logs = '';
   const log = data => { logs += data.toString(); };
   child.stdout.on('data', log); child.stderr.on('data', log);
@@ -100,7 +101,7 @@ test('stable 53 conversation creates and revises project Word/PPT/PDF files', { 
       const events = history();
       assert.equal(events.filter(e => e.type === 'turn/end').length, turn, 'Conversation did not finish');
       assert.equal(events.filter(e => e.type === 'turn/end').at(-1).data.reason.kind, 'completed', JSON.stringify(events.at(-1)));
-      const failures = events.filter(e => e.type === 'tool/result' && e.data.turn === turn).flatMap(e => e.data.message.content).filter(result => result.isError || /\[exit code: [1-9]/.test(JSON.stringify(result)));
+      const failures = events.filter(e => e.type === 'tool/result' && e.data.turn === turn).map(e => e.data.message).filter(message => message.isError || message.content.some(result => result.isError || /\[exit code: [1-9]/.test(JSON.stringify(result))));
       assert.deepEqual(failures, [], 'Document tools must succeed before reporting completion');
       return events;
     };
@@ -117,7 +118,7 @@ test('stable 53 conversation creates and revises project Word/PPT/PDF files', { 
     assert.equal(events.filter(e => e.type === 'user/message' && e.data.source.kind === 'user').length, 2);
     const verification = execFileSync(process.execPath, [cli, 'run', pythonScript, 'verify'], { env, cwd: workspace, windowsHide: true, encoding: 'utf8', timeout: 30000 });
     assert.ok(events.filter(e => e.type === 'sandbox/mode').every(e => e.data.mode === 'workspace-write'), 'Document creation must not widen the conversation sandbox');
-    writeFileSync(path.join(run, 'result.json'), JSON.stringify({ passed: true, stableRuntime: '0.1.5-rc.1', turns: 2, liveCloudCalls: 0, sandbox: 'workspace-write', verification: verification.trim(), project: workspace }, null, 2));
+    writeFileSync(path.join(run, 'result.json'), JSON.stringify({ passed: true, runtime: '0.2.1-rc.2', turns: 2, liveCloudCalls: 0, sandbox: 'workspace-write', verification: verification.trim(), project: workspace }, null, 2));
     console.log('Document conversation evidence:', run);
   } finally {
     writeFileSync(path.join(run, 'runtime.log'), logs.replaceAll(/\?token=[A-Za-z0-9._-]+/g, '?token=[local-test]'));

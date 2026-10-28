@@ -50,6 +50,20 @@ export function patchApprovalSource(source) {
   return once(source, 'const en = {', 'const en = {\n\t\t\t"approval.detailUnavailable": "Details for this operation are not available yet. Review the approval description before deciding.",');
 }
 
+export function patchApprovalPanelSource(source) {
+  // 0.2 resolves localized displayReason before rendering; preserve that result.
+  const reason = source.includes('function ApprovalFlow({ pending, reason, detail, t })') ? 'reason' : 'pending.reason';
+  const before = `${reason} ?? t("escalation", { toolName: pending.toolName })`;
+  const after = `/*OMAAX_APPROVAL_REASON_V1*/ ${reason}?.trim() || t("escalation", { toolName: pending.toolName })`;
+  if (source.includes('OMAAX_APPROVAL_REASON_V1')) {
+    if (source.split(after).length !== 2 || source.split('OMAAX_APPROVAL_REASON_V1').length !== 2) {
+      throw new Error('DSH patched approval reason changed');
+    }
+    return source;
+  }
+  return once(source, before, after);
+}
+
 export function patchApproval(runtimeDir = path.join(root, 'dsh-runtime')) {
   const bases = ['node_modules/@deepseek-ai', 'node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai']
     .map(p => path.join(runtimeDir, p)).filter(p => existsSync(path.join(p, 'dsh-client-ui-chat/lib/client.js')));
@@ -59,11 +73,7 @@ export function patchApproval(runtimeDir = path.join(root, 'dsh-runtime')) {
     const chatFile = path.join(base, 'dsh-client-ui-chat/lib/client.js');
     const panelFile = path.join(base, 'dsh-client-ui-approval/lib/client.js');
     const chat = patchApprovalSource(readFileSync(chatFile, 'utf8'));
-    let panel = readFileSync(panelFile, 'utf8');
-    if (!panel.includes('OMAAX_APPROVAL_REASON_V1')) {
-      panel = once(panel, 'pending.reason ?? t("escalation", { toolName: pending.toolName })',
-        '/*OMAAX_APPROVAL_REASON_V1*/ pending.reason?.trim() || t("escalation", { toolName: pending.toolName })');
-    }
+    const panel = patchApprovalPanelSource(readFileSync(panelFile, 'utf8'));
     writeFileSync(chatFile, chat);
     writeFileSync(panelFile, panel);
     files.push(chatFile, panelFile);

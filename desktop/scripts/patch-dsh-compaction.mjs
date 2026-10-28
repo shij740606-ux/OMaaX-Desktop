@@ -158,6 +158,10 @@ export function patchCompaction(runtimeDir = path.join(root, 'dsh-runtime')) {
       if (source.split(budgetAnchor).length !== 2) throw new Error('DSH checkpoint continuation budget anchor changed');
       source = source.replace(budgetAnchor, budgetCheck + budgetAnchor);
     }
+    if (JSON.parse(readFileSync(path.resolve(file, '../../package.json'), 'utf8')).version.startsWith('0.2.')) {
+      source = source.replaceAll('kind: "plugin", plugin: "omaax-compaction-transport"', 'kind: "omaax-compaction-transport"')
+        .replaceAll('kind: "plugin", plugin: "omaax-compaction-continuation"', 'kind: "omaax-compaction-continuation"');
+    }
     writeFileSync(file, source);
   }
   return files;

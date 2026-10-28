@@ -98,7 +98,7 @@ test('workflow and account guards allow research but retain execution and deleti
  const {agent,guard}=bound(),account=accountGuard(()=>({ok:true}));
  for(const name of ['read','grep','glob','read_image','web_fetch','web_search','skill','ask_user_question','pwsh','bash','write','edit','job_list','job_output','job_kill','todo_write','present','omaax_local_delete']){
   const exec={agent,name,arguments:{}};assert.equal(guard(exec),undefined);assert.equal(account(exec),undefined);
-  assert.match(accountGuard(()=>({ok:false}))(exec),/账号未登录/);
+  assert.match(accountGuard(()=>({ok:false,error:{code:'auth_session_expired'}}))(exec),/账号未登录/);
  }
  for(const name of ['mcp__biodsh_ssh__server_delete_confirm','mcp__biodsh_ssh__server_write_confirm']){
   const exec={agent,name,arguments:{}};assert.ok(guard(exec));assert.ok(account(exec));

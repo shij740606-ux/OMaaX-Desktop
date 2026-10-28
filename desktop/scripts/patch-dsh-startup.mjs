@@ -22,7 +22,11 @@ export function patchStartupSource(source){
   const matches=[...source.matchAll(/this\.wordmark=([\w$]+)\(([\w$]+)\.wordmark,"HARNESS"\)/g)];
   if(matches.length!==1)throw Error('Startup patch boot wordmark anchor changed');
   const [,element,styles]=matches[0];
-  const original=`render(){const t=[...this.states].filter(([,i])=>i==="failed").map(([i])=>i);if(this.failure===void 0&&t.length===0){this.spinner.parentElement!==this.card&&this.card.replaceChildren(this.wordmark,this.spinner,this.hint);return}const r=${element}(${styles}.failed);r.append(${element}(${styles}.failedTitle,"Failed to load plugins"));for(const i of t)r.append(${element}(${styles}.failedItem,i));this.failure!==void 0&&r.append(${element}(${styles}.failedItem,this.failure)),this.card.replaceChildren(this.wordmark,r)}`;
+  // The two pinned runtimes have the same boot UI with different minifier names.
+  const originals=[['t','i','r'],['e','r','t']].map(([failed,item,panel])=>`render(){const ${failed}=[...this.states].filter(([,${item}])=>${item}==="failed").map(([${item}])=>${item});if(this.failure===void 0&&${failed}.length===0){this.spinner.parentElement!==this.card&&this.card.replaceChildren(this.wordmark,this.spinner,this.hint);return}const ${panel}=${element}(${styles}.failed);${panel}.append(${element}(${styles}.failedTitle,"Failed to load plugins"));for(const ${item} of ${failed})${panel}.append(${element}(${styles}.failedItem,${item}));this.failure!==void 0&&${panel}.append(${element}(${styles}.failedItem,this.failure)),this.card.replaceChildren(this.wordmark,${panel})}`);
+  const matched=originals.filter(original=>source.includes(original));
+  if(matched.length!==1)throw Error('Startup patch render anchor changed');
+  const original=matched[0];
   const replacement=`render(){${marker}
     const failed=[...this.states].filter(([,state])=>state==="failed").map(([id])=>id);
     if(this.failure===void 0&&failed.length===0){
@@ -91,8 +95,12 @@ export function verifyDshStartup(runtimeDir=path.join(root,'dsh-runtime')){
   if(!code.includes(marker)||patchStartupSource(code)!==code)throw Error('OMaaX startup UI patch missing');
   const loaders=['node_modules/@deepseek-ai/dsh-client-modules/lib/client.js','node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-modules/lib/client.js'].map(f=>path.join(runtimeDir,f)).filter(existsSync);
   if(!loaders.length||loaders.some(f=>!readFileSync(f,'utf8').includes('/*OMAAX_BUNDLE_RETRY_V1*/')))throw Error('Startup resource retry missing');
-  const layout=readFileSync(path.join(runtimeDir,'node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js'),'utf8');
-  if(!layout.includes('/*OMAAX_WINDOW_TITLE_V1*/')||patchLayoutTitle(layout)!==layout)throw Error('Runtime window title missing');
+  const layouts=['node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js','node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js'].map(f=>path.join(runtimeDir,f)).filter(existsSync);
+  if(!layouts.length)throw Error('Runtime window title missing');
+  for(const file of layouts){
+    const layout=readFileSync(file,'utf8');
+    if(!layout.includes('/*OMAAX_WINDOW_TITLE_V1*/')||patchLayoutTitle(layout)!==layout)throw Error('Runtime window title missing');
+  }
 }
 
 export function patchDshStartup(runtimeDir=path.join(root,'dsh-runtime')){

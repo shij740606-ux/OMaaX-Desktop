@@ -91,7 +91,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return off;
   }, [refresh]);
 
-  const updateSettings = async (p: Partial<AppSettings>) => setSettings(await api.setSettings(p));
+  const updateSettings = async (p: Partial<AppSettings>) => {
+    try { setSettings(await api.setSettings(p)); }
+    catch (error) {
+      // The native host may have saved the preference before live chat synchronization failed.
+      try { setSettings(await api.getSettings()); } catch { /* Keep the last known settings if reading also fails. */ }
+      throw error;
+    }
+  };
   const platformLogin = async (username: string, password: string) => {
     const session = await api.platformLogin(username, password);
     setPlatform(session);

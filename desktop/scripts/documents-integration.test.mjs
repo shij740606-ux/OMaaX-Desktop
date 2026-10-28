@@ -35,8 +35,8 @@ async function profile(callback) {
   }
 }
 
-test('53 stable Harness discovers and loads document skill for a fresh account', async () => {
-  assert.equal(JSON.parse(await readFile(path.join(runtime, 'package.json'), 'utf8')).version, '0.1.5-rc.1');
+test('bundled runtime discovers and loads document skill for a fresh account', async () => {
+  assert.equal(JSON.parse(await readFile(path.join(runtime, 'package.json'), 'utf8')).version, '0.2.1-rc.2');
   await profile(async ({ provider, workspace, warnings }) => {
     const candidates = await provider.list({ cwd: workspace });
     assert.ok(Array.isArray(candidates));

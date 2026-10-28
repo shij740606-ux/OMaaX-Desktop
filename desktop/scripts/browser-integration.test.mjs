@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, mkdir, symlink, readdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { outputDirectory, inside, validateOutput } from '../resources/browser/index.mjs';
@@ -9,10 +10,12 @@ import { launchArguments, browserExecutable } from '../resources/browser/launche
 
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = await mkdtemp(path.join(desktop, '../validation-local/browser-'));
-const modules = process.env.OMAAX_BROWSER_TEST_DSH_MODULES || path.join(desktop, 'dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules');
+const runtimeRequire = createRequire(path.join(desktop, 'dsh-runtime/node_modules/@deepseek-ai/dsh/package.json'));
+const modules = process.env.OMAAX_BROWSER_TEST_DSH_MODULES || path.resolve(path.dirname(runtimeRequire.resolve('@deepseek-ai/dsh-tools')), '../../..');
 process.env.OMAAX_DSH_MODULES = modules;
 process.env.OMAAX_BROWSER_HOME = path.join(root, 'audit');
-const load = name => import(pathToFileURL(path.join(modules, '@deepseek-ai', name, 'lib/index.js')).href);
+const selectedRequire = createRequire(path.join(modules, 'omaax-test-runtime.cjs'));
+const load = name => import(pathToFileURL(selectedRequire.resolve('@deepseek-ai/' + name)).href);
 
 test('launch uses system browser, isolated state and no personal browser attachment', () => {
   const args = launchArguments(root, true);
@@ -33,7 +36,7 @@ test('project output rejects a linked results folder', async () => {
   assert.deepEqual(await readdir(outside), []);
 });
 
-test('stable DSH discovers and runs official browser tools with isolated sessions', { timeout: 120000 }, async () => {
+test('bundled DSH discovers and runs official browser tools with isolated sessions', { timeout: 120000 }, async () => {
   const [{ Context, Service }, { default: SystemPrompt }, { default: Tools }, { createScope, bindScopeParent }] = await Promise.all([
     load('cordis'), load('dsh-system-prompt'), load('dsh-tools'), load('dsh-scope'),
   ]);

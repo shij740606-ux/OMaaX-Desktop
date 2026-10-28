@@ -82,3 +82,28 @@ test('native conversation summaries and legacy handoff notices change language w
   final.remove();tail.remove();const running=new Element();running.setAttribute('data-state','running');h.body.append(running);h.send({language:'en'});assert.equal(column.querySelector('.biodsh-txt').textContent,'OMaaX is working. Please wait…');assert.equal(column.querySelector('.biodsh-n').textContent,'2 steps');
   const original='用户在服务器管理中选择了以下 SSH 服务器：测试主机 mcp__biodsh_ssh__list_servers';user.textContent=original;h.send({language:'zh'});assert.equal(column.querySelector('.omaax-handoff').textContent,'已选择服务器，请查看可用资源并协助后续分析。');h.send({language:'en'});assert.equal(column.querySelector('.omaax-handoff').textContent,'Server selected. Check available resources and continue the analysis.');assert.equal(user.textContent,original);assert.equal(think.textContent,'研究推理内容');assert.equal(tool.textContent,'输入数据.csv');
 });
+
+test('slot-wrapped and grouped history keeps the newer client in charge of disclosures',()=>{
+  const source=read('lib.rs').match(/const DSH_INIT_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1];
+  const h=fixture(source),frame=new Element(),column=new Element(),slot=new Element(),group=new Element();
+  frame.className='real_frame';frame.style.gridTemplateColumns='264px 1fr';column.className='real_column';column.setAttribute('data-chat-flow','');slot.setAttribute('data-slot','conversation.chat.flow');group.setAttribute('data-chat-group-key','historical-turn');
+  frame.append(column);column.append(slot);slot.append(group);h.body.append(frame);
+  const item=(kind,text)=>{const el=new Element();el.setAttribute('data-chat-flow-kind',kind);el.textContent=text;group.append(el);return el;};
+  const user=item('user','研究问题'),process=item('turn-process','上游折叠按钮'),think=item('assistant-step','分析过程'),tool=item('tool-call','读取文件'),answer=item('assistant-step',''),tail=item('turn-tail','');
+  think.setAttribute('data-turn-process-member','true');think.setAttribute('data-turn-process-hidden','true');
+  for(const el of [think,tool,answer]){el.setAttribute('data-biodsh-hidden','1');el.setAttribute('data-biodsh-mid','1');}
+  answer.setAttribute('data-biodsh-open','0');
+  const md=new Element();md.className='_markdown_1ypvv_5';md.textContent='最终科研回答';answer.append(md);
+  const oldSummary=new Element();oldSummary.className='biodsh-sum';column.append(oldSummary);
+  h.start();h.flush();
+  assert.equal(column.querySelector('.biodsh-sum'),null);
+  for(const el of [think,tool,answer])assert.equal(el.getAttribute('data-biodsh-hidden'),null);
+  assert.equal(think.getAttribute('data-turn-process-hidden'),'true');
+  assert.equal(answer.getAttribute('data-biodsh-open'),null);
+  assert.equal(answer.getAttribute('data-biodsh-final'),'1');
+  assert.equal(md.textContent,'最终科研回答');assert.equal(process.textContent,'上游折叠按钮');
+  h.send({language:'zh'});assert.equal(user.textContent,'研究问题');assert.equal(column.querySelector('.biodsh-sum'),null);
+  const legacy='用户在服务器管理中选择了以下 SSH 服务器：测试主机 mcp__biodsh_ssh__list_servers';
+  user.textContent=legacy;h.send({language:'en'});assert.match(group.querySelector('.omaax-handoff').textContent,/Server selected/);
+  h.send({language:'zh'});assert.match(group.querySelector('.omaax-handoff').textContent,/已选择服务器/);assert.equal(user.textContent,legacy);
+});

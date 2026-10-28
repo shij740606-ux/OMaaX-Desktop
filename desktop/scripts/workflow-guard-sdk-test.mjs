@@ -15,7 +15,8 @@ const moduleFile=name=>runtimeRequire.resolve('@deepseek-ai/'+name);
 const fixture=path.join(home,'probe.mjs');
 writeFileSync(fixture,[
  "import {defineContentToolFixture} from "+JSON.stringify(pathToFileURL(moduleFile('dsh-tools')).href)+";",
- "import {readFileSync,writeFileSync,existsSync} from 'node:fs';",
+ "import {readFileSync,writeFileSync,existsSync,mkdirSync} from 'node:fs';",
+ "import {randomUUID} from 'node:crypto';",
  "import path from 'node:path';",
  "import {renderPrompt} from "+JSON.stringify(pathToFileURL(moduleFile('dsh-system-prompt')).href)+";",
  "import {agentEvents} from "+JSON.stringify(pathToFileURL(moduleFile('dsh-agent')).href)+";",
@@ -46,10 +47,16 @@ writeFileSync(fixture,[
  "   const environmentTools={};for(const name of ['execute','server_environment','workflow_resume','workflow_readiness','workflow_prepare','workflow_prepare_status','workflow_environment','server_delete_confirm','protected_path_remove'])environmentTools[name]=await run('mcp__biodsh_ssh__'+name);",
  "   const prompt=renderPrompt(await ctx.systemPrompt.assemble({agent,scope:agent}));",
  "   const denied=await run('workflow_probe_forbidden');const allowed=await run('mcp__biodsh_ssh__workflow_catalog');",
- "   let authenticated=true;ctx.tools.guard(createGuard(()=>({ok:authenticated})));",
+ "   let authenticated=true;ctx.tools.guard(createGuard(()=>({ok:authenticated,...authenticated?{}:{error:{code:'auth_session_expired'}}})));",
  "   const authAllowed=await run('mcp__biodsh_ssh__workflow_prepare');const research={};for(const [name,args] of [['read',{file_path:path.join(dir,'workspace','environment-guide.txt')}],['grep',{pattern:'ENV_REPAIR_PROBE',path:path.join(dir,'workspace')}],['glob',{pattern:'*.txt',path:path.join(dir,'workspace')}]])research[name]=await run(name,args);authenticated=false;const deniedRead=await run('read',{file_path:path.join(dir,'workspace','environment-guide.txt')});const authDenied=await run('mcp__biodsh_ssh__workflow_prepare');",
  "   const budgetFile=path.join(dir,'workflow-bindings','budget-'+sessionId+'.json');const savedBudget=JSON.parse(readFileSync(budgetFile,'utf8'));writeFileSync(budgetFile,JSON.stringify({...savedBudget,tokens:200000}));const budgetStopped=await preStep();",
- "   writeFileSync(path.join(dir,'result.json'),JSON.stringify({ordinary,denied,allowed,provenance,sessionId,before,after:bodies,selection,beforePrompt,prompt,ordinaryBudget,workflowBudget,environmentTools,authAllowed,authDenied,budgetStopped,research,deniedRead}));",
+ "   const researchDir=path.join(dir,'workflow-bindings','research-handoffs',sessionId);mkdirSync(researchDir,{recursive:true});",
+ "   const admit=(summary,context)=>{const requestId=randomUUID(),message={content:[{type:'text',text:summary}],source:{kind:'user',rpcId:requestId}};if(context)writeFileSync(path.join(researchDir,requestId+'.json'),JSON.stringify({schema:1,sessionId,requestId,summary,context}));agent.session.append('user/message',message,{surfaceOp:'append'});agentEvents(ctx,agent).emit('agent/inbox/claimed',{message});};",
+ "   const researchPrompt=async()=>renderPrompt(await ctx.systemPrompt.assemble({agent,scope:agent}));",
+ "   admit('Rice research task','RICE_EVIDENCE {{literal}}');const riceBoundary=await preStep(),ricePrompt=await researchPrompt();const continuedBoundary=await preStep();",
+ "   admit('Apple research task','APPLE_EVIDENCE');const appleBoundary=await preStep(),applePrompt=await researchPrompt();",
+ "   admit('Ordinary next task');const clearedBoundary=await preStep(),clearedPrompt=await researchPrompt();",
+ "   writeFileSync(path.join(dir,'result.json'),JSON.stringify({ordinary,denied,allowed,provenance,sessionId,before,after:bodies,selection,beforePrompt,prompt,ordinaryBudget,workflowBudget,environmentTools,authAllowed,authDenied,budgetStopped,research,deniedRead,researchContext:{riceBoundary,ricePrompt,continuedBoundary,appleBoundary,applePrompt,clearedBoundary,clearedPrompt}}));",
  "  } catch(e){writeFileSync(path.join(dir,'result.json'),JSON.stringify({error:String(e)}));}",
  " },100);",
  " ctx.effect(()=>()=>clearInterval(timer));",
@@ -106,6 +113,18 @@ try {
  assert.ok(result.prompt.includes('workflow_catalog')&&result.prompt.includes('workflow_plan'));
  assert.ok(result.prompt.includes('host:direct')&&result.prompt.includes('server_environment action=execute')&&result.prompt.includes('read、grep、glob'));
  assert.ok(!result.prompt.includes('脚本只能写 /output'));
+ const context=result.researchContext;
+ assert.equal(context.riceBoundary.startsRequestSeries,true);
+ assert.notEqual(context.continuedBoundary.startsRequestSeries,true);
+ assert.match(context.ricePrompt,/RICE_EVIDENCE \{\{literal\}\}/);
+ assert.equal(context.appleBoundary.startsRequestSeries,true);
+ assert.match(context.applePrompt,/APPLE_EVIDENCE/);
+ assert.doesNotMatch(context.applePrompt,/RICE_EVIDENCE/);
+ assert.match(context.applePrompt,/Rice research task/);
+ assert.equal(context.clearedBoundary.startsRequestSeries,true);
+ assert.doesNotMatch(context.clearedPrompt,/<research-task-data>|APPLE_EVIDENCE|RICE_EVIDENCE/);
+ assert.match(context.clearedPrompt,/Rice research task/);
+ assert.match(context.clearedPrompt,/Apple research task/);
  writeFileSync(path.join(base,'latest.json'),JSON.stringify({home,sdkGuardVerified:true,result},null,2));
  console.log(JSON.stringify({sdkGuardVerified:true,bodiesBefore:result.before,bodiesAfter:result.after,home}));
 } finally {child.kill();}

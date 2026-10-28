@@ -106,8 +106,35 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
   const isThink = (el) => !!el.querySelector('[data-variant="think"]');
   const hasMd = (el) => !!el.querySelector('[class*="_markdown_"]');
   const regroup = () => {
-    const col = document.querySelector('[class*="_column"]'); if (!col) return;
-    const items = Array.from(col.children).filter((c) => c.hasAttribute('data-chat-flow-kind'));
+    const col = document.querySelector('[data-chat-flow], [class*="_column"]'); if (!col) return;
+    const nativeFlow = Array.from(col.children).find(c => c.getAttribute('data-slot') === 'conversation.chat.flow');
+    // The newer client owns its process disclosures, including grouped history.
+    // Do not add a second set of hidden flags that its expand control cannot undo.
+    const items = nativeFlow ? Array.from(nativeFlow.querySelectorAll('[data-chat-flow-kind]')) : Array.from(col.children).filter(c => c.hasAttribute('data-chat-flow-kind'));
+    for (const el of items) {
+      if (KIND(el) !== 'user') continue;
+      const legacy = (el.textContent || '').trim().startsWith('用户在服务器管理中选择了以下 SSH 服务器：') && (el.textContent || '').includes('mcp__biodsh_ssh__list_servers');
+      if (legacy) {
+        el.setAttribute('data-omaax-internal-handoff','1');
+        if (!el.previousElementSibling?.classList.contains('omaax-handoff')) {
+          const note=document.createElement('div');note.className='omaax-handoff';el.before(note);
+        }
+        const handoff = isEnglish() ? 'Server selected. Check available resources and continue the analysis.' : '已选择服务器，请查看可用资源并协助后续分析。';
+        if (el.previousElementSibling.textContent !== handoff) el.previousElementSibling.textContent = handoff;
+      } else {
+        el.removeAttribute('data-omaax-internal-handoff');
+        if(el.previousElementSibling?.classList.contains('omaax-handoff'))el.previousElementSibling.remove();
+      }
+    }
+    col.querySelectorAll('.omaax-handoff').forEach(note=>{if(!note.nextElementSibling?.hasAttribute('data-omaax-internal-handoff'))note.remove();});
+    if (nativeFlow) {
+      col.querySelectorAll('.biodsh-sum').forEach(el => el.remove());
+      for (const el of items) {
+        for (const name of ['hidden','mid','open','final']) el.removeAttribute('data-biodsh-' + name);
+        if (KIND(el) === 'assistant-step' && hasMd(el)) el.setAttribute('data-biodsh-final', '1');
+      }
+      return;
+    }
     const running = !!document.querySelector('[data-streaming="true"], [data-state="running"]');
     let turnKey = null, run = [];
     const flush = (ended, i) => {
@@ -145,26 +172,12 @@ const DSH_INIT_SCRIPT: &str = r#"(() => {
     for (let i = 0; i < items.length; i++) {
       const el = items[i], k = KIND(el);
       if (k === 'user') {
-        // Hide only the application's known legacy handoff, preserving stored conversation data.
-        const legacy = (el.textContent || '').trim().startsWith('用户在服务器管理中选择了以下 SSH 服务器：') && (el.textContent || '').includes('mcp__biodsh_ssh__list_servers');
-        if (legacy) {
-          el.setAttribute('data-omaax-internal-handoff','1');
-          if (!el.previousElementSibling?.classList.contains('omaax-handoff')) {
-            const note=document.createElement('div');note.className='omaax-handoff';el.before(note);
-          }
-          const handoff = isEnglish() ? 'Server selected. Check available resources and continue the analysis.' : '已选择服务器，请查看可用资源并协助后续分析。';
-          if (el.previousElementSibling.textContent !== handoff) el.previousElementSibling.textContent = handoff;
-        } else {
-          el.removeAttribute('data-omaax-internal-handoff');
-          if(el.previousElementSibling?.classList.contains('omaax-handoff'))el.previousElementSibling.remove();
-        }
         flush(true, i); turnKey = el.getAttribute('data-chat-flow-key') || String(i); run = []; el.removeAttribute('data-biodsh-hidden'); continue;
       }
       if (k === 'context') continue;
       if (k === 'turn-tail') { flush(true, i); turnKey = null; run = []; continue; }
       if (k === 'assistant-step' || k === 'tool-call') { if (turnKey) run.push(el); continue; }
     }
-    col.querySelectorAll('.omaax-handoff').forEach(note=>{if(!note.nextElementSibling?.hasAttribute('data-omaax-internal-handoff'))note.remove();});
     flush(false, items.length); // 还在进行中的一轮：全部当中间过程，摘要显示“正在…”
   };
   // ---- 正文里提到的图片文件（`outputs/x.png`、C:\...\y.jpg）→ 自动插入缩略图（智能体按人设会自己用 ![]() 内嵌；这是兜底）
@@ -294,13 +307,20 @@ fn app_info(app: AppHandle, state: State<'_, AppState>) -> serde_json::Value {
 #[tauri::command]
 fn settings_get(state: State<'_, AppState>) -> AppSettings { state.settings.lock().unwrap().clone() }
 #[tauri::command]
-fn settings_set(app: AppHandle, state: State<'_, AppState>, patch: serde_json::Value) -> Result<AppSettings,String> {
+async fn settings_set(state: State<'_, AppState>, patch: serde_json::Value) -> Result<AppSettings,String> {
     if let Some(w)=patch["workspace"].as_str() { files::validate_local_path(w)?; }
     if patch["remoteDshUrl"].as_str().is_some_and(|v|!v.is_empty()) {return Err("此连接方式暂不可用，请使用对话模型设置或添加分析服务器".into());}
     if let Some(value)=patch.get("mcpServers") {
         let list:Vec<settings::McpServer>=serde_json::from_value(value.clone()).map_err(|_|"工具连接格式无效")?;
         settings::validate_mcp(&list)?;
     }
+    for key in ["theme", "language"] {
+        if let Some(value) = patch.get(key) {
+            let allowed = if key == "theme" { ["light", "dark", "system"] } else { ["zh", "en", "system"] };
+            if !value.as_str().is_some_and(|v| allowed.contains(&v)) { return Err("界面偏好设置无效".into()); }
+        }
+    }
+    let (out, theme_changed, lang_changed) = {
     let mut s = state.settings.lock().unwrap();
     if let Some(b) = patch.get("useChinaMirror").and_then(|x| x.as_bool()) { s.use_china_mirror = b; }
     if let Some(w) = patch.get("workspace").and_then(|x| x.as_str()) { s.workspace = w.into(); }
@@ -325,16 +345,31 @@ fn settings_set(app: AppHandle, state: State<'_, AppState>, patch: serde_json::V
     if let Some(arr) = patch.get("mcpServers") { if let Ok(list) = serde_json::from_value::<Vec<settings::McpServer>>(arr.clone()) { s.mcp_servers = list; } }
     if let Some(b) = patch.get("demosSeeded").and_then(|x| x.as_bool()) { s.demos_seeded = b; }
     let mut lang_changed = None;
-    if let Some(l) = patch.get("language").and_then(|x| x.as_str()) { if s.language != l { lang_changed = Some(l.to_string()); } s.language = l.into(); }
+    if let Some(l) = patch.get("language").and_then(|x| x.as_str()) { lang_changed = Some(l.to_string()); s.language = l.into(); }
     let mut theme_changed = None;
-    if let Some(t) = patch.get("theme").and_then(|x| x.as_str()) { if s.theme != t { theme_changed = Some(t.to_string()); } s.theme = t.into(); }
+    if let Some(t) = patch.get("theme").and_then(|x| x.as_str()) { theme_changed = Some(t.to_string()); s.theme = t.into(); }
     s.save(&state.paths);
-    let out = s.clone();
-    drop(s);
+    (s.clone(), theme_changed, lang_changed)
+    };
     if let Some(l) = lang_changed.as_deref() { dsh::set_locale(&state.paths, l); }
     if theme_changed.is_some() || lang_changed.is_some() {
         if let Some(t) = theme_changed.as_deref() { dsh::set_theme(&state.paths, t); }
-        if let Some(v) = app.get_webview("dsh") { let _ = v.eval("location.reload()"); }
+        let running_url = {
+            let status = state.dsh.status.lock().unwrap();
+            if status.state == "running" { status.url.clone() } else { None }
+        };
+        if let Some(url) = running_url {
+            // The new runtime imports YAML only at startup; live preferences use its settings RPC.
+            tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+                for (ns, preference) in [("ui-theme", theme_changed), ("locale", lang_changed.map(|l| dsh::ui_language(&l).to_string()))] {
+                    if let Some(value) = preference {
+                        dsh_rpc_args(&url, "settings/update", serde_json::json!({ "ns": ns, "patch": { "preference": value } }))
+                            .map_err(|_| "设置已保存，但对话界面暂未同步，请重启智能体后重试".to_string())?;
+                    }
+                }
+                Ok(())
+            }).await.map_err(|_| "设置已保存，请重启智能体以应用界面偏好".to_string())??;
+        }
     }
     Ok(out)
 }
@@ -771,7 +806,10 @@ fn auth_cookie(full_url: &str, force: bool) -> Option<String> {
 /// 调 dsh 的 HTTP RPC：POST /api/<method>，信封 {type:'client-request', rpcId, method, payload}
 /// dsh 0.1.2 原生 RPC：POST /api/<endpoint>，信封 payload={args:{<wire>: args}}，带浏览器会话 cookie。
 fn dsh_raw(url: &str, endpoint: &str, wire: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
-    let payload = serde_json::json!({ "args": { wire: args } });
+    dsh_rpc_args(url, endpoint, serde_json::json!({ wire: args }))
+}
+fn dsh_rpc_args(url: &str, endpoint: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
+    let payload = serde_json::json!({ "args": args });
     let body = serde_json::json!({ "type": "client-request", "rpcId": uuid::Uuid::new_v4().to_string(), "method": endpoint, "payload": payload });
     let ep = format!("{}/api/{}", origin_of(url), endpoint);
     let post = |cookie: Option<String>| {
@@ -788,6 +826,9 @@ fn dsh_raw(url: &str, endpoint: &str, wire: &str, args: serde_json::Value) -> Re
     if result.get("ok").and_then(|x| x.as_bool()) == Some(true) { Ok(result.get("value").cloned().unwrap_or(serde_json::Value::Null)) }
     else { Err(result.get("error").map(|e| e.to_string()).unwrap_or_else(|| "rpc failed".into())) }
 }
+#[cfg(test)]
+#[path = "rpc_tests.rs"]
+mod rpc_tests;
 /// 兼容层：把 app 旧的 RPC 方法名/数据模型翻译到 dsh 0.1.2 新协议（0.1.2 去掉了 workspace，改成会话+cwd）。
 /// 见记忆 dsh-012-rpc-protocol。renderer 完全不用改。
 fn dsh_call(url: &str, method: &str, payload: serde_json::Value) -> Result<serde_json::Value, String> {

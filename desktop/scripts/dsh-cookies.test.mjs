@@ -1,14 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import net from 'node:net';
+import http from 'node:http';
 import vm from 'node:vm';
 import { patchCookieCleanupSource, cookieCleanupSource } from './patch-dsh-cookies.mjs';
 
-const source = await readFile(new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js', import.meta.url), 'utf8');
+const runtimePaths = ['../dsh-runtime/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js','../dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js'].map(file=>new URL(file,import.meta.url));
+const source = await readFile(runtimePaths.find(existsSync), 'utf8');
 const patched = patchCookieCleanupSource(source);
+const protocolScoped = source.includes('authorizeIndex(req, res, secure = false) {');
 const secret = Buffer.alloc(32, 7);
 
 function fixture(connect = net.connect) {
@@ -21,9 +29,9 @@ function fixture(connect = net.connect) {
   return context.authTest;
 }
 
-function cookie(api, authority, name = api.cookieName(authority)) {
+function cookie(api, authority, name = api.cookieName(authority), version = 1) {
   const issuedAt = Date.now() - 1000;
-  return `${name}=${api.encodeCookie({ version: 1, authority, issuedAt, expiresAt: issuedAt + 86400000 }, secret)}`;
+  return `${name}=${api.encodeCookie({ version, authority, ...(version === 2 ? {id:'test-api-operator'} : {}), issuedAt, expiresAt: issuedAt + 86400000 }, secret)}`;
 }
 function threshold(entries, total = 32) {
   return [...entries, ...Array.from({ length: Math.max(0, total - entries.length) }, (_, i) => `dsh-auth-unrelated-${i}=malformed`)].join('; ');
@@ -137,7 +145,7 @@ test('valid launch-token exchange stays synchronous false and responds after saf
   assert.equal(res.writableEnded, false);
   await res.completed;
   assert.equal(res.status, 303);
-  assert.equal(res.headers.location, '/');
+  assert.equal(res.headers.location, protocolScoped ? './' : '/');
   assert.equal(res.headers['cache-control'], 'no-store');
   assert.equal(res.headers['set-cookie'].length, 2);
   assert.ok(res.headers['set-cookie'][0].startsWith(expiredName + '=; Max-Age=0;'));
@@ -170,4 +178,130 @@ test('valid current cookie and invalid launch query keep the existing authentica
   assert.equal(res.status, 303);
   assert.equal(res.headers['set-cookie'], undefined);
   assert.equal(calls.length, 0);
+});
+
+test('protocol-scoped contracts cannot be dropped to make the cookie patch apply', {skip: !protocolScoped}, () => {
+  for (const contract of ['return secure ? url.origin : url.host;',
+    'return secure ? `${attributes}; Secure` : attributes;',
+    'return this.authenticate(request, secure)?.version === COOKIE_PAYLOAD_VERSION;',
+    'return payload?.version === 2 ? payload.id : void 0;']) {
+    assert.throws(()=>patchCookieCleanupSource(source.replace(contract, 'return true;')), /authentication contract changed/);
+  }
+});
+
+test('TLS exchange keeps Secure cookies, relative redirects and protocol binding without cleanup', {skip: !protocolScoped}, async () => {
+  const calls=[],api=fixture(fakeProbe(calls)),auth=new api.BrowserAuth({},secret,30);
+  const host='127.0.0.1:30443',authority='https://'+host;
+  const res=response();
+  assert.equal(auth.authorizeIndex({method:'GET',url:'/?token='+auth.launchToken,
+    headers:{host,cookie:threshold([cookie(api,'127.0.0.1:30001')])}},res,true),false);
+  await res.completed;
+  assert.equal(res.status,303);assert.equal(res.headers.location,'./');
+  assert.equal(res.headers['set-cookie'].length,1);
+  const current=res.headers['set-cookie'][0];
+  assert.ok(current.startsWith(api.cookieName(authority)+'=v1.'));
+  assert.match(current,/; HttpOnly; SameSite=Strict; Secure$/);
+  const headers={host,cookie:current.split(';')[0]};
+  assert.equal(auth.isAuthenticated({headers},true),true);
+  assert.equal(auth.isAuthenticated({headers},false),false);
+  assert.equal(auth.isAuthenticated({headers:{host,cookie:cookie(api,host)}},true),false);
+  assert.equal(calls.length,0);
+});
+
+test('v2 API operators and TLS audiences are never cleanup candidates', {skip: !protocolScoped}, async () => {
+  const calls=[],api=fixture(fakeProbe(calls));
+  const apiAuthority='127.0.0.1:30001',tlsAuthority='https://127.0.0.1:30443';
+  const result=await api.omaaxExpiredLocalCookies(threshold([
+    cookie(api,apiAuthority,api.cookieName(apiAuthority),2),cookie(api,tlsAuthority),
+  ]),api.cookieName('127.0.0.1:30000'));
+  assert.equal(result.length,0);assert.equal(calls.length,0);
+});
+
+test('connect preserves independent API operators, interaction validation and browser separation', {skip: !protocolScoped}, async () => {
+  const calls=[],api=fixture(fakeProbe(calls)),auth=new api.BrowserAuth({},secret,30);
+  for(const secure of [false,true]){
+    const host='127.0.0.1:30000',published=[],res=response();
+    auth.authorizeConnect({method:'GET',url:'/connect?token='+auth.launchToken+'&interactions=answer',
+      headers:{host,cookie:threshold([cookie(api,'127.0.0.1:30001')])}},res,secure,interaction=>{published.push(interaction);return 'operator-1';});
+    await res.completed;
+    assert.equal(res.status,302);assert.equal(res.headers.location,'./api/remote.mux');
+    assert.deepEqual(published,['answer']);
+    const value=res.headers['set-cookie'];assert.equal(typeof value,'string');
+    assert.equal(value.endsWith('; Secure'),secure);assert.ok(value.includes('=v2.'));
+    const headers={host,cookie:value.split(';')[0]};
+    assert.equal(auth.authenticateApi({headers},secure),'operator-1');
+    assert.equal(auth.isAuthenticated({headers},secure),false);
+    assert.equal(auth.authenticateApi({headers:{host,cookie:cookie(api,secure?'https://'+host:host)}},secure),undefined);
+  }
+  for(const [url,status] of [['/connect?token=invalid',401],
+    ['/connect?token='+auth.launchToken+'&interactions=answer&interactions=none',400],
+    ['/connect?token='+auth.launchToken+'&interactions=invalid',400]]){
+    const res=response();
+    auth.authorizeConnect({method:'GET',url,headers:{host:'127.0.0.1:30000'}},res,false,()=>{throw Error('Invalid requests must not publish an operator');});
+    await res.completed;assert.equal(res.status,status);assert.equal(res.headers['set-cookie'],undefined);
+  }
+  assert.equal(calls.length,0);
+});
+
+test('actual browser authentication code works across a real HTTP exchange after cleanup', {timeout:10000}, async t => {
+  const api=fixture(),auth=new api.BrowserAuth({},secret,30),dead=await closedPort();
+  const server=http.createServer((req,res)=>{if(auth.authorizeIndex(req,res)){res.writeHead(200);res.end('authenticated');}});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const port=server.address().port,authority=`127.0.0.1:${port}`;
+  const request=(url,cookies)=>new Promise((resolve,reject)=>{
+    const req=http.get({host:'127.0.0.1',port,path:url,agent:false,headers:{cookie:cookies,connection:'close'}},res=>{
+      let body='';res.setEncoding('utf8');res.on('data',chunk=>body+=chunk);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body}));res.on('error',reject);
+    });req.setTimeout(4000,()=>req.destroy(Error('Fixture HTTP timeout')));req.on('error',reject);
+  });
+  const exchanged=await request('/?token='+auth.launchToken,threshold([cookie(api,`127.0.0.1:${dead}`)]));
+  assert.equal(exchanged.status,303);assert.equal(exchanged.headers.location,protocolScoped?'./':'/');
+  const cookies=exchanged.headers['set-cookie'];
+  assert.ok(cookies.some(value=>value.startsWith(api.cookieName(`127.0.0.1:${dead}`)+'=; Max-Age=0;')));
+  const current=cookies.find(value=>value.startsWith(api.cookieName(authority)+'=v1.'));
+  assert.ok(current);
+  const loaded=await request('/',current.split(';')[0]);
+  assert.equal(loaded.status,200);assert.equal(loaded.body,'authenticated');
+  assert.equal((await request('/','')).status,401);
+});
+
+test('the installed DSH host accepts cleanup, serves its UI and preserves RPC authentication', {timeout:60000}, async t => {
+  const home=await mkdtemp(path.join(os.tmpdir(),'omaax-auth-host-'));
+  const cli=fileURLToPath(new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/lib/bin.js',import.meta.url));
+  const env={...process.env,DSH_HOME:home,DSH_TELEMETRY_DISABLED:'1'};
+  for(const key of Object.keys(env)){
+    if (/^(OMAAX_|BIODSH_|DEEPSEEK_|OPENAI_|ANTHROPIC_|GOOGLE_|NODE_OPTIONS$|HTTPS?_PROXY$|ALL_PROXY$)/i.test(key))delete env[key];
+  }
+  const child=spawn(process.execPath,['--expose-internals','--max-http-header-size=65536',cli,'web','--port','0','--no-open'],{cwd:home,env,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  t.after(async()=>{
+    if(child.exitCode!==null||child.signalCode!==null)return;
+    await new Promise(resolve=>{child.once('exit',resolve);child.kill();});
+  });
+  const tokenUrl=await new Promise((resolve,reject)=>{
+    let output='';
+    const timer=setTimeout(()=>reject(Error('Isolated DSH host startup timed out')),40000);
+    const scan=chunk=>{
+      output=(output+chunk.toString()).slice(-80000);
+      const match=output.match(/http:\/\/127\.0\.0\.1:\d+\/\?token=[A-Za-z0-9._-]+/);
+      if(match){clearTimeout(timer);resolve(match[0]);}
+    };
+    child.stdout.on('data',scan);child.stderr.on('data',scan);
+    child.once('error',error=>{clearTimeout(timer);reject(error);});
+    child.once('exit',code=>{clearTimeout(timer);reject(Error('Isolated DSH host exited with code '+code));});
+  });
+  const origin=new URL(tokenUrl).origin,api=fixture(),dead=await closedPort(),oldAuthority=`127.0.0.1:${dead}`;
+  const exchanged=await fetch(tokenUrl,{redirect:'manual',headers:{cookie:threshold([cookie(api,oldAuthority)])},signal:AbortSignal.timeout(5000)});
+  assert.equal(exchanged.status,303);
+  assert.equal(exchanged.headers.get('location'),protocolScoped?'./':'/');
+  const values=exchanged.headers.getSetCookie();
+  assert.ok(values.some(value=>value.startsWith(api.cookieName(oldAuthority)+'=; Max-Age=0;')));
+  const current=values.find(value=>value.startsWith(api.cookieName(new URL(origin).host)+'=v1.'));
+  assert.ok(current);
+  const headers={cookie:current.split(';')[0]},options={headers,signal:AbortSignal.timeout(5000)};
+  const index=await fetch(origin+'/',options);assert.equal(index.status,200);assert.match(await index.text(),/<title>OMaaX<\/title>/);
+  const rejected=await fetch(origin+'/',{signal:AbortSignal.timeout(5000)});assert.equal(rejected.status,401);
+  assert.match(await rejected.text(),/本地连接认证已失效/);
+  const listed=await fetch(origin+'/api/session/list',{method:'POST',headers:{...headers,'content-type':'application/json'},
+    body:JSON.stringify({type:'client-request',rpcId:'auth-only-regression',method:'session/list',payload:{args:{_request:{}}}}),signal:AbortSignal.timeout(5000)});
+  assert.equal(listed.status,200);assert.equal((await listed.json()).result.ok,true);
 });

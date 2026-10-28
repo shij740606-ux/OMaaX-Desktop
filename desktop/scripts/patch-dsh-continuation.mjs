@@ -38,14 +38,20 @@ export function patchContinuation(runtimeDir = path.join(root, 'dsh-runtime')) {
   if (!candidates.length) throw new Error('DSH agent-loop runtime missing; cannot stage automatic continuation');
   for (const file of candidates) {
     let source = readFileSync(file, 'utf8');
-    if (source.includes(marker)) continue;
+    const modern = JSON.parse(readFileSync(path.resolve(file, '../../package.json'), 'utf8')).version.startsWith('0.2.');
+    const currentPatches = patches.map(([before, after]) => [before, modern ? after.replace('kind: "plugin", plugin: "omaax-output-continuation"', 'kind: "omaax-output-continuation"') : after]);
+    if (source.includes(marker)) {
+      if (modern) source = source.replace('kind: "plugin", plugin: "omaax-output-continuation"', 'kind: "omaax-output-continuation"');
+      if (!currentPatches.every(([,after]) => source.includes(after))) throw new Error('DSH continuation patch is incomplete or changed');
+      writeFileSync(file, source);
+      continue;
+    }
     // Check every anchor before writing: a dependency update must not silently
     // ship a partial patch or restore the old manual-continue behavior.
-    for (const [before] of patches) {
+    for (const [before] of currentPatches) {
       if (source.split(before).length !== 2) throw new Error(`DSH continuation patch anchor changed: ${before}`);
     }
-    for (const [before, after] of patches) source = source.replace(before, after);
-    // Stable 47 keeps the original plugin message source schema.
+    for (const [before, after] of currentPatches) source = source.replace(before, after);
     writeFileSync(file, source);
   }
   return candidates;

@@ -81,6 +81,15 @@ const patchedExchange = `\t\t\t\tconst currentCookieName = cookieName(authority)
 \t\t\t\tvoid omaaxExpiredLocalCookies(header(req.headers, "cookie"), currentCookieName).then(finishExchange, () => finishExchange([]));
 \t\t\t\treturn false;`;
 
+// The 0.2 browser carrier keeps protocol-scoped audiences and directory-relative redirects.
+// Only this desktop's plain-HTTP v1 cookies are cleaned; TLS and API operators stay untouched.
+const originalExchangeV2 = originalExchange.replace('"location": "/"', '"location": "./"')
+  .replace('Math.floor(this.maxAgeMilliseconds / 1e3))', 'Math.floor(this.maxAgeMilliseconds / 1e3), secure)');
+const patchedExchangeV2 = patchedExchange.replace('"location": "/"', '"location": "./"')
+  .replace('Math.floor(this.maxAgeMilliseconds / 1e3))', 'Math.floor(this.maxAgeMilliseconds / 1e3), secure)')
+  .replace('void omaaxExpiredLocalCookies(header(req.headers, "cookie"), currentCookieName).then',
+    'void (secure ? Promise.resolve([]) : omaaxExpiredLocalCookies(header(req.headers, "cookie"), currentCookieName)).then');
+
 function once(source, before, after) {
   if (source.split(before).length !== 2) throw Error('Local cookie cleanup patch anchor changed; review the runtime before staging');
   return source.replace(before, after);
@@ -88,19 +97,31 @@ function once(source, before, after) {
 
 export function patchCookieCleanupSource(input) {
   const source = input.replace(/\r\n/g, '\n');
+  const protocolScoped = source.includes('authorizeIndex(req, res, secure = false) {');
+  const original = protocolScoped ? originalExchangeV2 : originalExchange;
+  const patched = protocolScoped ? patchedExchangeV2 : patchedExchange;
   // Recheck the authentication boundary even when this runtime was already patched.
   for (const contract of [
     'req.method === "GET" && url.pathname === "/" && tokens.length === 1 && authority !== void 0 && tokenMatches(tokens.join(""), this.launchToken)',
-    'if (this.isAuthenticated(req)) return true;',
+    protocolScoped ? 'if (this.isAuthenticated(req, secure)) return true;' : 'if (this.isAuthenticated(req)) return true;',
     'this.writeUnauthorized(req, res);',
   ]) if (!source.includes(contract)) throw Error('Browser authentication contract changed; review cookie cleanup before staging');
+  if (protocolScoped) {
+    for (const contract of ['const authority = requestAudience(req.headers, secure);',
+      'return secure ? url.origin : url.host;', 'return secure ? `${attributes}; Secure` : attributes;',
+      'authorizeConnect(req, res, secure, publish) {',
+      'return this.authenticate(request, secure)?.version === COOKIE_PAYLOAD_VERSION;',
+      'return payload?.version === 2 ? payload.id : void 0;']) {
+      if (!source.includes(contract)) throw Error('Protocol-scoped authentication contract changed; review cookie cleanup before staging');
+    }
+  }
   if (source.split('var BrowserAuth = class BrowserAuth {').length !== 2) throw Error('Local cookie cleanup patch anchor changed');
   if (source.includes(marker)) {
-    if (!source.includes(netImport) || !source.includes(cookieCleanupSource) || !source.includes(patchedExchange) || source.includes(originalExchange)) throw Error('Local cookie cleanup generated region changed');
+    if (!source.includes(netImport) || !source.includes(cookieCleanupSource) || !source.includes(patched) || source.includes(original)) throw Error('Local cookie cleanup generated region changed');
     return source;
   }
   if (source.includes('omaaxExpiredLocalCookies') || source.includes('omaaxCookiePortConnect')) throw Error('Partial local cookie cleanup patch found');
-  return netImport + once(once(source, originalExchange, patchedExchange), 'var BrowserAuth = class BrowserAuth {', cookieCleanupSource + 'var BrowserAuth = class BrowserAuth {');
+  return netImport + once(once(source, original, patched), 'var BrowserAuth = class BrowserAuth {', cookieCleanupSource + 'var BrowserAuth = class BrowserAuth {');
 }
 
 export function patchDshCookies(runtimeDir = path.join(root, 'dsh-runtime')) {
