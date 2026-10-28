@@ -94,9 +94,9 @@ _MAX_CLAIMS_TOTAL = 50
 _MAX_FIGURES_TOTAL = 15
 _REDUCE_PAGE_SLICE = 14   # 单次 reduce 页数上限（>14 页分两片，守住 8K 输出）
 
-_MAP_TIMEOUT = 75.0
-_REDUCE_TIMEOUT = 200.0
-_EXPAND_TIMEOUT = 75.0
+_MAP_TIMEOUT = 360.0
+_REDUCE_TIMEOUT = 360.0
+_EXPAND_TIMEOUT = 360.0
 _MAP_CONCURRENCY = 2      # BFF 读超时 360s 硬顶：map 并发压总时长
 
 
@@ -195,7 +195,7 @@ _MAP_SYSTEM = """你是植物学论文精读助手。输入是一个论文文本
 async def _map_block(block: dict[str, Any]) -> tuple[list[dict], list[dict]]:
     payload = await llm.complete_json(
         _MAP_SYSTEM, _map_block_user(block), temperature=0.2,
-        max_tokens=4000, timeout=_MAP_TIMEOUT,
+        max_tokens=None, timeout=_MAP_TIMEOUT,
     )
     claims = [c for c in (payload.get("claims") or []) if isinstance(c, dict)][:8]
     figures = [f for f in (payload.get("figures") or []) if isinstance(f, dict)][:4]
@@ -702,7 +702,7 @@ async def _expand_thin(
     try:
         payload = await llm.complete_json(
             _EXPAND_SYSTEM, user, temperature=0.3,
-            max_tokens=4000, timeout=_EXPAND_TIMEOUT,
+            max_tokens=None, timeout=_EXPAND_TIMEOUT,
         )
     except LLMError as exc:
         warnings.append(f"薄弱页扩充重试失败（保留原状）：{exc}")
@@ -840,7 +840,7 @@ async def generate_outline(
             _REDUCE_SYSTEM,
             _reduce_user(scenario, minutes, plan, claims, figures, first_types,
                          figure_index=inject_index),
-            temperature=0.4, max_tokens=8000, timeout=_REDUCE_TIMEOUT,
+            temperature=0.4, max_tokens=None, timeout=_REDUCE_TIMEOUT,
         )
         llm_calls += 1
         pages = coerce_outline(payload)
@@ -853,7 +853,7 @@ async def generate_outline(
                     prior_titles=prior_titles, total_hint=_types_quota(second_types),
                     figure_index=inject_index,
                 ),
-                temperature=0.4, max_tokens=8000, timeout=_REDUCE_TIMEOUT,
+                temperature=0.4, max_tokens=None, timeout=_REDUCE_TIMEOUT,
             )
             llm_calls += 1
             pages.extend(coerce_outline(payload2))

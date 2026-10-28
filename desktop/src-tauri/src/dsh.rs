@@ -403,11 +403,15 @@ impl DshManager {
         let node_dir = node.parent().map(Path::to_path_buf).unwrap_or_default();
         let path_env = format!("{}{sep}{}{sep}{}{sep}{}", bin_dir.display(), uv_dir.display(), node_dir.display(), std::env::var("PATH").unwrap_or_default());
         let _ = fs::create_dir_all(workspace);
-        self.push(app, paths, &format!("[spawn] {} --expose-internals {} web (cwd {workspace})", node.display(), bin.display()));
+        self.push(app, paths, &format!("[spawn] {} --expose-internals --max-http-header-size=65536 {} web (cwd {workspace})", node.display(), bin.display()));
         let auth_nonce=uuid::Uuid::new_v4().to_string();
         let auth_ready=paths.dsh_home.join(".auth-guard-ready");
         let mut cmd = Command::new(&node);
-        cmd.arg("--expose-internals").arg(&bin).args(["web", "--port", "0", "--no-open"])
+        // Chromium retains a signed cookie for each random local port. A long plugin
+        // bundle URL plus these cookies can exceed Node's default 16 KiB limit
+        // after repeated launches (HTTP 431), while the short index still loads.
+        // Keep a finite 64 KiB limit; authentication and origin checks stay intact.
+        cmd.arg("--expose-internals").arg("--max-http-header-size=65536").arg(&bin).args(["web", "--port", "0", "--no-open"])
             .current_dir(workspace)
             .env("DSH_HOME", &paths.dsh_home)
             .env("OMAAX_ACCOUNT_HOME", crate::hub_auth::base())

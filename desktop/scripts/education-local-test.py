@@ -13,7 +13,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SERVICE))
 STATE = tempfile.TemporaryDirectory(prefix='omaax-education-test-')
 os.environ['REVIEW_DB_PATH'] = str(Path(STATE.name) / 'review.db')
-for field in ('REFORMAT_DIR', 'PPT_JOBS_DIR', 'INSPECT_DIR', 'COMPILE_JOBS_DIR', 'TECTONIC_CACHE_DIR'):
+for field in ('PPT_JOBS_DIR',):
     os.environ['REVIEW_' + field] = str(Path(STATE.name) / field)
 from fastapi.testclient import TestClient
 from app.main import app
@@ -86,39 +86,10 @@ class LocalEducation(unittest.TestCase):
         self.assertEqual(self.client.get(f'/api/review/ppt/jobs/{jid}/pptx').status_code, 200)
         self.assertEqual(self.client.get(f'/api/review/ppt/jobs/{jid}/preview/1').status_code, 200)
 
-    def test_reformat_and_unsafe_zip(self):
-        tex = br'\documentclass[10pt]{article}\begin{document}Methods\end{document}'
-        result = self.client.post('/api/review/reformat', files={'file': ('paper.tex', tex)}, data={'target_journal': 'rice'}).json()
-        self.assertTrue(result['ok'], result)
-        import zipfile
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, 'w') as z: z.writestr('../escape.tex', tex)
-        result = self.client.post('/api/review/compile/inspect', files={'file': ('unsafe.zip', buf.getvalue())}).json()
-        self.assertFalse(result['ok'], result)
 
-    def test_compiler_download_verification_and_cache(self):
-        from app.services import local_tools
-        import hashlib
-        import zipfile
-        data = io.BytesIO()
-        with zipfile.ZipFile(data, 'w') as z:
-            z.writestr('nested/tectonic.exe' if os.name == 'nt' else 'nested/tectonic', b'fixture compiler')
-            z.writestr('../unwanted.txt', b'never extract this')
-        blob = data.getvalue()
-        identity = (local_tools.platform.system(), local_tools.platform.machine())
-        class Download:
-            def open(self, *args, **kwargs): return io.BytesIO(blob)
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            with patch.dict(local_tools._ASSETS, {identity: ('fixture.zip', 'bad-hash')}), patch.object(local_tools.urllib.request, 'build_opener', return_value=Download()):
-                with self.assertRaises(RuntimeError): local_tools.prepare_tectonic(root/'absent', root)
-            with patch.dict(local_tools._ASSETS, {identity: ('fixture.zip', hashlib.sha256(blob).hexdigest())}), patch.object(local_tools.urllib.request, 'build_opener', return_value=Download()):
-                target = local_tools.prepare_tectonic(root/'absent', root)
-                self.assertEqual(target.read_bytes(), b'fixture compiler')
-            with patch.object(local_tools.urllib.request, 'build_opener', side_effect=AssertionError('Should use cache')):
-                self.assertEqual(local_tools.prepare_tectonic(root/'absent', root), target)
-            self.assertFalse((root/'unwanted.txt').exists())
-
+    def test_removed_reformat_routes_are_unavailable(self):
+        self.assertEqual(self.client.post('/api/review/reformat').status_code, 404)
+        self.assertEqual(self.client.post('/api/review/compile').status_code, 404)
 
 if __name__ == '__main__':
     unittest.main()

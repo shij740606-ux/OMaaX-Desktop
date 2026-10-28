@@ -1,6 +1,6 @@
 [package]
 name = "biodsh-desktop"
-version = "0.4.57"
+version = "0.4.59"
 description = "OMaaX scientific analysis desktop"
 edition = "2021"
 default-run = "biodsh-desktop"

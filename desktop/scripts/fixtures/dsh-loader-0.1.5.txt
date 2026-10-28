@@ -1,0 +1,15 @@
+const defaultLoadBundle = (url) => new Promise((resolve, reject) => {
+			const el = document.createElement("script");
+			el.async = true;
+			el.src = url;
+			el.addEventListener("load", () => {
+				el.remove();
+				resolve();
+			}, { once: true });
+			el.addEventListener("error", () => {
+				el.remove();
+				reject(/* @__PURE__ */ new Error(`client-modules: bundle script ${url} failed to load`));
+			}, { once: true });
+			document.head.append(el);
+		});
+		/** Replace the rev query */

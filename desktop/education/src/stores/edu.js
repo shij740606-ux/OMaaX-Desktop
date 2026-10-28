@@ -4,11 +4,11 @@
 //   - 进行中的请求由 store action 持有 → 面板卸载不中断；
 //   - 表单草稿存 drafts → 切菜单不丢。
 import { defineStore } from 'pinia';
-import { pptBuildJob, pptCreateFromPdf, pptCreateJob, pptDeleteJob, pptSavePages, pptStyles, compileTex, formatCheck, formatErrorMessage, getConferences, getDirectory, getJournals, inspectZip, presubmit, recommend, reformatTex, reviewErrorMessage, rebuttalConfirm, rebuttalCreateFromPdf, rebuttalCreateJob, rebuttalDeleteJob, rebuttalDraft, rebuttalLetter, rebuttalSaveResponse, runZipCompile } from '../api/review.js';
+import { pptBuildJob, pptCreateFromPdf, pptCreateJob, pptDeleteJob, pptSavePages, pptStyles, formatCheck, formatErrorMessage, getConferences, getDirectory, getJournals, presubmit, recommend, reviewErrorMessage, rebuttalConfirm, rebuttalCreateFromPdf, rebuttalCreateJob, rebuttalDeleteJob, rebuttalDraft, rebuttalLetter, rebuttalSaveResponse } from '../api/review.js';
 
 const STORAGE_KEY = 'plantai.edu.submissions'; // D3 台账持久化（tracker 面板已解除映射，state 保留）
 // tracker 已砍（2026-10-12，仅解除 UI 映射；TrackerPanel.vue 保留在 panels/ 下可复用）
-const SECTIONS = ['journals', 'recommend', 'presubmit', 'report', 'format', 'reformat', 'calendar', 'rebuttal', 'ppt'];
+const SECTIONS = ['journals', 'recommend', 'presubmit', 'report', 'format', 'calendar', 'rebuttal', 'ppt'];
 
 // ⑥ 台账状态枚举（labels 由 step-7 UI 层给；store 只存字符串）
 export const SUBMISSION_STATUS = ['draft', 'submitted', 'under_review', 'revision', 'accepted', 'rejected'];
@@ -72,45 +72,18 @@ export const useEduStore = defineStore('edu', {
     // ③ presubmit 已选 PDF（File 对象，仅内存：面板卸载/切菜单不丢，error 态可直接重试；
     //    不可序列化 → 不进 localStorage；clearReport 一并清空）
     presubmitFile: null,
-    // ⑤' reformat 已选 .tex（同 presubmitFile 模式：换期刊重排不丢文件；
-    //    面板内"×"移除才清空。File 不可序列化 → 不进 localStorage）
-    reformatFile: null,
     recommend: null, // ② 推荐响应 {ok, tiers, meta}
     recommendStatus: 'idle',
     recommendError: null,
     formatReport: null, // ⑤ 版式检查响应 {ok, checks, summary, meta}（跨菜单保留）
     formatStatus: 'idle',
     formatError: null,
-    /* —— ⑤' 论文自动重排版 P1（.tex 规则变换）响应
-       {ok, job_id, modified_tex, changes[], warnings[], meta}（跨菜单保留）—— */
-    reformatResult: null,
-    reformatStatus: 'idle',
-    reformatError: null,
-    /* —— P3a/P3b 编译 PDF（tectonic；与 reformatResult 同生命周期，重新排版即失效）—— */
-    compileResult: null,   // {ok, compile_id, pdf_url, log_url, meta:{seconds,pdf_bytes,...}}
-    compileStatus: 'idle', // 'idle' | 'loading' | 'ready' | 'error'
-    compileError: null,
-    compileLogTail: '',    // COMPILE_FAILED/TIMEOUT 的 log 尾 200 行（err.detail）
-    compilePdfUrl: null,   // PDF blob URL（预览/下载，不暴露 API 路径；失败回退 pdf_url）
-    compileFirstHint: false, // 首次编译黄色提示条（编译开始到 clearCompile 前保留）
-    /* —— P4 项目 zip 两段式（inspect 暂存 1h + run 编译；run 信封与 P3b 同构，
-       复用 compile* 字段展示 PDF/log——zip 编译结果与单文件编译互斥，切换模式即清）—— */
-    zipFile: null,             // File（内存态：切菜单不丢，× 移除才清空）
-    zipInspect: null,          // inspect meta {job_id, main, stats{}, skipped[], skipped_count}
-    zipInspectStatus: 'idle',  // 'idle' | 'loading' | 'ready' | 'error'
-    zipInspectError: null,
-
     /* —— 表单草稿（切菜单不丢；四字段并存：recommend 用 abstract+prefs、
        presubmit 用 targetJournal、format 用 formatJournalId（期刊 id 下拉））—— */
     drafts: {
       abstract: '',
       targetJournal: '',
       formatJournalId: '',
-      // ⑤' 重排版目标：'default'（通用规则，首项默认）| 精选期刊 id | 'dir:<id>'（目录刊）
-      // '__dir_en__'/'__dir_zh__' = 目录搜索模式（过渡态，非合法 target，面板内校验）。
-      // reformatDirPick = {id,name}（目录选中回显，跨菜单保留防 select 失焦）。
-      reformatTarget: 'default',
-      reformatDirPick: null,
       // 与 POST /api/review/recommend 的 preferences 同构：
       // {max_review_weeks, min_impact_factor, tier_focus} 子字段逐一同名同型，
       // 提交时整体映射为 payload.preferences（null 数值剔除）。
@@ -559,128 +532,6 @@ export const useEduStore = defineStore('edu', {
       this.formatReport = null;
       this.formatStatus = 'idle';
       this.formatError = null;
-    },
-    /* —— ⑤' 重排版（P1：.tex 源码变换，纯规则同步秒回）—— */
-    async submitReformat(formData) {
-      this.clearCompile(); // 新排版结果使旧 PDF 失效
-      this.reformatStatus = 'loading';
-      this.reformatError = null;
-      try {
-        const payload = await reformatTex(formData);
-        this.reformatResult = payload;
-        this.reformatStatus = 'ready';
-        return payload;
-      } catch (err) {
-        this.reformatStatus = 'error';
-        this.reformatError = formatErrorMessage(err); // VALIDATION/PARSER_FAILED 用后端原话
-        return null;
-      }
-    },
-    clearReformat() {
-      this.reformatResult = null;
-      this.reformatStatus = 'idle';
-      this.reformatError = null;
-      this.clearCompile();
-    },
-    /* —— P3b 编译 PDF（tectonic 单槽队列；约 10-30 秒，首次拉 bundle 1-3 分钟）—— */
-    async submitCompile(jobId) {
-      if (this.compileStatus === 'loading') return null;
-      this.compileStatus = 'loading';
-      this.compileError = null;
-      this.compileLogTail = '';
-      if (!this.compileResult) this.compileFirstHint = true; // 首次编译提示条
-      const fd = new FormData();
-      fd.append('job_id', jobId);
-      try {
-        const payload = await compileTex(fd);
-        this.compileResult = payload;
-        this.compileStatus = 'ready';
-        this._loadCompileBlob(payload.pdf_url); // 异步换 blob URL，失败回退直链
-        return payload;
-      } catch (err) {
-        this.compileStatus = 'error';
-        this.compileError = reviewErrorMessage(err);
-        this.compileLogTail = err.detail || ''; // COMPILE_FAILED/TIMEOUT 附 log 尾
-        return null;
-      }
-    },
-    /** PDF → blob URL（预览/下载不暴露后端路径）；失败静默回退 pdf_url 直链 */
-    async _loadCompileBlob(url) {
-      if (!url) return;
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) return;
-        const blob = await resp.blob();
-        if (this.compilePdfUrl) URL.revokeObjectURL(this.compilePdfUrl);
-        this.compilePdfUrl = URL.createObjectURL(blob);
-      } catch { /* 保持 pdf_url 直链 */ }
-    },
-    clearCompile() {
-      if (this.compilePdfUrl) {
-        try { URL.revokeObjectURL(this.compilePdfUrl); } catch { /* noop */ }
-      }
-      this.compileResult = null;
-      this.compileStatus = 'idle';
-      this.compileError = null;
-      this.compileLogTail = '';
-      this.compilePdfUrl = null;
-      this.compileFirstHint = false;
-    },
-    /* —— P4 项目 zip 两段式 —— */
-    /** 之① inspect：安全解压 + 主文件识别（1h TTL，run 前不占编译队列） */
-    async submitZipInspect() {
-      if (!this.zipFile || this.zipInspectStatus === 'loading') return null;
-      this.zipInspectStatus = 'loading';
-      this.zipInspectError = null;
-      this.zipInspect = null;
-      this.clearCompile(); // 新 zip 使旧 PDF 失效
-      const fd = new FormData();
-      fd.append('file', this.zipFile);
-      try {
-        const payload = await inspectZip(fd);
-        this.zipInspect = payload.meta;
-        this.zipInspectStatus = 'ready';
-        return payload;
-      } catch (err) {
-        this.zipInspectStatus = 'error';
-        this.zipInspectError = reviewErrorMessage(err); // ZIP_UNSAFE/BOMB/INVALID 走后端原话
-        return null;
-      }
-    },
-    /** 之② run：原子消费 inspect → 编译（信封与 P3b 同构 → 复用 compile* 字段） */
-    async submitZipCompile() {
-      const jid = this.zipInspect?.job_id;
-      if (!jid || this.compileStatus === 'loading') return null;
-      this.compileStatus = 'loading';
-      this.compileError = null;
-      this.compileLogTail = '';
-      if (!this.compileResult) this.compileFirstHint = true;
-      try {
-        const payload = await runZipCompile({ job_id: jid });
-        this.compileResult = payload;
-        this.compileStatus = 'ready';
-        this._loadCompileBlob(payload.pdf_url);
-        return payload;
-      } catch (err) {
-        this.compileStatus = 'error';
-        this.compileError = reviewErrorMessage(err);
-        // 失败信封带 compile_id + log_url（补充 3）→ log 尾仍走 err.detail
-        this.compileLogTail = err.detail || '';
-        // 失败也挂结果壳（仅 id/url）：下载完整 log 用 /zip/{cid}/log（成功信封同构）
-        if (err.compileId) {
-          this.compileResult = {
-            ok: false, compile_id: err.compileId, log_url: err.logUrl || null,
-          };
-        }
-        return null;
-      }
-    },
-    clearZip() {
-      this.zipFile = null;
-      this.zipInspect = null;
-      this.zipInspectStatus = 'idle';
-      this.zipInspectError = null;
-      this.clearCompile();
     },
   },
 });

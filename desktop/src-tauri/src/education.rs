@@ -14,8 +14,7 @@ pub fn start(app:&AppHandle,paths:&crate::paths::AppPaths)->Result<String,String
     let root=&paths.root;
     let mut config=json!({"service":crate::paths::resource(app,"education-service"),
         "state":root.join("education"),"uv":crate::paths::uv_binary(app),
-        "llm":json!({"API_KEY":model_key,"BASE_URL":model_url,"MODEL":"omaax"}),
-        "tectonic":crate::paths::resource(app,"bin").join(if cfg!(windows){"tectonic.exe"}else{"tectonic"})});
+        "llm":json!({"API_KEY":model_key,"BASE_URL":model_url,"MODEL":"omaax"})});
     let control=uuid::Uuid::new_v4().simple().to_string();
     config["control"]=json!(control);config["directory"]=json!(crate::paths::resource(app,"education"));
     let mut command=Command::new(crate::paths::node_binary(app));

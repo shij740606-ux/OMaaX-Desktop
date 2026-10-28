@@ -10,7 +10,6 @@ const ITEMS = [
   { key: 'presubmit', label: 'AI 预审稿系统', icon: '🔍' },
   { key: 'report', label: '专业审稿意见报告', icon: '📝' },
   { key: 'format', label: '论文排版与规范', icon: '📐' },
-  { key: 'reformat', label: '论文自动重排版', icon: '🧩' },
   // SVG 内联（U+1F4AC/U+2709 在用户 Ubuntu 浏览器均无字形 → 方框；SVG 不依赖字体）
   { key: 'rebuttal', label: '审稿回复助手', icon: '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M2 2h12v9H6l-4 3z"/></svg>' },
   { key: 'calendar', label: '会议与投稿日历', icon: '📅' },

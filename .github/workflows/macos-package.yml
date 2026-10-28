@@ -1,17 +1,20 @@
 name: macOS installer
 on:
   workflow_dispatch:
+    inputs:
+      arch:
+        description: Mac processor architecture
+        type: choice
+        required: true
+        default: x64
+        options:
+          - x64
+          - arm64
 permissions:
   contents: read
 jobs:
   package:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch: arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ inputs.arch == 'x64' && 'macos-15-intel' || 'macos-15' }}
     timeout-minutes: 90
     defaults:
       run:
@@ -20,6 +23,8 @@ jobs:
       CI: "true"
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       CARGO_INCREMENTAL: "0"
+      TARGET_ARCH: ${{ inputs.arch || 'arm64' }}
+      MACOSX_DEPLOYMENT_TARGET: "13.5"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,7 +40,15 @@ jobs:
             desktop/src-tauri/target/release/deps
             desktop/src-tauri/target/release/build
             desktop/src-tauri/target/release/.fingerprint
-          key: macos-${{ matrix.arch }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          key: macos-${{ inputs.arch || 'arm64' }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+      - name: Verify build host
+        run: |
+          test "$(node -p process.arch)" = "$TARGET_ARCH"
+          case "$TARGET_ARCH" in
+            x64) test "$(uname -m)" = x86_64 ;;
+            arm64) test "$(uname -m)" = arm64 ;;
+            *) exit 1 ;;
+          esac
       - name: Dependencies
         run: |
           npm ci --no-audit --no-fund
@@ -43,26 +56,39 @@ jobs:
       - name: Check and build
         run: |
           npm run typecheck
+          node --test scripts/dsh-startup.test.mjs scripts/dsh-auth-error.test.mjs scripts/dsh-cookies.test.mjs scripts/figure-pdf-runtime.test.mjs
           npx tauri build --bundles app,dmg
       - name: Inspect native runtime and application
         run: |
-          test "$(uname -m)" = arm64
+          case "$TARGET_ARCH" in
+            x64) native_arch=x86_64 ;;
+            arm64) native_arch=arm64 ;;
+            *) exit 1 ;;
+          esac
+          test "$(uname -m)" = "$native_arch"
           app=src-tauri/target/release/bundle/macos/OMaaX.app
           file "$app/Contents/MacOS/OMaaX" | tee macos-verification.txt
-          file "$app/Contents/MacOS/OMaaX" | grep -q arm64
+          test "$(lipo -archs "$app/Contents/MacOS/OMaaX")" = "$native_arch"
+          test "$(lipo -archs "$app/Contents/Resources/node/bin/node")" = "$native_arch"
+          test "$(lipo -archs "$app/Contents/Resources/bin/uv")" = "$native_arch"
+          test "$("$app/Contents/Resources/node/bin/node" -p process.arch)" = "$TARGET_ARCH"
           "$app/Contents/Resources/node/bin/node" --version | tee -a macos-verification.txt
+          "$app/Contents/Resources/bin/uv" --version | tee -a macos-verification.txt
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app/Contents/Info.plist")" = "13.5"
           cmp dsh-plugins/auth-guard/local.js "$app/Contents/Resources/dsh/node_modules/@biodsh/auth-guard/local.js"
           cmp dsh-plugins/auth-guard/index.js "$app/Contents/Resources/dsh/node_modules/@biodsh/auth-guard/index.js"
           cmp resources/scripts/download-skill.mjs "$app/Contents/Resources/scripts/download-skill.mjs"
           cmp resources/skills/catalog.json "$app/Contents/Resources/skills/catalog.json"
+          node scripts/verify-macos-package.mjs "$app"
           hdiutil verify src-tauri/target/release/bundle/dmg/*.dmg >> macos-verification.txt
           shasum -a 256 src-tauri/target/release/bundle/dmg/*.dmg > installer-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: OMaaX-macOS-${{ matrix.arch }}
+          name: OMaaX-macOS-${{ inputs.arch || 'arm64' }}
           path: |
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
             desktop/installer-sha256.txt
             desktop/macos-verification.txt
+            desktop/macos-feature-verification.json
           if-no-files-found: error
           retention-days: 14

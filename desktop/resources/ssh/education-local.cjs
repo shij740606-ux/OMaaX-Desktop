@@ -38,7 +38,7 @@ async function launch(config){
   const token=randomBytes(32).toString('hex');
   const child=spawn(python,['-u',path.join(config.service,'serve.py')],{env,windowsHide:true,stdio:['pipe','pipe','pipe']});
   // Only the backend receives the temporary loopback key, never a provider key.
-  child.stdin.write(JSON.stringify({state:config.state,llm:config.llm,tectonic:config.tectonic,token,windowsRuntime:process.platform==='win32'?path.join(path.dirname(config.service),'documents'):undefined})+'\n');
+  child.stdin.write(JSON.stringify({state:config.state,llm:config.llm,token,windowsRuntime:process.platform==='win32'?path.join(path.dirname(config.service),'documents'):undefined})+'\n');
   child.stderr.on('data',()=>{});
   const port=await new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{child.kill();reject(Error('Local backend timeout'));},60000);

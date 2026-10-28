@@ -33,6 +33,48 @@ export const companyErrors = {
   model_invalid_response: ['模型服务返回异常，请稍后重试或联系管理员。', 'The model service returned an invalid response. Try again or contact your administrator.', 'SERVER'],
 };
 const retryClasses = Object.fromEntries(Object.entries(companyErrors).filter(([,v]) => v[2]).map(([k,v]) => [k,v[2]]));
+const internalErrors = {
+  component_load_failed: ['界面组件未能加载，请重新加载页面；若仍失败，请重启智能体。', 'The interface could not load. Reload the page; if it still fails, restart the agent.'],
+  internal_auth_error: ['身份校验未通过，请检查登录状态和账号授权。', 'Authentication failed. Check your sign-in status and account permissions.'],
+  internal_operation_failed: ['操作未完成，请重试；若仍失败，请重新打开软件或联系支持人员。', 'The operation could not be completed. Retry; if it still fails, reopen the app or contact support.'],
+};
+
+// Only error renderers call this classifier. Keep the original diagnostic and user content untouched.
+export function internalErrorCode(message, code) {
+  const text = `${typeof message === 'string' ? message : ''} ${typeof code === 'string' ? code : ''}`;
+  if (!/deepseek|harness|\bdsh-[\w-]+|failed to import loader entry|client-modules:|[\\/]plugins(?:[\\/?])|bundle script[^\n]*failed to load/i.test(text)) return null;
+  if (code === 'AUTH') return null;
+  if (/failed to (?:load plugins|import loader entry)|client-modules:|[\\/]plugins(?:[\\/?])|bundle script|\bdsh-client-/i.test(text)) return 'component_load_failed';
+  if (code === 'TIMEOUT' || /\btimeout\b|timed out|ETIMEDOUT|超时/i.test(text)) return 'model_timeout';
+  if (code === 'RATE_LIMIT' || /\b429\b|rate[ _-]?limit|too many requests|限流|请求过于频繁/i.test(text)) return 'model_rate_limited';
+  if (/\b40[13]\b|unauthorized|forbidden|invalid.{0,12}(?:api[ _-]?)?key|身份校验|登录过期/i.test(text)) return 'internal_auth_error';
+  if (code === 'TRANSPORT' || /network|fetch failed|ECONN(?:REFUSED|RESET)|ENOTFOUND|EAI_AGAIN|连接中断|网络/i.test(text)) return 'model_network_error';
+  if (code === 'SERVER' || /\b50[0234]\b|service unavailable|server error/i.test(text)) return 'model_service_unavailable';
+  if (code === 'CANCELLED' || /\bcancelled\b|\bcanceled\b|\baborted\b|已取消/i.test(text)) return 'model_cancelled';
+  return 'internal_operation_failed';
+}
+
+function patchInternalErrorUi(source, kind) {
+  const prefix = kind === 'chat' ? 'message.failure.company.' : 'details.failure.company.';
+  const marker = `/*OMAAX_INTERNAL_ERROR_${kind.toUpperCase()}_V1*/`;
+  const args = kind === 'chat' ? 'message, code' : 'request.error, request.errorCode';
+  const anchor = kind === 'chat' ? '\t\t\treturn code === "AUTH" ? t("message.failure.auth") : message;' : '\t\t\treturn request.error;';
+  const inserted = `\t\t\t${marker}\n\t\t\tconst publicCode = (${internalErrorCode.toString()})(${args});\n\t\t\tif (publicCode) return t(${JSON.stringify(prefix)} + publicCode);\n`;
+  if (source.includes(marker)) {
+    if (!source.includes(inserted)) throw Error('Internal error UI generated region changed');
+  } else source = once(source, anchor, inserted + anchor);
+  for (const [locale,index] of [['zh',0],['en',1]]) {
+    const start = source.indexOf(`const ${locale} = {`), end = source.indexOf('\n\t\t};',start);
+    if (start < 0 || end < 0) throw Error('Internal error UI locale region changed');
+    let region = source.slice(start,end);
+    for (const [code,labels] of Object.entries(internalErrors)) {
+      const key = JSON.stringify(prefix + code);
+      if (!region.includes(key + ':')) region = region.replace(`const ${locale} = {`, `const ${locale} = {\n\t\t\t${key}: ${JSON.stringify(labels[index])},`);
+    }
+    source = source.slice(0,start) + region + source.slice(end);
+  }
+  return source;
+}
 
 function once(source, before, after) {
   if (source.split(before).length !== 2) throw new Error(`Company error patch anchor changed: ${before}`);
@@ -77,7 +119,7 @@ export function patchCompanyChatSource(source) {
       }
       source = source.slice(0,start)+region+source.slice(end);
     }
-    return source;
+    return patchInternalErrorUi(source, 'chat');
   }
   source = once(source, 'function failureMessage(message, code, t) {',
     `function failureMessage(message, code, t) {\n\t\t\t${marker}\n\t\t\tif (${JSON.stringify(Object.keys(companyErrors))}.includes(code)) return t("message.failure.company." + code);`);
@@ -89,12 +131,12 @@ export function patchCompanyChatSource(source) {
     const entries = Object.entries(companyErrors).map(([code,labels]) => `\t\t\t${JSON.stringify('message.failure.company.' + code)}: ${JSON.stringify(labels[index])},`).join('\n');
     source = once(source, `const ${locale} = {`, `const ${locale} = {\n${entries}`);
   }
-  return source;
+  return patchInternalErrorUi(source, 'chat');
 }
 
 export function patchCompanyTrajectorySource(source) {
   const marker = '/*OMAAX_COMPANY_ERROR_TRAJECTORY_V1*/';
-  if (source.includes(marker)) return source;
+  if (source.includes(marker)) return patchInternalErrorUi(source, 'trajectory');
   source = once(source,'function requestErrorMessage(request, t) {',
     `function requestErrorMessage(request, t) {\n\t\t\t${marker}\n\t\t\tif (${JSON.stringify(Object.keys(companyErrors))}.includes(request.errorCode)) return t("details.failure.company." + request.errorCode);`);
   source = once(source,'"details.failure.auth": "API 密钥无效",','"details.failure.auth": "身份校验未通过，请检查登录状态和账号授权。",');
@@ -103,7 +145,7 @@ export function patchCompanyTrajectorySource(source) {
     const entries = Object.entries(companyErrors).map(([code,labels]) => `\t\t\t${JSON.stringify('details.failure.company.'+code)}: ${JSON.stringify(labels[index])},`).join('\n');
     source = once(source,`const ${locale} = {`,`const ${locale} = {\n${entries}`);
   }
-  return source;
+  return patchInternalErrorUi(source, 'trajectory');
 }
 
 export function patchCompanyErrors(runtimeDir = path.join(root,'dsh-runtime')) {

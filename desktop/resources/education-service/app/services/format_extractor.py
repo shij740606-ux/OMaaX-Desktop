@@ -209,7 +209,7 @@ async def extract_format_rules(markdown: str, journal_name: str) -> dict:
                 "source_quotes": None, "confidence": None, "notes": None, "raw": None}
     user = _USER_TMPL.format(journal_name=journal_name, markdown=markdown)
     try:
-        raw = await complete_json(_SYSTEM, user, temperature=0.1, max_tokens=8000)
+        raw = await complete_json(_SYSTEM, user, temperature=0.1, max_tokens=None)
     except LLMError as exc:
         return {"ok": False, "error": f"LLM 调用失败：{exc}", "rules": None,
                 "source_quotes": None, "confidence": None, "notes": None, "raw": None}

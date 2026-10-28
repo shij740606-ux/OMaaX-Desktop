@@ -16,14 +16,12 @@ from fastapi import FastAPI
 from .config import get_settings
 from .db import close_db, db, init_db
 from .routers import (
-    compile,
     conferences,
     format_check,
     journal_directory,
     journals,
     ppt,
     presubmit,
-    reformat,
     rebuttal,
 )
 
@@ -96,8 +94,6 @@ def create_app() -> FastAPI:
     app.include_router(format_check.router)
     app.include_router(conferences.router)
     app.include_router(journal_directory.router)
-    app.include_router(reformat.router)
-    app.include_router(compile.router)
     app.include_router(ppt.router)
     return app
 

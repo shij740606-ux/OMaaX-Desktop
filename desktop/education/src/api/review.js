@@ -84,46 +84,6 @@ export function formatCheck(formData, opts = {}) {
   return unwrap(post(`${BASE}/format-check`, formData, opts));
 }
 
-/** ⑥ POST /api/review/reformat（multipart .tex + target_journal）
- *  → {ok, job_id, modified_tex,
- *     changes:[{line,original,modified,reason,rule_key,action}],
- *     warnings:[{code,message}],  // 仅结构级（如多处 \documentclass）
- *     meta:{journal_id,journal_name,rules,rules_source,rules_note,filename,
- *           original_sha256,engine,generated_at}}
- *  rule_key ∈ {font_pt,margin,line_spacing,bib_style}；
- *  action ∈ {modified,warning}（warning=缺插入点的保守建议，不计入已修改）。
- *  纯规则引擎，同步秒回；job 落盘 → GET `${BASE}/reformat/{id}` 可回读。 */
-export function reformatTex(formData, opts = {}) {
-  return unwrap(post(`${BASE}/reformat`, formData, opts));
-}
-
-/** P3a POST /api/review/compile（multipart：job_id 或 file 二选一，前端走 job_id）
- *  → {ok, compile_id, pdf_url, log_url, meta:{seconds,pdf_bytes,engine,compiled_at}}
- *  错误信封：VALIDATION / TOOL_UNAVAILABLE / COMPILE_FAILED / TIMEOUT / OUTPUT_TOO_LARGE
- *  为 HTTP 200 信封；QUEUE_FULL 为 HTTP 429 + 同款信封（http.js 抛非 2xx ApiError，
- *  两者都归一成 ApiError）。COMPILE_FAILED/TIMEOUT 的 err.detail = log 尾 200 行。
- *  编译为单槽队列，耗时约 10-30 秒（默认 60s 上限）。 */
-export function compileTex(formData, opts = {}) {
-  return unwrap(post(`${BASE}/compile`, formData, opts));
-}
-
-/** P4 POST /api/review/compile/inspect（multipart .zip ≤50MB，两段式之①）
- *  → {ok, meta:{job_id, main, stats:{files,tex,images,cls,bib,other,bytes},
- *     skipped:[{name,reason}], skipped_count, created_at}}
- *  错误信封：VALIDATION / ZIP_UNSAFE / ZIP_BOMB / ZIP_INVALID（HTTP 200）。
- *  job_id 1 小时 TTL；run 前不占编译队列。 */
-export function inspectZip(formData, opts = {}) {
-  return unwrap(post(`${BASE}/compile/inspect`, formData, opts));
-}
-
-/** P4 POST /api/review/compile/run（JSON {job_id}，两段式之②）
- *  → 与 compileTex 同构信封 {ok, compile_id, pdf_url, log_url, meta}；
- *  pdf/log 路径带 /zip/ 前缀。失败（COMPILE_FAILED/TIMEOUT）也带 compile_id+log_url。
- *  QUEUE_FULL → HTTP 429（此时 job 未消费，可直接重试）。 */
-export function runZipCompile(payload, opts = {}) {
-  return unwrap(post(`${BASE}/compile/run`, payload, opts));
-}
-
 /** ⑤ format-check 专用错误文案：解档/校验类 PARSE_FAILED/VALIDATION 用后端原话
  * （与 presubmit 的"扫描件"提示是不同语境，不能复用 CODE_HINTS），其余走统一口径。 */
 export function formatErrorMessage(err) {
@@ -139,11 +99,18 @@ const CODE_HINTS = {
   VALIDATION: null,
   PARSE_FAILED: '论文解析失败：可能是扫描件/图片型 PDF，请换文本型 PDF。',
   UPSTREAM_DOWN: '审稿模型暂时不可用，请稍后重试。',
+  AUTH_EXPIRED: '登录已失效，请重新登录后重试。',
+  MODEL_AUTH: '模型服务拒绝了临时凭据，请联系管理员。',
+  MODEL_FORBIDDEN: '当前账号暂不能使用模型服务，请联系管理员。',
+  MODEL_NOT_CONNECTED: '模型服务尚未连接，请重新打开教育科研页面。',
+  MODEL_REQUEST_INVALID: '模型服务未接受审稿请求，请稍后重试或联系管理员。',
+  MODEL_INVALID_RESPONSE: '模型返回的结果格式异常，请重试。',
+  INPUT_TOO_LONG: '论文内容超出模型可处理范围，请缩小审稿范围后重试。',
+  OUTPUT_TRUNCATED: '审稿输出达到模型上限，报告不完整。请缩小审稿范围后重试。',
+  RATE_LIMIT: '模型服务请求过于频繁，请稍后重试。',
   SEED_UNAVAILABLE: '期刊库就绪中（种子数据缺失），请稍后再试。',
   TIMEOUT: '请求超时，请稍后重试。',
   NETWORK: '网络异常，请检查连接后重试。',
-  // P3b 编译：固定口径（后端 message 带动态 pending 数，此处按规范统一为"最多 5 个"）
-  QUEUE_FULL: '编译队列已满（最多 5 个任务），请稍后重试',
 };
 
 /** ApiError（或任意错误）→ 用户可读文案。degraded 由调用方读 err.degraded 走降级横幅样式。 */

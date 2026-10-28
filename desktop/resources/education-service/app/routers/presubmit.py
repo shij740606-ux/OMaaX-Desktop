@@ -181,8 +181,8 @@ async def presubmit_review(
         logger.warning("presubmit: 解析失败：%s", exc)
         return _error("PARSE_FAILED", str(exc), degraded=True)
 
-    truncated = len(text) > settings.max_text_chars
     feed_text, dropped_sections = _fit_feed_text(text, settings.max_text_chars)
+    truncated = len(feed_text) < len(text)
 
     # ---- LLM 结构化自审（植物基因组学六维清单）----
     # 第二层保护：HTTP 400/413（疑似超长/形态拒绝）→ 降 80K 字符重试一次
@@ -193,12 +193,12 @@ async def presubmit_review(
                 self_review.SYSTEM_PROMPT,
                 user_prompt,
                 temperature=0.2,
-                max_tokens=8000,
+                max_tokens=None,
                 timeout=settings.presubmit_read_timeout,
             )
         except llm.LLMError as exc:
             msg = str(exc)
-            if ("HTTP 400" in msg or "HTTP 413" in msg) and len(feed_text) > _LLM_REJECT_RETRY_CHARS:
+            if exc.code in ("INPUT_TOO_LONG", "MODEL_REQUEST_INVALID") and len(feed_text) > _LLM_REJECT_RETRY_CHARS:
                 logger.warning("presubmit: LLM 拒绝输入（%s），降到 %d 字符重试",
                                msg[:120], _LLM_REJECT_RETRY_CHARS)
                 feed_text, dropped_sections = pack_feed_text(text, _LLM_REJECT_RETRY_CHARS)
@@ -207,14 +207,14 @@ async def presubmit_review(
                     self_review.SYSTEM_PROMPT,
                     self_review.build_user_prompt(feed_text, (target_journal or "").strip()),
                     temperature=0.2,
-                    max_tokens=8000,
+                    max_tokens=None,
                     timeout=settings.presubmit_read_timeout,
                 )
             else:
                 raise
     except llm.LLMError as exc:
         logger.error("presubmit: LLM 审稿失败：%s", exc)
-        return _error("UPSTREAM_DOWN", f"审稿模型调用失败：{exc}", degraded=True)
+        return _error(exc.code, str(exc), degraded=True)
 
     report = self_review.coerce_report(payload)
 

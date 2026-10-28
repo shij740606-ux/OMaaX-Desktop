@@ -24,8 +24,8 @@ asyncio.run(main())
 for(const scenario of ['text','json','expired','forbidden','refresh']){
  test(`education company route: ${scenario}`,async()=>{
   let calls=0,mints=0;
-  const bridge=await startBridge({key:'test-loopback-only',session:async()=>scenario==='expired'?{}:{hub:'https://account.invalid',token:'test-login'},fetcher:async(url,init)=>{
-   if(url.endsWith('/api/llm/models'))return json({ok:true,models:scenario==='forbidden'?[]:[{id:'authorized-model',enabled:true}]});
+  const bridge=await startBridge({key:'test-loopback-only',session:async()=>({hub:'https://account.invalid',token:'test-login'}),fetcher:async(url,init)=>{
+   if(url.endsWith('/api/llm/models'))return scenario==='expired'?json({error:{code:'UNAUTHORIZED'}},401):json({ok:true,models:scenario==='forbidden'?[]:[{id:'authorized-model',enabled:true}]});
    if(url.endsWith('/api/llm/token'))return json({ok:true,token:`test-short-lived-${++mints}`,expires_in:600});
    calls++;
    assert.equal(init.headers.Authorization,`Bearer test-short-lived-${mints}`);

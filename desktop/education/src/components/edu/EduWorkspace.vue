@@ -11,7 +11,6 @@ import RecommendPanel from './panels/RecommendPanel.vue';
 import PresubmitPanel from './panels/PresubmitPanel.vue';
 import ReportPanel from './panels/ReportPanel.vue';
 import FormatPanel from './panels/FormatPanel.vue';
-import ReformatPanel from './panels/ReformatPanel.vue';
 import CalendarPanel from './panels/CalendarPanel.vue';
 import RebuttalPanel from './panels/RebuttalPanel.vue';
 import PptPanel from './panels/PptPanel.vue';
@@ -26,7 +25,6 @@ const panelMap = {
   presubmit: PresubmitPanel,
   report: ReportPanel,
   format: FormatPanel,
-  reformat: ReformatPanel,
   calendar: CalendarPanel,
   rebuttal: RebuttalPanel,
   ppt: PptPanel,

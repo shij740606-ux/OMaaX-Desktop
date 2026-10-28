@@ -183,7 +183,7 @@ async def rerank(
         SYSTEM_PROMPT,
         build_user_prompt(abstract, candidates, preferences),
         temperature=0.2,
-        max_tokens=3000,
+        max_tokens=None,
         timeout=settings.recommend_read_timeout,
     )
     return validate_rankings(payload, candidates)

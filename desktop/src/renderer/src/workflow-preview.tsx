@@ -14,7 +14,7 @@ const scenario=new URLSearchParams(location.search).get('failure');
 window.biodsh={
   payment:async()=>({orders:[],unresolved:[]}),
   hubStatus:async()=>({authenticated:true,hub:"http://127.0.0.1:8090",user:{id:"fixture",username:"测试账号",role:"admin",authorizations:[]}}),hubRememberedLogin:async()=>null,hubForgetLogin:async()=>{},hubLogin:async()=>{},hubLogout:async()=>{},hubAdmin:async()=>{},
-  appInfo:async()=>({version:'0.4.57',platform:'win32',dark:false,paths:{root:'C:/isolated-ui-preview'}}),
+  appInfo:async()=>({version:'0.4.58',platform:'win32',dark:false,paths:{root:'C:/isolated-ui-preview'}}),
   ratingsGet:async()=>({}),ratingsSet:async()=>({}),getSettings:async()=>settings,setSettings:async()=>settings,getCredential:async()=>({hasKey:true}),
   envStatus:async()=>({ready:true,step:'ready',progress:100,message:'',log:[]}),
   dshStatus:async()=>({state:'running',log:[]}),dshRestart:async()=>({state:'running',log:[]}),skillsCatalog:async()=>[],skillsStatuses:async()=>[],

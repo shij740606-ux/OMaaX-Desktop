@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {companyErrors,patchCompanyAdapterSource,patchCompanyRetrySource,patchCompanyChatSource,patchCompanyTrajectorySource} from './patch-dsh-company-errors.mjs';
+import {companyErrors,internalErrorCode,patchCompanyAdapterSource,patchCompanyRetrySource,patchCompanyChatSource,patchCompanyTrajectorySource} from './patch-dsh-company-errors.mjs';
 
 const runtime = new URL('../dsh-runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/',import.meta.url);
 const read = name => readFileSync(new URL(name,runtime),'utf8');
@@ -101,4 +101,15 @@ test('temporary verification failures retain only the already-open account UI; r
   const native=readFileSync(new URL('../src-tauri/src/lib.rs',import.meta.url),'utf8');
   const handler=native.slice(native.indexOf('async fn hub_status('),native.indexOf('async fn cloud_qa('));
   assert.doesNotMatch(handler,/if value\["authenticated"\] != true/);
+});
+
+test('unknown internal errors are localized only inside error renderers',()=>{
+ const show=vm.runInNewContext(trajectory.slice(trajectory.indexOf('\t\tfunction requestErrorMessage('),trajectory.indexOf('\t\tfunction TokenRows('))+'\nrequestErrorMessage');
+ const cases=[['DeepSeek fetch failed','TRANSPORT','model_network_error'],['Harness timed out','','model_timeout'],['@deepseek-ai/dsh invalid API key','','internal_auth_error'],['DeepSeek rate limit 429','','model_rate_limited'],['failed to import loader entry @deepseek-ai/dsh-client-hmr','','component_load_failed'],['HARNESS unexpected state','','internal_operation_failed']];
+ for(const[message,code,expected]of cases){assert.equal(internalErrorCode(message,code),expected);}
+ for(const[source,render,prefix]of [[chat,(m,c,t)=>failureMessage(m,c,t),'message'],[trajectory,(m,c,t)=>show({error:m,errorCode:c},t),'details']]){
+  const start=source.indexOf('const zh = {'),end=source.indexOf('\n\t\t};',start)+6,dictionary=vm.runInNewContext(source.slice(start,end)+';zh');
+  for(const[message,code,expected]of cases){const result=render(message,code,k=>dictionary[k]);assert.equal(result,dictionary[`${prefix}.failure.company.${expected}`]);assert.match(result,/[\p{Script=Han}]/u);assert.doesNotMatch(result,/deepseek|harness|dsh-|plugins\//i);}
+  assert.equal(render('磁盘空间不足，请选择其他目录。','',k=>dictionary[k]),'磁盘空间不足，请选择其他目录。');
+ }
 });

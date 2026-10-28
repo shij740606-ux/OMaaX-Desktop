@@ -10,6 +10,9 @@ import { patchCompaction } from './patch-dsh-compaction.mjs';
 import { patchApproval } from './patch-dsh-approval.mjs';
 import { patchMcpTimeout } from './patch-dsh-mcp-timeout.mjs';
 import { patchCompanyErrors } from './patch-dsh-company-errors.mjs';
+import { patchDshStartup } from './patch-dsh-startup.mjs';
+import { patchDshAuthError } from './patch-dsh-auth-error.mjs';
+import { patchDshCookies } from './patch-dsh-cookies.mjs';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -63,6 +66,9 @@ patchCompaction(dir);
 patchApproval(dir);
 patchMcpTimeout(dir);
 patchCompanyErrors(dir);
+patchDshStartup(dir);
+patchDshAuthError(dir);
+patchDshCookies(dir);
 // OMaaX 插件沿用官方扩展面；step-guard 仅保留为空的旧配置兼容入口。
 // 把插件包拷进运行时,由 cordis.patch.yml(ensure_home 生成)以 `@biodsh/<name>` 加载。
 for (const p of ['skill-router', 'step-guard', 'workflow-guard', 'auth-guard']) {

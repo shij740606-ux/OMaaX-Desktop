@@ -88,7 +88,20 @@ test('text and color edits retain paths, clipping and escaped Unicode', async ()
 });
 test('whole-label text editing preserves its original tspan anchor and formatting', async () => {
   const clean = await run(() => window.figure.replaceSvgText('<svg viewBox="0 0 200 100"><text>\n<tspan x="30" y="60" font-weight="bold">Old</tspan><tspan> label</tspan></text></svg>', 0, 'New label'));
-  assert.match(clean, /<tspan x="30" y="60" font-weight="bold">New label<\/tspan>/); assert.doesNotMatch(clean, /Old/);
+  assert.match(clean, /<tspan x="30" y="60" font-weight="bold"[^>]*>New label<\/tspan>/); assert.doesNotMatch(clean, /Old/);
+});
+
+test('whole-label edits ignore descriptive metadata and retain indented or empty positioned spans', async () => {
+  const result = await run(() => {
+    const f=window.figure;
+    return ['Original caption',''].map(caption=>{
+      const source='<svg viewBox="0 0 200 100"><text>\n  <title>Main label</title><desc>Accessible description</desc>\n  <tspan x="30" y="60" font-weight="bold"><title>Span title</title>'+caption+'</tspan>\n</text></svg>';
+      const before=f.svgTextEntries(source),edited=f.replaceSvgText(source,0,'Revised caption'),doc=new DOMParser().parseFromString(edited,'image/svg+xml');
+      return {before,after:f.svgTextEntries(edited),title:Array.from(doc.querySelectorAll('title'),el=>el.textContent),description:doc.querySelector('desc').textContent,span:doc.querySelector('tspan').lastChild.textContent,x:doc.querySelector('tspan').getAttribute('x'),y:doc.querySelector('tspan').getAttribute('y')};
+    });
+  });
+  assert.deepEqual(result.map(value=>value.before[0].text),['Original caption','']);
+  for(const value of result){assert.equal(value.after[0].text,'Revised caption');assert.deepEqual(value.title,['Main label','Span title']);assert.equal(value.description,'Accessible description');assert.equal(value.span,'Revised caption');assert.equal(value.x,'30');assert.equal(value.y,'60');}
 });
 test('grid, align and move treat groups as units and keep labels attached', async () => {
   const result = await run(() => {
@@ -160,4 +173,55 @@ test('PNG export uses physical width and writes the correct 300 dpi metadata', a
 test('oversized export errors clearly and local editing makes no network calls', async () => {
   const message = await run(async () => { try { await window.figure.exportFigurePng({ ...window.figure.blankFigure(), widthMm: 2000 }, 600); } catch (e) { return e.message; } });
   assert.match(message, /16000 像素|6400 万像素/); assert.deepEqual(calls, []);
+});
+test('version one extensions roundtrip while old documents retain their defaults',async()=>{
+  const result=await run(()=>{
+    const f=window.figure,old=f.parseFigure(f.blankFigure()),item={id:'styled',name:'Styled text',kind:'text',x:5,y:8,width:120,height:60,rotation:12,hidden:false,locked:false,text:'Alpha\nBeta',fontSize:20,fontFamily:'Georgia',fontWeight:700,fontStyle:'italic',textAnchor:'middle',lineHeight:1.8,letterSpacing:1.5,opacity:.6};
+    const document=f.parseFigure({...old,background:'transparent',unit:'mm',items:[item]});
+    return {document,round:f.parseFigure(JSON.stringify(document)),old:f.figureSvg(old),svg:f.figureSvg(document)};
+  });
+  assert.deepEqual(result.round,result.document);assert.match(result.old,/fill="white"/);assert.doesNotMatch(result.svg,/<rect width="1200" height="850" fill=/);
+  assert.match(result.svg,/font-family="Georgia"/);assert.match(result.svg,/font-weight="700"/);assert.match(result.svg,/font-style="italic"/);assert.match(result.svg,/letter-spacing="1.5"/);assert.match(result.svg,/opacity="0.6"/);assert.match(result.svg,/y="56"/);
+});
+test('percentage cropping changes source viewBox and preserves the full original source for reopening',async()=>{
+  const result=await run(()=>{
+    const f=window.figure,item=f.importSvg('<svg viewBox="10 20 200 100"><path d="M10 20L210 120"/></svg>');
+    const doc=f.parseFigure({...f.blankFigure(),items:[{...item,crop:{x:25,y:10,width:50,height:80},preserveAspectRatio:'none'}]});
+    return {svg:f.figureSvg(doc),round:f.parseFigure(JSON.stringify(doc)).items[0]};
+  });
+  assert.match(result.svg,/viewBox="60 30 100 80"/);assert.match(result.svg,/preserveAspectRatio="none"/);assert.match(result.svg,/overflow="hidden"/);
+  assert.match(result.round.svg,/viewBox="10 20 200 100"/);assert.deepEqual(result.round.crop,{x:25,y:10,width:50,height:80});
+});
+test('static filters and clipping units survive import, while actual removals are reported',async()=>{
+  const result=await run(()=>window.figure.importSvgWithReport('<svg viewBox="0 0 100 100"><defs><filter id="blur" filterUnits="userSpaceOnUse" primitiveUnits="objectBoundingBox"><feGaussianBlur stdDeviation="2"/><feColorMatrix type="saturate" values=".5"/></filter><clipPath id="clip" clipPathUnits="objectBoundingBox"><rect width="1" height=".5"/></clipPath><mask id="m" maskUnits="userSpaceOnUse" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="white"/></mask></defs><rect width="50" height="50" filter="url(#blur)" clip-path="url(#clip)" mask="url(#m)"/><script>alert(1)</script><foreignObject/><rect onclick="evil()" custom-unsupported="1"/></svg>'));
+  assert.match(result.item.svg,/feGaussianBlur/);assert.match(result.item.svg,/filterUnits="userSpaceOnUse"/);assert.match(result.item.svg,/clipPathUnits="objectBoundingBox"/);assert.match(result.item.svg,/maskContentUnits="objectBoundingBox"/);
+  assert.ok(result.report.removedElements.includes('script'));assert.ok(result.report.removedElements.includes('foreignObject'));assert.ok(result.report.removedAttributes.includes('rect.onclick'));assert.ok(result.report.removedAttributes.includes('rect.custom-unsupported'));assert.ok(result.report.warnings.length);
+  assert.doesNotMatch(result.item.svg,/script|onclick|foreignObject|custom-unsupported/);
+});
+test('ellipse, line and arrow are editable native vector layers with serializable opacity and stroke width',async()=>{
+  const result=await run(()=>{
+    const f=window.figure,items=['ellipse','line','arrow'].map((kind,i)=>({id:'shape-'+i,name:kind,kind,x:i*100,y:0,width:80,height:50,rotation:0,hidden:false,locked:false,stroke:'#336699',fill:'none',strokeWidth:3,opacity:.8}));
+    const doc=f.parseFigure({...f.blankFigure(),items});
+    return {svg:f.figureSvg(doc),items:f.parseFigure(JSON.stringify(doc)).items};
+  });
+  assert.match(result.svg,/<ellipse/);assert.equal((result.svg.match(/<line /g)||[]).length,2);assert.match(result.svg,/<marker /);assert.match(result.svg,/stroke-width="3"/);assert.deepEqual(result.items.map(item=>item.kind),['ellipse','line','arrow']);
+});
+test('PNG transparent background preserves alpha and vector layer opacity',async()=>{
+  const result=await run(async()=>{
+    const f=window.figure,doc={...f.blankFigure(),width:100,height:100,widthMm:25.4,background:'transparent',items:[{id:'box',name:'box',kind:'rect',x:0,y:0,width:30,height:30,rotation:0,hidden:false,locked:false,fill:'#ff0000',stroke:'none',opacity:.5}]};
+    const data=await f.exportFigurePng(doc,100),image=new Image();image.src=data;await image.decode();const canvas=document.createElement('canvas');canvas.width=100;canvas.height=100;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+    return {inside:[...ctx.getImageData(10,10,1,1).data],outside:[...ctx.getImageData(90,90,1,1).data]};
+  });
+  assert.equal(result.outside[3],0);assert.ok(result.inside[3]>=126&&result.inside[3]<=129);assert.equal(result.inside[0],255);
+});
+test('source metadata roundtrips independently of editing, and unsupported containers are explicitly reported',async()=>{
+  const result=await run(()=>{
+    const f=window.figure,imported=f.importSvgWithReport('<svg viewBox="0 0 50 50"><defs><filter id="f"><feGaussianBlur stdDeviation="1"/><feImage href="#unknown"/></filter></defs><rect width="20" height="20" filter="url(#f)"/><switch><text>Conditional content</text></switch><foreignObject><div xmlns="http://www.w3.org/1999/xhtml">HTML</div></foreignObject></svg>','原始图.svg');
+    const old=f.blankFigure(),doc=f.parseFigure({...old,items:[{...imported.item,source:{name:'研究论文.pdf',kind:'pdf',page:3}}]});
+    const invalid=[{name:'x',kind:'other'},{name:'',kind:'svg'},{name:'x.pdf',kind:'pdf',page:0},{name:'x.pdf',kind:'pdf',page:1.5}].map(source=>{try{f.parseFigure({...old,items:[{...imported.item,source}]});return false;}catch{return true;}});
+    return {initial:imported.item.source,round:f.parseFigure(JSON.stringify(doc)).items[0].source,legacy:f.parseFigure(old).items.length,report:imported.report,svg:imported.item.svg,invalid};
+  });
+  assert.deepEqual(result.initial,{name:'原始图.svg',kind:'svg'});assert.deepEqual(result.round,{name:'研究论文.pdf',kind:'pdf',page:3});assert.equal(result.legacy,0);assert.deepEqual(result.invalid,[true,true,true,true]);
+  for(const tag of ['switch','foreignObject','feImage']){assert.ok(result.report.removedElements.includes(tag));assert.ok(result.report.warnings.some(warning=>warning.includes(tag)));}
+  assert.match(result.svg,/feGaussianBlur/);assert.doesNotMatch(result.svg,/Conditional content|<switch|<foreignObject|<feImage/);
 });

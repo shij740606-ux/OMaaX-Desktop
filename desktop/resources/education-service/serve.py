@@ -36,15 +36,11 @@ def main():
     state = Path(config['state']).resolve()
     state.mkdir(parents=True, exist_ok=True)
     os.environ['REVIEW_DB_PATH'] = str(state / 'review.db')
-    for name, folder in [('REFORMAT_DIR', 'reformat_jobs'), ('PPT_JOBS_DIR', 'ppt_jobs'),
-                         ('INSPECT_DIR', 'compile_inspect'), ('COMPILE_JOBS_DIR', 'compile_jobs'),
-                         ('TECTONIC_CACHE_DIR', 'tectonic-cache')]:
+    for name, folder in [('PPT_JOBS_DIR', 'ppt_jobs')]:
         os.environ['REVIEW_' + name] = str(state / folder)
     for name, value in config.get('llm', {}).items():
         if name in ('BASE_URL', 'API_KEY', 'MODEL'):
             os.environ['REVIEW_LLM_' + name] = value
-    if config.get('tectonic'):
-        os.environ['REVIEW_TECTONIC_PATH'] = config['tectonic']
     from app.main import app
     from starlette.responses import JSONResponse
     import uvicorn

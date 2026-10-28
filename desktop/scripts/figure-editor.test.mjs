@@ -1,5 +1,6 @@
 import {after, afterEach, before, beforeEach, test} from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -23,8 +24,9 @@ let browser,page,bundle,errors,requests;
 
 before(async()=>{
   // Keep the editor, model and translations real; replace only the native bridge and account source.
-  const entry=`import React from 'react';import{createRoot}from'react-dom/client';import FigureEditor from './src/renderer/src/views/FigureEditor';import{LangContext}from'./src/renderer/src/i18n';
+  const entry=`import React from 'react';import{createRoot}from'react-dom/client';import FigureEditor from './src/renderer/src/views/FigureEditor';import{LangContext}from'./src/renderer/src/i18n';import{loadFigureDraft}from'./src/renderer/src/views/figure-draft';
     window.__qa={owner:'alice',pending:[],cancellations:[],calls:[],deferCancel:false};
+    window.__qa.loadDraft=async owner=>{const key='omaax.figure.'+owner;return JSON.parse(localStorage.getItem(key)??await loadFigureDraft(key))};
     window.__qa.setOwner=id=>{window.__qa.owner=id;window.dispatchEvent(new Event('qa-owner'));};
     window.biodsh={dshRpc:async()=>({items:[]}),pickFolder:async()=>null,drawing:(action,body)=>{
       window.__qa.calls.push({action,body});
@@ -44,11 +46,14 @@ before(async()=>{
     },
   }]});
   bundle=built.outputFiles[0].text;
-  browser=await playwright.chromium.launch({headless:true,channel:'msedge'});
+  const executablePath=['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','C:/Program Files/Microsoft/Edge/Application/msedge.exe'].find(value=>fs.existsSync(value));
+  assert.ok(executablePath,'An installed Edge executable is required; tests do not download browsers.');
+  browser=await playwright.chromium.launch({headless:true,executablePath});
 });
 beforeEach(async()=>{
   errors=[];requests=[];
   page=await browser.newPage({viewport:{width:1500,height:1000}});
+  page.setDefaultTimeout(5000);
   page.on('pageerror',e=>errors.push(String(e)));
   await page.route('**/*',route=>{
     if(route.request().url()==='http://127.0.0.1/figure-test')return route.fulfill({contentType:'text/html',body:'<!DOCTYPE html><html><body><div id="root"></div></body></html>'});
@@ -60,10 +65,17 @@ beforeEach(async()=>{
 afterEach(async()=>{await page?.close();assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);});
 after(async()=>{await browser?.close();});
 
-const saved=(owner='alice')=>page.evaluate(id=>JSON.parse(localStorage.getItem('omaax.figure.'+id)).document,owner);
+const saved=(owner='alice')=>page.evaluate(async id=>(await window.__qa.loadDraft(id)).document,owner);
+async function waitForAsync(predicate,argument){
+  const deadline=Date.now()+5000;let lastError;
+  do{try{if(await page.evaluate(predicate,argument))return;}catch(error){lastError=error;}await page.waitForTimeout(50);}while(Date.now()<deadline);
+  assert.fail(lastError?String(lastError):'Timed out waiting for the saved draft or native mock.');
+}
 const modelCalls=()=>page.evaluate(()=>window.__qa.calls.filter(c=>c.action==='figure_generate'));
 async function generate(name='Editable panel'){
   await page.getByRole('button',{name,exact:true}).click();
+  const conversation=page.locator('details').filter({has:page.locator('summary').filter({hasText:/^对话修改$/})});
+  if(!await conversation.evaluate(el=>el.open))await conversation.locator('summary').click();
   await page.getByLabel('拼图修改要求',{exact:true}).fill('Unify typography without changing the source data');
   await page.getByRole('button',{name:'修改图形',exact:true}).click();
 }
@@ -74,27 +86,27 @@ async function resolve(index,svg=update){
   },{index,svg});
 }
 async function waitUpdated(){
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items[0].svg.includes('Updated chart'));
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items[0].svg.includes('Updated chart'));
 }
 
 test('stopping ignores a late model response and retains the current drawing',async()=>{
-  await generate();await page.waitForFunction(()=>window.__qa.pending.length===1);
+  await generate();await waitForAsync(async()=>window.__qa.pending.length===1);
   await page.getByRole('button',{name:'停止',exact:true}).click();await resolve(0);
   assert.match((await saved()).items[0].svg,/Original chart/);
-  assert.equal(await page.getByRole('status').textContent(),'已停止，保留修改前的图。');
+  assert.equal(await page.locator('.drawing-notice[role="status"]').textContent(),'已停止，保留修改前的图。');
   const cancel=await page.evaluate(()=>window.__qa.calls.filter(c=>c.action==='figure_cancel'));
   assert.equal(cancel.length,1);assert.equal(cancel[0].body.requestId,(await modelCalls())[0].body.requestId);
 });
 test('switching accounts cancels the previous request and rejects its late result',async()=>{
-  await generate();await page.waitForFunction(()=>window.__qa.pending.length===1);
+  await generate();await waitForAsync(async()=>window.__qa.pending.length===1);
   await page.evaluate(()=>window.__qa.setOwner('bob'));
   await page.getByText('把图表放到这里，开始拼图',{exact:true}).waitFor();await resolve(0);
-  await page.waitForFunction(()=>localStorage.getItem('omaax.figure.bob')!==null);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('bob'))!==null);
   assert.equal((await saved('bob')).items.length,0);assert.match((await saved()).items[0].svg,/Original chart/);
   assert.equal(await page.evaluate(()=>window.__qa.calls.filter(c=>c.action==='figure_cancel').length),1);
 });
 test('model refinement preserves other layers and the selected panel geometry and grouping',async()=>{
-  await generate();await page.waitForFunction(()=>window.__qa.pending.length===1);await resolve(0);await waitUpdated();
+  await generate();await waitForAsync(async()=>window.__qa.pending.length===1);await resolve(0);await waitUpdated();
   const result=await saved();assert.equal(result.items.length,seed.items.length);
   for(const key of ['id','name','x','y','width','height','rotation','groupId'])assert.equal(result.items[0][key],seed.items[0][key],key);
   assert.deepEqual(result.items.slice(1),seed.items.slice(1));
@@ -102,9 +114,9 @@ test('model refinement preserves other layers and the selected panel geometry an
   assert.match(input,/Original chart/);assert.doesNotMatch(input,/Protected annotation|data:image\/png/);
 });
 test('model refinement supports undo and redo without altering the original panels',async()=>{
-  await generate();await page.waitForFunction(()=>window.__qa.pending.length===1);await resolve(0);await waitUpdated();
+  await generate();await waitForAsync(async()=>window.__qa.pending.length===1);await resolve(0);await waitUpdated();
   await page.getByRole('button',{name:'撤销',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items[0].svg.includes('Original chart'));
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items[0].svg.includes('Original chart'));
   assert.deepEqual((await saved()).items.slice(1),seed.items.slice(1));
   await page.getByRole('button',{name:'重做',exact:true}).click();await waitUpdated();
 });
@@ -117,10 +129,10 @@ test('locked and hidden layers cannot be submitted for model editing',async()=>{
   assert.deepEqual((await saved()).items.slice(1),seed.items.slice(1));
 });
 test('selected raster bytes survive a model response that adds vector annotations',async()=>{
-  await generate('Original image');await page.waitForFunction(()=>window.__qa.pending.length===1);
+  await generate('Original image');await waitForAsync(async()=>window.__qa.pending.length===1);
   const input=(await modelCalls())[0].body.svg;assert.ok(input.includes(image));
   const annotated=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60"><image width="80" height="60" href="${image}"/><text x="2" y="12">A</text></svg>`;
-  await resolve(0,annotated);await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.find(i=>i.id==='raster').kind==='svg');
+  await resolve(0,annotated);await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.find(i=>i.id==='raster').kind==='svg');
   const result=await saved(),raster=result.items.find(i=>i.id==='raster');
   assert.ok(raster.svg.includes(image));assert.match(raster.svg,/>A<\/text>/);
   for(const key of ['id','name','x','y','width','height','rotation'])assert.equal(raster[key],seed.items[3][key],key);
@@ -128,9 +140,9 @@ test('selected raster bytes survive a model response that adds vector annotation
 });
 test('a late stop error cannot overwrite the status of a newer model request',async()=>{
   await page.evaluate(()=>{window.__qa.deferCancel=true;});
-  await generate();await page.waitForFunction(()=>window.__qa.pending.length===1);
-  await page.getByRole('button',{name:'停止',exact:true}).click();await page.waitForFunction(()=>window.__qa.cancellations.length===1);
-  await generate();await page.waitForFunction(()=>window.__qa.pending.length===2);
+  await generate();await waitForAsync(async()=>window.__qa.pending.length===1);
+  await page.getByRole('button',{name:'停止',exact:true}).click();await waitForAsync(async()=>window.__qa.cancellations.length===1);
+  await generate();await waitForAsync(async()=>window.__qa.pending.length===2);
   await page.evaluate(async()=>{window.__qa.cancellations[0].reject(Error('Old cancellation failed'));await new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)));});
   assert.equal(await page.getByRole('alert').count(),0);assert.equal(await page.getByRole('button',{name:'停止',exact:true}).count(),1);
   await resolve(0);await resolve(1);await waitUpdated();assert.equal(await page.getByRole('alert').count(),0);
@@ -141,19 +153,19 @@ test('new text is immediately editable and keyboard deletion inside the field do
   const input=page.getByRole('textbox',{name:'文字内容',exact:true});
   assert.equal(await input.evaluate(el=>el===document.activeElement),true);
   await input.fill('Rice SPL family\n研究标签');
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Rice SPL family\n研究标签');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).text==='Rice SPL family\n研究标签');
   assert.match(await page.locator('.figure-canvas').textContent(),/Rice SPL family研究标签/);
   await input.press('Control+a');await input.press('Backspace');
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).text==='');
   assert.equal((await saved()).items.length,seed.items.length+1);
   await input.fill('Restored text');
   await page.locator('.figure-stage').focus();
   await page.locator('.figure-canvas [data-figure-id]').last().locator('text').dblclick();
   assert.equal(await input.evaluate(el=>el===document.activeElement),true,'double-click returns focus despite canvas pointer capture');
   await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===4);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.length===4);
   await page.getByRole('button',{name:'撤销',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Restored text');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).text==='Restored text');
 });
 
 test('A to Z labels can be added without selecting a chart and preserve custom labels on export and save',async()=>{
@@ -165,17 +177,17 @@ test('A to Z labels can be added without selecting a chart and preserve custom l
   assert.equal(await input.evaluate(el=>el===document.activeElement),true);
   assert.equal(await input.inputValue(),'Z');
   await input.fill('Fig. 2B');
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Fig. 2B');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).text==='Fig. 2B');
   const label=(await saved()).items.at(-1);assert.equal(label.labelFor,undefined);assert.match(label.id,/^label-/);
   await page.locator('.figure-stage').focus();await page.locator('.figure-stage').press('ArrowRight');
-  await page.waitForFunction(id=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.find(i=>i.id===id).x===121,label.id);
+  await waitForAsync(async id=>(await window.__qa.loadDraft('alice')).document.items.find(i=>i.id===id).x===121,label.id);
   await page.getByLabel('标签字母',{exact:true}).selectOption('A');
   await page.getByRole('button',{name:'添加标签',exact:true}).click();
   assert.equal(await input.inputValue(),'A');
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===6);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.length===6);
   assert.equal((await saved()).items.find(i=>i.id===label.id).text,'Fig. 2B');
   await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===5);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.length===5);
   await page.getByRole('button',{name:'导出 SVG',exact:true}).click();
   const exported=await page.evaluate(()=>window.__qa.calls.findLast(c=>c.action==='figure_export').body.svg);
   assert.match(exported,/Fig\. 2B/);assert.ok(exported.includes(image));
@@ -190,7 +202,7 @@ test('labels work on an empty canvas and preserve legacy attached labels when a 
   await page.getByText('把图表放到这里，开始拼图',{exact:true}).waitFor();
   await page.getByLabel('标签字母',{exact:true}).selectOption('Q');
   await page.getByRole('button',{name:'添加标签',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.empty'))?.document.items[0]?.text==='Q');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('empty'))?.document.items[0]?.text==='Q');
   await page.evaluate(seed=>{
     localStorage.setItem('omaax.figure.legacy',JSON.stringify({document:{...seed,items:[...seed.items,{id:'old-label',name:'Publication label',kind:'text',text:'Fig. 3α',labelFor:'raster',x:330,y:220,width:100,height:35,rotation:0,hidden:false,locked:false,fontSize:24,color:'#123456'}]},history:[]}));
     window.__qa.setOwner('legacy');
@@ -198,7 +210,7 @@ test('labels work on an empty canvas and preserve legacy attached labels when a 
   await page.getByRole('button',{name:'Publication label',exact:true}).click();
   assert.equal(await page.getByLabel('标签内容',{exact:true}).inputValue(),'Fig. 3α');
   await page.getByRole('button',{name:'添加标签',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.legacy')).document.items.length===6);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('legacy')).document.items.length===6);
   const legacy=(await saved('legacy')).items.find(i=>i.id==='old-label');
   assert.equal(legacy.text,'Fig. 3α');assert.equal(legacy.labelFor,'raster');assert.equal(legacy.x,330);
 });
@@ -206,7 +218,7 @@ test('labels work on an empty canvas and preserve legacy attached labels when a 
 test('editing long multiline text expands its box and fitting keeps every displayed glyph inside the canvas',async()=>{
   await page.getByRole('button',{name:'添加文字',exact:true}).click();
   await page.getByLabel('文字内容',{exact:true}).fill('A very long research annotation with a descender: gjpq\n第二行研究标签\nThird line');
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).height>100);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).height>100);
   const text=(await saved()).items.at(-1);assert.ok(text.width>180);assert.ok(text.height>48);
   await page.getByRole('button',{name:'画布适应内容',exact:true}).click();
   const bounds=await page.locator('.figure-canvas').evaluate(el=>{
@@ -219,7 +231,7 @@ test('editing long multiline text expands its box and fitting keeps every displa
 test('oversized text changes are rejected before they can corrupt the saved draft',async()=>{
   await page.getByRole('button',{name:'添加文字',exact:true}).click();
   const input=page.getByLabel('文字内容',{exact:true});await input.fill('Keep this text');
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).text==='Keep this text');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).text==='Keep this text');
   const before=await saved();await input.fill('W'.repeat(4000));
   assert.match(await page.getByRole('alert').textContent(),/文字内容过长/);
   assert.equal(await input.inputValue(),'Keep this text');assert.deepEqual(await saved(),before);
@@ -227,26 +239,26 @@ test('oversized text changes are rejected before they can corrupt the saved draf
 
 test('new rectangles have no fill, existing fill can be removed, and selected layers delete with undo',async()=>{
   await page.getByRole('button',{name:'添加矩形',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===5);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.length===5);
   assert.equal((await saved()).items.at(-1).fill,'none');
   assert.equal(await page.getByLabel('无填充',{exact:true}).isChecked(),true);
   assert.equal(await page.getByLabel('填充颜色',{exact:true}).isDisabled(),true);
   const id=(await saved()).items.at(-1).id;
   assert.equal(await page.locator(`[data-figure-id="${id}"] rect`).nth(1).getAttribute('fill'),'none');
   await page.getByLabel('无填充',{exact:true}).uncheck();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.at(-1).fill!=='none');
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.at(-1).fill!=='none');
   await page.getByLabel('无填充',{exact:true}).check();
   await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===4);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.length===4);
   await page.getByRole('button',{name:'撤销',exact:true}).click();
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.length===5);
+  await waitForAsync(async()=>(await window.__qa.loadDraft('alice')).document.items.length===5);
   assert.equal((await saved()).items.at(-1).fill,'none');
   await page.getByRole('button',{name:'Locked panel',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'删除所选元素',exact:true}).isDisabled(),true);
   for(const name of ['Original image','Hidden panel','Editable panel']){
     await page.getByRole('button',{name,exact:true}).click();
     await page.getByRole('button',{name:'删除所选元素',exact:true}).click();
-    await page.waitForFunction(name=>!JSON.parse(localStorage.getItem('omaax.figure.alice')).document.items.some(i=>i.name===name),name);
+    await waitForAsync(async name=>!(await window.__qa.loadDraft('alice')).document.items.some(i=>i.name===name),name);
   }
   assert.equal((await saved()).items.find(i=>i.id==='locked').text,'Protected annotation');
 });

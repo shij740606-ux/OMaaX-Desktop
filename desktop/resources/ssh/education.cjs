@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const DELETE_PATH = /^\/api\/review\/(?:ppt|rebuttal)\/jobs\/[a-zA-Z0-9_-]{1,80}$/;
-const API_PATH = /^\/api\/review\/(?:journals|conferences|recommend|presubmit|format-check|reformat|compile|rebuttal|ppt)(?:[/?][a-zA-Z0-9_./?=&%+,:~-]*)?$/;
+const API_PATH = /^\/api\/review\/(?:journals|conferences|recommend|presubmit|format-check|rebuttal|ppt)(?:[/?][a-zA-Z0-9_./?=&%+,:~-]*)?$/;
 function validApi(url) {
   try { return API_PATH.test(url) && !decodeURIComponent(url).split(/[/?]/).includes('..') && !/[\\\r\n\0]/.test(decodeURIComponent(url)); } catch { return false; }
 }

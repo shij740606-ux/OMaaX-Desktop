@@ -5,6 +5,7 @@ use std::{collections::HashMap, fs, io::{Read, Write}, path::Path,
     sync::{Arc, LazyLock, Mutex, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}};
 use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
+#[path = "drawing_figure_import.rs"] mod imports;
 
 const MAX_SVG: usize = 64_000_000;
 const MAX_RASTER_URL: usize = 86_000_000;
@@ -356,6 +357,7 @@ pub fn run(app: &AppHandle, paths: &crate::paths::AppPaths, action: &str, body: 
     let user = crate::hub_auth::require(&paths.root, "").map_err(|error| localize_error(error, en))?;
     let result = (|| {
         match action {
+            "figure_pdf_prepare" | "figure_pdf_inspect" | "figure_pdf_import" | "figure_fonts" => imports::run(app, paths, action, &body, &user.id),
             "figure_cancel" => cancel(request_key(&body)?, &user.id),
             "figure_generate" => {
                 let guard = begin(request_key(&body)?, &user.id)?;

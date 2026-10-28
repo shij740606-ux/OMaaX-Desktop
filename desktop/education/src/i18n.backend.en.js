@@ -189,8 +189,6 @@ export const EDUCATION_BACKEND_EN = {
   "job_id 格式非法（应为 12 位 hex）": "Invalid task ID (expected 12 hexadecimal characters)",
   "上传任务不存在或已过期（1 小时），请重新上传 zip": "The upload is missing or has expired (1 hour). Upload the ZIP again.",
   "主文件缺失，请重新上传 zip": "Main file is missing. Upload the ZIP again.",
-  "本地 LaTeX 编译器尚未准备完成，请检查网络后重试；原稿和修改稿已保留": "The local LaTeX compiler is not ready. Check the connection and retry. Original and modified manuscripts have been retained.",
-  "tectonic 不可执行：{0}": "The LaTeX compiler could not start: {0}",
   "EPS 转换后总大小超过 {0}MB 上限（已达 {1}MB），请压缩图片后重试": "Converted EPS images exceed {0} MB (currently {1} MB). Compress the images and retry.",
   "zip 中没有 .tex 文件": "The ZIP contains no .tex files",
   "未找到含 \\documentclass 的 .tex 文件": "No .tex file containing \\documentclass was found",
